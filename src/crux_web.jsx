@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useZegoMeeting } from './hooks/useZegoMeeting';
+import { AuthService, MeetingService } from './services/FirebaseService';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from './services/FirebaseService';
 
 // ============================================
 // COULEURS & THÈME
@@ -21,15 +24,68 @@ const THEME = {
 // APP PRINCIPALE
 // ============================================
 export default function CruxApp() {
-    const [currentPage, setCurrentPage] = useState('landing'); // landing, login, register, dashboard, meeting
+    const [currentPage, setCurrentPage] = useState('landing');
     const [user, setUser] = useState(null);
-    const [meetings, setMeetings] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [currentMeeting, setCurrentMeeting] = useState(null);
+
+    // Vérifier si l'utilisateur est connecté
+    useEffect(() => {
+        const unsubscribe = AuthService.onAuthStateChanged(async (authUser) => {
+            try {
+                if (authUser) {
+                    // Récupérer les infos de l'utilisateur depuis Firestore
+                    const q = query(
+                        collection(db, 'users'),
+                        where('uid', '==', authUser.uid)
+                    );
+                    const querySnapshot = await getDocs(q);
+                    let userData = { uid: authUser.uid, email: authUser.email };
+
+                    querySnapshot.forEach((doc) => {
+                        userData = { ...userData, ...doc.data() };
+                    });
+
+                    setUser(userData);
+                    setCurrentPage('dashboard');
+                } else {
+                    setUser(null);
+                    setCurrentPage('landing');
+                }
+            } catch (error) {
+                console.error('Error checking auth:', error);
+            } finally {
+                setLoading(false);
+            }
+        });
+
+        return unsubscribe;
+    }, []);
+
+    if (loading) {
+        return (
+            <div style={styles.app}>
+                <div style={{ ...styles.authPage, alignItems: 'center', justifyContent: 'center' }}>
+                    <h2 style={{ color: THEME.text }}>Chargement...</h2>
+                </div>
+            </div>
+        );
+    }
+
+    const handleLogout = async () => {
+        try {
+            await AuthService.logout();
+            setUser(null);
+            setCurrentPage('landing');
+        } catch (error) {
+            console.error('Logout error:', error);
+        }
+    };
 
     return (
         <div style={styles.app}>
             {/* NAVIGATION */}
-            {user && <Navigation user={user} onLogout={() => setUser(null)} />}
+            {user && <Navigation user={user} onLogout={handleLogout} />}
 
             {/* PAGES */}
             {!user ? (
@@ -61,7 +117,6 @@ export default function CruxApp() {
                     {!currentMeeting && (
                         <Dashboard
                             user={user}
-                            meetings={meetings}
                             onJoinMeeting={(meeting) => setCurrentMeeting(meeting)}
                         />
                     )}
@@ -170,18 +225,11 @@ function LoginPage({ onSuccess, onRegisterClick }) {
         setError('');
 
         try {
-            if (email && password) {
-                const user = {
-                    uid: 'user_' + Date.now(),
-                    email: email,
-                    name: email.split('@')[0],
-                };
-                onSuccess(user);
-            } else {
-                setError('Veuillez remplir tous les champs');
-            }
+            const user = await AuthService.login(email, password);
+            onSuccess(user);
         } catch (err) {
-            setError('Erreur de connexion');
+            console.error('Login error:', err);
+            setError(err.message || 'Erreur de connexion');
         } finally {
             setLoading(false);
         }
@@ -200,6 +248,7 @@ function LoginPage({ onSuccess, onRegisterClick }) {
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         style={styles.input}
+                        required
                     />
                     <input
                         type="password"
@@ -207,6 +256,7 @@ function LoginPage({ onSuccess, onRegisterClick }) {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         style={styles.input}
+                        required
                     />
 
                     {error && <div style={styles.error}>{error}</div>}
@@ -254,18 +304,17 @@ function RegisterPage({ onSuccess, onLoginClick }) {
         setError('');
 
         try {
-            if (name && email && password && password.length >= 6) {
-                const user = {
-                    uid: 'user_' + Date.now(),
-                    email: email,
-                    name: name,
-                };
-                onSuccess(user);
-            } else {
+            if (!name || !email || !password || password.length < 6) {
                 setError('Tous les champs sont requis (6 caractères minimum)');
+                setLoading(false);
+                return;
             }
+
+            const user = await AuthService.register(email, password, name);
+            onSuccess(user);
         } catch (err) {
-            setError('Erreur d\'inscription');
+            console.error('Register error:', err);
+            setError(err.message || 'Erreur d\'inscription');
         } finally {
             setLoading(false);
         }
@@ -284,6 +333,7 @@ function RegisterPage({ onSuccess, onLoginClick }) {
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                         style={styles.input}
+                        required
                     />
                     <input
                         type="email"
@@ -291,6 +341,7 @@ function RegisterPage({ onSuccess, onLoginClick }) {
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         style={styles.input}
+                        required
                     />
                     <input
                         type="password"
@@ -298,6 +349,7 @@ function RegisterPage({ onSuccess, onLoginClick }) {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         style={styles.input}
+                        required
                     />
 
                     {error && <div style={styles.error}>{error}</div>}
@@ -332,48 +384,63 @@ function RegisterPage({ onSuccess, onLoginClick }) {
 // ============================================
 // DASHBOARD
 // ============================================
-function Dashboard({ user, meetings, onJoinMeeting }) {
+function Dashboard({ user, onJoinMeeting }) {
     const [newMeetingTitle, setNewMeetingTitle] = useState('');
     const [roomType, setRoomType] = useState('temporary');
-    const [joinCode, setJoinCode] = useState('');
     const [showCreateModal, setShowCreateModal] = useState(false);
-    const [localMeetings, setLocalMeetings] = useState([
-        {
-            id: 1,
-            title: 'Réunion d\'équipe',
-            type: 'persistent',
-            roomId: 'team-meeting-001',
-            createdAt: new Date(Date.now() - 3600000),
-            participants: 4,
-        },
-        {
-            id: 2,
-            title: 'Brainstorming Produit',
-            type: 'temporary',
-            roomId: 'brain-001',
-            createdAt: new Date(),
-            participants: 3,
-        },
-    ]);
+    const [localMeetings, setLocalMeetings] = useState([]);
+    const [loading, setLoading] = useState(false);
 
-    const createMeeting = () => {
-        if (newMeetingTitle) {
-            const meeting = {
-                id: Date.now(),
-                title: newMeetingTitle,
-                type: roomType,
-                roomId: 'room_' + Date.now(),
-                createdAt: new Date(),
-                participants: 1,
-            };
-            setLocalMeetings([...localMeetings, meeting]);
+    // Charger les réunions au montage
+    useEffect(() => {
+        const loadMeetings = async () => {
+            try {
+                setLoading(true);
+                const userMeetings = await MeetingService.getUserMeetings(user.uid);
+                setLocalMeetings(userMeetings);
+            } catch (error) {
+                console.error('Error loading meetings:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadMeetings();
+    }, [user.uid]);
+
+    const createMeeting = async () => {
+        if (!newMeetingTitle) return;
+
+        try {
+            setLoading(true);
+            const meeting = await MeetingService.createMeeting(
+                newMeetingTitle,
+                user.uid,
+                user.name,
+                roomType
+            );
+            setLocalMeetings([meeting, ...localMeetings]);
             setNewMeetingTitle('');
             setShowCreateModal(false);
+        } catch (error) {
+            console.error('Error creating meeting:', error);
+            alert('Erreur lors de la création de la réunion');
+        } finally {
+            setLoading(false);
         }
     };
 
-    const joinMeeting = (meeting) => {
-        onJoinMeeting(meeting);
+    const joinMeeting = async (meeting) => {
+        try {
+            setLoading(true);
+            await MeetingService.joinMeeting(meeting.id, user.uid);
+            onJoinMeeting(meeting);
+        } catch (error) {
+            console.error('Error joining meeting:', error);
+            alert('Erreur lors de la connexion à la réunion');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -381,20 +448,16 @@ function Dashboard({ user, meetings, onJoinMeeting }) {
             <h2 style={styles.pageTitle}>Tableau de bord</h2>
             <p style={styles.pageSubtitle}>Bienvenue, {user.name}</p>
 
-            {/* ACTION BUTTONS */}
             <div style={styles.actionButtons}>
                 <button
                     style={styles.primaryButton}
                     onClick={() => setShowCreateModal(true)}
+                    disabled={loading}
                 >
                     + Créer une réunion
                 </button>
-                <button style={styles.secondaryButton}>
-                    Rejoindre via code
-                </button>
             </div>
 
-            {/* CREATE MEETING MODAL */}
             {showCreateModal && (
                 <div style={styles.modal}>
                     <div style={styles.modalContent}>
@@ -415,7 +478,11 @@ function Dashboard({ user, meetings, onJoinMeeting }) {
                             <option value="persistent">Persistante</option>
                         </select>
                         <div style={styles.modalButtons}>
-                            <button style={styles.primaryButton} onClick={createMeeting}>
+                            <button
+                                style={styles.primaryButton}
+                                onClick={createMeeting}
+                                disabled={loading}
+                            >
                                 Créer
                             </button>
                             <button
@@ -429,25 +496,30 @@ function Dashboard({ user, meetings, onJoinMeeting }) {
                 </div>
             )}
 
-            {/* MEETINGS LIST */}
             <div style={styles.meetingsSection}>
-                <h3 style={styles.sectionSubtitle}>Mes réunions</h3>
-                <div style={styles.meetingGrid}>
-                    {localMeetings.map((meeting) => (
-                        <MeetingCard
-                            key={meeting.id}
-                            meeting={meeting}
-                            onJoin={joinMeeting}
-                        />
-                    ))}
-                </div>
+                <h3 style={styles.sectionSubtitle}>
+                    {loading ? 'Chargement...' : 'Mes réunions'}
+                </h3>
+                {localMeetings.length === 0 ? (
+                    <p style={{ color: THEME.textSecondary }}>Aucune réunion créée</p>
+                ) : (
+                    <div style={styles.meetingGrid}>
+                        {localMeetings.map((meeting) => (
+                            <MeetingCard
+                                key={meeting.id}
+                                meeting={meeting}
+                                onJoin={joinMeeting}
+                            />
+                        ))}
+                    </div>
+                )}
             </div>
         </div>
     );
 }
 
 // ============================================
-// MEETING ROOM (AVEC ZEGOCLOUD INTÉGRÉ)
+// MEETING ROOM
 // ============================================
 function MeetingRoom({ meeting, user, onExit }) {
     const { isInitialized, isVideoOn, isAudioOn, toggleVideo, toggleAudio, error } =
@@ -462,34 +534,55 @@ function MeetingRoom({ meeting, user, onExit }) {
         { id: user.uid, name: user.name, isAudio: true, isVideo: true },
     ]);
 
-    const sendMessage = () => {
+    const sendMessage = async () => {
         if (chatInput.trim()) {
-            setChatMessages([
-                ...chatMessages,
-                {
-                    id: chatMessages.length + 1,
-                    author: user.name,
-                    message: chatInput,
-                    timestamp: new Date(),
-                },
-            ]);
-            setChatInput('');
+            try {
+                await MeetingService.saveChatMessage(
+                    meeting.id,
+                    user.uid,
+                    user.name,
+                    chatInput
+                );
+
+                setChatMessages([
+                    ...chatMessages,
+                    {
+                        id: chatMessages.length + 1,
+                        author: user.name,
+                        message: chatInput,
+                        timestamp: new Date(),
+                    },
+                ]);
+                setChatInput('');
+            } catch (error) {
+                console.error('Error sending message:', error);
+            }
         }
     };
 
-    // Erreur
-    if (error) {
+    const handleExit = async () => {
+        try {
+            await MeetingService.endMeeting(meeting.id, meeting.type);
+            onExit();
+        } catch (error) {
+            console.error('Error ending meeting:', error);
+            onExit();
+        }
+    };
+
+    if (error && error !== 'Erreur lors de l\'initialisation') {
         return (
             <div style={{ ...styles.meetingRoom, alignItems: 'center', justifyContent: 'center' }}>
                 <div style={{ textAlign: 'center', color: THEME.danger }}>
-                    <h2>❌ Erreur: {error}</h2>
-                    <button style={styles.primaryButton} onClick={onExit}>Quitter</button>
+                    <h2>⚠️ {error}</h2>
+                    <button style={styles.primaryButton} onClick={handleExit}>
+                        Quitter
+                    </button>
                 </div>
             </div>
         );
     }
 
-    // Chargement
     if (!isInitialized) {
         return (
             <div style={{ ...styles.meetingRoom, alignItems: 'center', justifyContent: 'center' }}>
@@ -553,7 +646,13 @@ function MeetingRoom({ meeting, user, onExit }) {
                         <h4>Chat</h4>
                         <button
                             onClick={() => setShowChat(false)}
-                            style={{ background: 'none', border: 'none', color: THEME.text, cursor: 'pointer' }}
+                            style={{
+                                background: 'none',
+                                border: 'none',
+                                color: THEME.text,
+                                cursor: 'pointer',
+                                fontSize: '20px',
+                            }}
                         >
                             ✕
                         </button>
@@ -615,16 +714,10 @@ function MeetingRoom({ meeting, user, onExit }) {
                 >
                     {isAudioOn ? '🎤' : '🔇'}
                 </button>
-                <button
-                    style={styles.controlButton}
-                    title="Partager l'écran"
-                >
+                <button style={styles.controlButton} title="Partager l'écran">
                     🖥️
                 </button>
-                <button
-                    style={styles.controlButton}
-                    title="Whiteboard"
-                >
+                <button style={styles.controlButton} title="Whiteboard">
                     ✏️
                 </button>
                 <button
@@ -634,15 +727,12 @@ function MeetingRoom({ meeting, user, onExit }) {
                 >
                     💬
                 </button>
-                <button
-                    style={styles.controlButton}
-                    title="Participants"
-                >
+                <button style={styles.controlButton} title="Participants">
                     👥 ({participants.length})
                 </button>
                 <button
                     style={{ ...styles.controlButton, background: THEME.danger }}
-                    onClick={onExit}
+                    onClick={handleExit}
                     title="Quitter la réunion"
                 >
                     📞
@@ -688,7 +778,7 @@ function MeetingCard({ meeting, onJoin }) {
                 {meeting.type === 'persistent' ? '📌 Persistante' : '⏱️ Temporaire'}
             </p>
             <p style={styles.meetingInfo}>
-                {timeAgo > 0 ? `${timeAgo} min` : 'À l\'instant'} • {meeting.participants} participants
+                {timeAgo > 0 ? `${timeAgo} min` : 'À l\'instant'} • {meeting.participantCount || 1} participants
             </p>
             <button
                 style={styles.primaryButton}
