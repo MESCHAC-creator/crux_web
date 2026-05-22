@@ -50,7 +50,7 @@ export class ZegoCloudService {
 
     async getAccessToken(roomID) {
         try {
-            console.log('📡 Requesting access token from Vercel API...');
+            console.log('📡 Requesting access token from Railway API...');
 
             const response = await fetch('/api/generate-token', {
                 method: 'POST',
