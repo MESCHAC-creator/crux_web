@@ -2,7 +2,6 @@ import { ZegoExpressEngine } from 'zego-express-engine-webrtc';
 
 const ZEGO_CONFIG = {
     appID: 1806674959,
-    serverSecret: '8fa054e86ffa39defc0a703f83ab77b9',
 };
 
 export class ZegoCloudService {
@@ -32,43 +31,15 @@ export class ZegoCloudService {
             console.log('   - UserID:', userID);
             console.log('   - UserName:', userName);
 
-            this.engine = new ZegoExpressEngine(
-                ZEGO_CONFIG.appID,
-                ZEGO_CONFIG.serverSecret
-            );
+            // ✅ NOUVEAU: Créer l'engine SANS serverSecret
+            this.engine = new ZegoExpressEngine(ZEGO_CONFIG.appID);
 
             if (!this.engine) {
                 throw new Error('Failed to create ZegoCloud engine');
             }
 
-            const zegoConfig = {
-                turnOnMicrophoneWhenJoining: true,
-                turnOnCameraWhenJoining: true,
-                showMyCameraToggleButton: true,
-                showMyMicrophoneToggleButton: true,
-                showAudioVideoSettingsButton: true,
-                showScreenSharingButton: true,
-                showTextChat: true,
-                showUserList: true,
-                maxUsers: 50,
-                layout: "Grid",
-                showLayoutButton: true,
-                scenario: {
-                    mode: "VideoConference",
-                    config: {
-                        role: "Host",
-                    },
-                },
-            };
-
-            if (this.engine.setConfig) {
-                this.engine.setConfig(zegoConfig);
-                console.log('✅ ZegoCloud config applied');
-            }
-
-            this.setupEventListeners();
-
             console.log('✅ ZegoCloud initialized successfully');
+            this.setupEventListeners();
             return true;
         } catch (error) {
             console.error('❌ Error initializing ZegoCloud:', error.message);
@@ -77,19 +48,13 @@ export class ZegoCloudService {
         }
     }
 
-    async getTokenFromBackend(roomID) {
+    async getAccessToken(roomID) {
         try {
-            const backendURL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
+            console.log('📡 Requesting access token from Vercel API...');
             
-            console.log('📡 Requesting token from backend...');
-            console.log('   - Backend URL:', backendURL);
-            console.log('   - Room ID:', roomID);
-            
-            const response = await fetch(`${backendURL}/api/generate-token`, {
+            const response = await fetch('/api/generate-token', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     userID: this.userID,
                     userName: this.userName,
@@ -99,22 +64,14 @@ export class ZegoCloudService {
 
             if (!response.ok) {
                 const errorData = await response.json();
-                throw new Error(errorData.message || `HTTP ${response.status}: Failed to generate token`);
+                throw new Error(errorData.message || `HTTP ${response.status}`);
             }
 
             const data = await response.json();
-            
-            if (!data.token) {
-                throw new Error('No token in response');
-            }
-
-            console.log('✅ Token received from backend');
-            console.log(`   - Token length: ${data.token.length} chars`);
-            console.log(`   - Expires in: ${data.expiresIn}s`);
-            
+            console.log('✅ Access token received');
             return data.token;
         } catch (error) {
-            console.error('❌ Error getting token from backend:', error.message);
+            console.error('❌ Error getting access token:', error.message);
             throw error;
         }
     }
@@ -131,25 +88,21 @@ export class ZegoCloudService {
             }
 
             this.roomID = roomID;
-
             console.log('🚪 Joining room:', roomID);
 
-            console.log('🔑 Getting token from backend...');
-            const token = await this.getTokenFromBackend(roomID);
+            // Obtenir le token du backend Vercel
+            const token = await this.getAccessToken(roomID);
 
-            if (!token) {
-                throw new Error('Failed to get token from backend');
-            }
-
-            console.log('✅ Token obtained, logging into room...');
-
-            const loginResult = await Promise.race([
+            // ✅ Login avec token
+            console.log('🔑 Logging in with token...');
+            
+            await Promise.race([
                 this.engine.loginRoom(roomID, token, {
                     userID: this.userID,
                     userName: this.userName,
                 }),
                 new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('Login timeout')), 10000)
+                    setTimeout(() => reject(new Error('Login timeout')), 15000)
                 ),
             ]);
 
@@ -159,7 +112,7 @@ export class ZegoCloudService {
         } catch (error) {
             console.error('❌ Error joining room:', error.message);
             this.isConnected = false;
-            throw new Error(`Join room failed: ${error.message}`);
+            throw error;
         }
     }
 
@@ -189,7 +142,6 @@ export class ZegoCloudService {
             }
 
             console.log('📹 Starting local video...');
-            console.log('   - Element ID:', videoElementId);
 
             const streamPromise = this.engine.createLocalVideoStream();
             const timeoutPromise = new Promise((_, reject) =>
@@ -205,24 +157,17 @@ export class ZegoCloudService {
             console.log('✅ Local stream created');
 
             const videoElement = document.getElementById(videoElementId);
-            if (!videoElement) {
-                console.warn('⚠️ Video element not found:', videoElementId);
-                return this.localStream;
-            }
-
-            try {
+            if (videoElement) {
                 this.localStream.attach(videoElement);
-                console.log('✅ Video attached to DOM element');
-            } catch (attachError) {
-                console.warn('⚠️ Error attaching video:', attachError.message);
+                console.log('✅ Video attached to DOM');
             }
 
             if (this.isConnected && this.roomID) {
                 try {
                     await this.engine.startPublishingStream(this.localStream, this.roomID);
-                    console.log('✅ Publishing stream to room');
-                } catch (publishError) {
-                    console.warn('⚠️ Warning publishing stream:', publishError.message);
+                    console.log('✅ Publishing stream');
+                } catch (err) {
+                    console.warn('⚠️ Warning publishing:', err.message);
                 }
             }
 
@@ -230,27 +175,17 @@ export class ZegoCloudService {
         } catch (error) {
             console.error('❌ Error starting video:', error.message);
             this.localStream = null;
-            throw new Error(`Video start failed: ${error.message}`);
+            throw error;
         }
     }
 
     async stopLocalVideo() {
         try {
             if (this.localStream) {
-                try {
-                    if (this.engine && this.isConnected) {
-                        await this.engine.stopPublishingStream(this.localStream);
-                    }
-                } catch (err) {
-                    console.warn('⚠️ Warning stopping publishing:', err.message);
+                if (this.engine && this.isConnected) {
+                    await this.engine.stopPublishingStream(this.localStream);
                 }
-
-                try {
-                    this.localStream.detach();
-                } catch (err) {
-                    console.warn('⚠️ Warning detaching stream:', err.message);
-                }
-
+                this.localStream.detach();
                 this.localStream = null;
                 console.log('✅ Local video stopped');
             }
@@ -293,14 +228,14 @@ export class ZegoCloudService {
         console.log('🎧 Setting up event listeners...');
 
         this.engine.on('userAdd', (userList) => {
-            console.log('👤 Users joined:', userList.map(u => u.userID));
+            console.log('👤 Users joined:', userList.length);
             if (this.listeners.onUserJoined) {
                 this.listeners.onUserJoined(userList);
             }
         });
 
         this.engine.on('userLeave', (userList) => {
-            console.log('👤 Users left:', userList.map(u => u.userID));
+            console.log('👤 Users left:', userList.length);
             if (this.listeners.onUserLeft) {
                 this.listeners.onUserLeft(userList);
             }
@@ -317,7 +252,7 @@ export class ZegoCloudService {
         });
 
         this.engine.on('remoteStreamRemove', (streamList) => {
-            console.log('📹 Remote streams removed:', streamList.length);
+            console.log('📹 Remote streams removed');
             streamList.forEach((stream) => {
                 this.remoteStreams.delete(stream.streamID);
             });
@@ -327,19 +262,19 @@ export class ZegoCloudService {
         });
 
         this.engine.on('error', (error) => {
-            console.error('❌ ZegoCloud error event:', error);
+            console.error('❌ ZegoCloud error:', error);
             if (this.listeners.onError) {
                 this.listeners.onError(error);
             }
         });
 
         this.engine.on('roomClosed', () => {
-            console.log('🚪 Room closed by server');
+            console.log('🚪 Room closed');
             this.isConnected = false;
         });
 
         this.engine.on('disconnected', () => {
-            console.log('📡 Disconnected from server');
+            console.log('📡 Disconnected');
             this.isConnected = false;
         });
     }
@@ -363,20 +298,12 @@ export class ZegoCloudService {
     destroy() {
         try {
             if (this.localStream) {
-                try {
-                    this.localStream.detach();
-                } catch (err) {
-                    console.warn('⚠️ Warning detaching on destroy:', err.message);
-                }
+                this.localStream.detach();
                 this.localStream = null;
             }
 
             if (this.engine) {
-                try {
-                    this.engine.destroy();
-                } catch (err) {
-                    console.warn('⚠️ Warning destroying engine:', err.message);
-                }
+                this.engine.destroy();
                 this.engine = null;
             }
 
