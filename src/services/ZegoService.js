@@ -51,7 +51,7 @@ export class ZegoCloudService {
     async getAccessToken(roomID) {
         try {
             console.log('📡 Requesting access token from Vercel API...');
-            
+
             const response = await fetch('/api/generate-token', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -95,7 +95,7 @@ export class ZegoCloudService {
 
             // ✅ Login avec token
             console.log('🔑 Logging in with token...');
-            
+
             await Promise.race([
                 this.engine.loginRoom(roomID, token, {
                     userID: this.userID,
