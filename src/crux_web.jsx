@@ -1,6 +1,6 @@
+import { AuthService, MeetingService } from './services/FirebaseService';
 import React, { useState, useEffect } from 'react';
 import { useZegoMeeting } from './hooks/useZegoMeeting';
-import { AuthService, MeetingService } from './services/FirebaseService';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from './services/FirebaseService';
 
