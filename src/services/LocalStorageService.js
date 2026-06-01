@@ -83,12 +83,13 @@ export const AuthService = {
 };
 
 export const MeetingService = {
-    async createMeeting(title, userId, userName, type = 'temporary') {
+    async createMeeting(title, userId, userName, type = 'temporary', description = '') {
         const meetings = JSON.parse(localStorage.getItem('crux_meetings') || '[]');
 
         const meeting = {
             id: generateId(),
             title,
+            description,
             roomId: 'room_' + generateId(),
             type,
             creatorId: userId,
