@@ -1,0 +1,65 @@
+workflows:
+  crux-web-build-deploy:
+    name: CRUX Web — Build & Deploy to GitHub Pages
+    max_build_duration: 30
+    instance_type: mac_mini_m2
+
+    environment:
+      node: 20.11.0
+      vars:
+        REACT_APP_ZEGO_APP_ID: "2042049519"
+        REACT_APP_ZEGO_SERVER_SECRET: "41fb869d2bbcb148571a22b1ad4840ae"
+        GENERATE_SOURCEMAP: "false"
+        SKIP_PREFLIGHT_CHECK: "true"
+        DISABLE_ESLINT_PLUGIN: "true"
+        CI: "false"
+
+    triggering:
+      events:
+        - push
+        - pull_request
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+        - pattern: claude/*
+          include: true
+          source: true
+
+    scripts:
+      - name: Vérification de l'environnement
+        script: |
+          node --version
+          npm --version
+
+      - name: Installation des dépendances
+        script: npm ci --legacy-peer-deps
+
+      - name: Build de production
+        script: npm run build
+
+      - name: Déploiement sur GitHub Pages
+        script: |
+          if [ "$CM_BRANCH" = "main" ]; then
+            echo "Déploiement depuis la branche main..."
+            git config --global user.email "codemagic-bot@crux.app"
+            git config --global user.name "Codemagic Bot"
+            # Utilise le token GitHub fourni automatiquement par Codemagic
+            DEPLOY_TOKEN="${GITHUB_TOKEN:-$CM_GITHUB_TOKEN}"
+            git remote set-url origin https://x-access-token:${DEPLOY_TOKEN}@github.com/MESCHAC-creator/crux_web.git
+            npx gh-pages -d build --message "Deploy [skip ci]"
+            echo "Site déployé : https://MESCHAC-creator.github.io/crux_web/"
+          else
+            echo "Branche $CM_BRANCH — build vérifié, pas de déploiement."
+          fi
+
+    artifacts:
+      - build/**
+
+    publishing:
+      email:
+        recipients:
+          - kouakouchristevann@gmail.com
+        notify:
+          success: true
+          failure: true
