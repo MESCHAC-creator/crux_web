@@ -1,7 +1,7 @@
 import { ZegoExpressEngine } from 'zego-express-engine-webrtc';
 
 const ZEGO_CONFIG = {
-    appID: 1806674959,
+    appID: parseInt(process.env.REACT_APP_ZEGO_APP_ID || '0'),
 };
 
 export class ZegoCloudService {

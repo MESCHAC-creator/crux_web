@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 
-const ZEGO_APP_ID = 1806674959;
-const ZEGO_SERVER_SECRET = '8fa054e86ffa39defc0a703f83ab77b9';
+const ZEGO_APP_ID = parseInt(process.env.REACT_APP_ZEGO_APP_ID || process.env.ZEGO_APP_ID || '0');
+const ZEGO_SERVER_SECRET = process.env.REACT_APP_ZEGO_SERVER_SECRET || process.env.ZEGO_SERVER_SECRET || '';
 
 function generateValidZegoToken(userID, userName, roomID) {
     const now = Math.floor(Date.now() / 1000);
@@ -26,27 +26,13 @@ export default function handler(req, res) {
         const { userID, userName, roomID } = req.body;
 
         if (!userID || !userName || !roomID) {
-            return res.status(400).json({
-                success: false,
-                error: 'Missing fields'
-            });
+            return res.status(400).json({ success: false, error: 'Missing fields' });
         }
 
         const token = generateValidZegoToken(userID, userName, roomID);
 
-        res.json({
-            success: true,
-            token,
-            userID,
-            userName,
-            roomID,
-            expiresIn: 3600
-        });
-
+        res.json({ success: true, token, userID, userName, roomID, expiresIn: 3600 });
     } catch (error) {
-        res.status(500).json({
-            success: false,
-            error: error.message
-        });
+        res.status(500).json({ success: false, error: error.message });
     }
 }
