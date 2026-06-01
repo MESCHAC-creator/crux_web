@@ -1,0 +1,31 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='750' height='1334' viewBox='0 0 750 1334'>
+  <defs>
+    <linearGradient id='bg' x1='0%' y1='0%' x2='100%' y2='100%'>
+      <stop offset='0%' stop-color='#FFF5F5'/>
+      <stop offset='50%' stop-color='#FCEEFF'/>
+      <stop offset='100%' stop-color='#F0F8FF'/>
+    </linearGradient>
+    <linearGradient id='g' x1='0%' y1='0%' x2='100%' y2='100%'>
+      <stop offset='0%' stop-color='#E74C3C'/>
+      <stop offset='100%' stop-color='#8E44AD'/>
+    </linearGradient>
+  </defs>
+  <rect width='750' height='1334' fill='url(#bg)'/>
+  <!-- Smoke blob red -->
+  <ellipse cx='112.5' cy='266.8' rx='262.5' ry='333.5' fill='#FF4F38' opacity='0.07' filter='url(#blur)'/>
+  <!-- Smoke blob violet -->
+  <ellipse cx='637.5' cy='1000.5' rx='225' ry='266.8' fill='#8E44AD' opacity='0.06' filter='url(#blur)'/>
+  <defs><filter id='blur'><feGaussianBlur stdDeviation='40'/></filter></defs>
+  <!-- Icon centered -->
+  <g transform='translate(295,527)'>
+    <rect width='160' height='160' rx='36' fill='url(#g)'/>
+    <rect x='45' y='27' width='16' height='43' rx='6' fill='white'/>
+    <rect x='45' y='85' width='16' height='43' rx='6' fill='white'/>
+    <polygon points='62,30 123,80 62,130' fill='white'/>
+    <rect x='62' y='74' width='61' height='13' fill='url(#g)'/>
+    <rect x='45' y='74' width='64' height='13' fill='white'/>
+  </g>
+  <!-- CRUX text -->
+  <text x='375' y='727' text-anchor='middle' font-family='Arial Black,sans-serif' font-weight='900' font-size='72' fill='url(#g)'>CRUX</text>
+  <text x='375' y='772' text-anchor='middle' font-family='Arial,sans-serif' font-size='28' fill='#555555' font-weight='500'>Visioconférence Premium</text>
+</svg>
