@@ -2,1451 +2,1355 @@ import { AuthService, MeetingService } from './services/LocalStorageService';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ZegoUIKitPrebuilt } from '@zegocloud/zego-uikit-prebuilt';
 
-// ============================================
-// THÈME & LANGUES
-// ============================================
-const THEMES = {
-    dark: {
-        primary: '#2D8CFF',
-        primaryDark: '#1E5FA8',
-        secondary: '#0F1419',
-        background: '#0A0E17',
-        surface: '#141B28',
-        accent: '#00D9FF',
-        text: '#FFFFFF',
-        textSecondary: '#B0B8C1',
-        success: '#10B981',
-        danger: '#EF4444',
-        warning: '#F59E0B',
-        card: '#1A2235',
-        border: 'rgba(45,140,255,0.15)',
-    },
-    light: {
-        primary: '#2D8CFF',
-        primaryDark: '#1E5FA8',
-        secondary: '#F3F4F6',
-        background: '#F8FAFC',
-        surface: '#FFFFFF',
-        accent: '#0EA5E9',
-        text: '#111827',
-        textSecondary: '#6B7280',
-        success: '#10B981',
-        danger: '#EF4444',
-        warning: '#F59E0B',
-        card: '#FFFFFF',
-        border: 'rgba(45,140,255,0.2)',
-    },
+// ============================================================
+// COULEURS — copie exacte de crux_new_final
+// ============================================================
+const C = {
+  // Rouges feu
+  flamePrimary:  '#FF4F38',
+  flameLight:    '#FF6B52',
+  flameDark:     '#E63D28',
+  primary:       '#E74C3C',
+  primaryDark:   '#C0392B',
+  primaryLight:  '#F8706E',
+
+  // Violets
+  violet:        '#8E44AD',
+  violetDark:    '#6C3483',
+  violetLight:   '#BB8FCE',
+  accentViolet:  '#9B59B6',
+
+  // Oranges / chauds
+  accentOrange:  '#FF9800',
+  accentGolden:  '#FFB74D',
+  iceBlue:       '#1E88E5',
+  iceLight:      '#42A5F5',
+
+  // Blancs / surfaces
+  white:         '#FFFFFF',
+  snowWhite:     '#FAFAFA',
+  lightBg:       '#F8F9FA',
+  mediumBg:      '#EFF0F4',
+  surfaceGray:   '#F5F5F5',
+  border:        '#DCDCDC',
+  borderFocus:   '#8E44AD',
+
+  // Textes
+  textPrimary:   '#1A1A1A',
+  textSecondary: '#555555',
+  textTertiary:  '#999999',
+
+  // Status
+  success:       '#27AE60',
+  error:         '#E74C3C',
+  warning:       '#F39C12',
+  info:          '#3498DB',
+
+  // Gradients CSS
+  fireGradient:   'linear-gradient(135deg, #FF4F38, #FF6B4A, #FF9800)',
+  primaryGradient:'linear-gradient(135deg, #E74C3C, #8E44AD)',
+  luxeGradient:   'linear-gradient(135deg, #FF4F38, #FF9800, #1E88E5)',
+  premiumGradient:'linear-gradient(135deg, #F8706E, #BB8FCE, #FFFFFF)',
+
+  // Glows / fumée
+  fireGlow:  'rgba(255,79,56,0.18)',
+  iceGlow:   'rgba(30,136,229,0.15)',
+  violetGlow:'rgba(142,68,173,0.15)',
+  smokeWarm: 'rgba(255,79,56,0.08)',
 };
 
-const TRANSLATIONS = {
-    fr: {
-        welcome: 'Bienvenue',
-        signIn: 'Se connecter',
-        signUp: "S'inscrire",
-        email: 'Email',
-        password: 'Mot de passe',
-        fullName: 'Nom complet',
-        dashboard: 'Tableau de bord',
-        instantMeeting: 'Réunion instant',
-        scheduleMeeting: 'Planifier',
-        joinByCode: 'Rejoindre',
-        dialIn: 'Dial In',
-        recentMeetings: 'Réunions récentes',
-        noMeetings: 'Aucune réunion',
-        settings: 'Paramètres',
-        logout: 'Déconnexion',
-        notifications: 'Notifications',
-        darkMode: 'Mode sombre',
-        language: 'Langue',
-        videoQuality: 'Qualité vidéo',
-        defaultMic: 'Micro activé par défaut',
-        defaultCam: 'Caméra activée par défaut',
-        about: 'À propos',
-        support: 'Support',
-        version: 'Version',
-        waitingRoom: "Salle d'attente",
-        waitingMessage: "En attente de l'hôte...",
-        prepareDevices: 'Préparez vos appareils',
-        leaveWaiting: "Quitter la salle d'attente",
-        joinMeeting: 'Rejoindre la réunion',
-        endMeeting: 'Terminer la réunion',
-        confirmExit: 'Quitter la réunion ?',
-        confirmExitMsg: 'Êtes-vous sûr de vouloir quitter cette réunion ?',
-        cancel: 'Annuler',
-        confirm: 'Confirmer',
-        participants: 'Participants',
-        enterCode: 'Entrer le code de réunion',
-        create: 'Créer',
-        meetingTitle: 'Titre de la réunion',
-        meetingDesc: 'Description (optionnel)',
-        low: 'Basse',
-        medium: 'Moyenne',
-        high: 'Haute',
-        veryHigh: 'Très haute',
-        tagline: 'Visioconférence Premium',
-        continueGoogle: 'Continuer avec Google',
-        showPassword: 'Afficher',
-        hidePassword: 'Masquer',
-        terms: 'En continuant, vous acceptez nos Conditions et Politique de confidentialité',
-    },
-    en: {
-        welcome: 'Welcome',
-        signIn: 'Sign In',
-        signUp: 'Sign Up',
-        email: 'Email',
-        password: 'Password',
-        fullName: 'Full Name',
-        dashboard: 'Dashboard',
-        instantMeeting: 'Instant Meeting',
-        scheduleMeeting: 'Schedule',
-        joinByCode: 'Join by Code',
-        dialIn: 'Dial In',
-        recentMeetings: 'Recent Meetings',
-        noMeetings: 'No meetings yet',
-        settings: 'Settings',
-        logout: 'Logout',
-        notifications: 'Notifications',
-        darkMode: 'Dark Mode',
-        language: 'Language',
-        videoQuality: 'Video Quality',
-        defaultMic: 'Microphone on by default',
-        defaultCam: 'Camera on by default',
-        about: 'About',
-        support: 'Support',
-        version: 'Version',
-        waitingRoom: 'Waiting Room',
-        waitingMessage: 'Waiting for host to admit you...',
-        prepareDevices: 'Prepare Your Devices',
-        leaveWaiting: 'Leave Waiting Room',
-        joinMeeting: 'Join Meeting',
-        endMeeting: 'End Meeting',
-        confirmExit: 'Leave Meeting?',
-        confirmExitMsg: 'Are you sure you want to leave this meeting?',
-        cancel: 'Cancel',
-        confirm: 'Confirm',
-        participants: 'Participants',
-        enterCode: 'Enter meeting code',
-        create: 'Create',
-        meetingTitle: 'Meeting Title',
-        meetingDesc: 'Description (optional)',
-        low: 'Low',
-        medium: 'Medium',
-        high: 'High',
-        veryHigh: 'Very High',
-        tagline: 'Premium Video Conferencing',
-        continueGoogle: 'Continue with Google',
-        showPassword: 'Show',
-        hidePassword: 'Hide',
-        terms: 'By continuing, you agree to our Terms and Privacy Policy',
-    },
-    es: {
-        welcome: 'Bienvenido',
-        signIn: 'Iniciar sesión',
-        signUp: 'Registrarse',
-        email: 'Correo',
-        password: 'Contraseña',
-        fullName: 'Nombre completo',
-        dashboard: 'Panel',
-        instantMeeting: 'Reunión instantánea',
-        scheduleMeeting: 'Programar',
-        joinByCode: 'Unirse',
-        dialIn: 'Llamar',
-        recentMeetings: 'Reuniones recientes',
-        noMeetings: 'Sin reuniones',
-        settings: 'Configuración',
-        logout: 'Cerrar sesión',
-        notifications: 'Notificaciones',
-        darkMode: 'Modo oscuro',
-        language: 'Idioma',
-        videoQuality: 'Calidad de video',
-        defaultMic: 'Micrófono activo por defecto',
-        defaultCam: 'Cámara activa por defecto',
-        about: 'Acerca de',
-        support: 'Soporte',
-        version: 'Versión',
-        waitingRoom: 'Sala de espera',
-        waitingMessage: 'Esperando al anfitrión...',
-        prepareDevices: 'Prepare sus dispositivos',
-        leaveWaiting: 'Salir de sala de espera',
-        joinMeeting: 'Unirse a reunión',
-        endMeeting: 'Terminar reunión',
-        confirmExit: '¿Salir de la reunión?',
-        confirmExitMsg: '¿Seguro que quieres salir de esta reunión?',
-        cancel: 'Cancelar',
-        confirm: 'Confirmar',
-        participants: 'Participantes',
-        enterCode: 'Código de reunión',
-        create: 'Crear',
-        meetingTitle: 'Título de reunión',
-        meetingDesc: 'Descripción (opcional)',
-        low: 'Baja',
-        medium: 'Media',
-        high: 'Alta',
-        veryHigh: 'Muy alta',
-        tagline: 'Videoconferencia Premium',
-        continueGoogle: 'Continuar con Google',
-        showPassword: 'Mostrar',
-        hidePassword: 'Ocultar',
-        terms: 'Al continuar, aceptas nuestros Términos y Política de privacidad',
-    },
-    de: {
-        welcome: 'Willkommen',
-        signIn: 'Anmelden',
-        signUp: 'Registrieren',
-        email: 'E-Mail',
-        password: 'Passwort',
-        fullName: 'Vollständiger Name',
-        dashboard: 'Dashboard',
-        instantMeeting: 'Sofort-Meeting',
-        scheduleMeeting: 'Planen',
-        joinByCode: 'Beitreten',
-        dialIn: 'Einwählen',
-        recentMeetings: 'Letzte Meetings',
-        noMeetings: 'Keine Meetings',
-        settings: 'Einstellungen',
-        logout: 'Abmelden',
-        notifications: 'Benachrichtigungen',
-        darkMode: 'Dunkelmodus',
-        language: 'Sprache',
-        videoQuality: 'Videoqualität',
-        defaultMic: 'Mikrofon standardmäßig an',
-        defaultCam: 'Kamera standardmäßig an',
-        about: 'Über',
-        support: 'Support',
-        version: 'Version',
-        waitingRoom: 'Warteraum',
-        waitingMessage: 'Warte auf den Gastgeber...',
-        prepareDevices: 'Geräte vorbereiten',
-        leaveWaiting: 'Warteraum verlassen',
-        joinMeeting: 'Meeting beitreten',
-        endMeeting: 'Meeting beenden',
-        confirmExit: 'Meeting verlassen?',
-        confirmExitMsg: 'Möchtest du das Meeting wirklich verlassen?',
-        cancel: 'Abbrechen',
-        confirm: 'Bestätigen',
-        participants: 'Teilnehmer',
-        enterCode: 'Meeting-Code eingeben',
-        create: 'Erstellen',
-        meetingTitle: 'Meeting-Titel',
-        meetingDesc: 'Beschreibung (optional)',
-        low: 'Niedrig',
-        medium: 'Mittel',
-        high: 'Hoch',
-        veryHigh: 'Sehr hoch',
-        tagline: 'Premium-Videokonferenz',
-        continueGoogle: 'Mit Google fortfahren',
-        showPassword: 'Zeigen',
-        hidePassword: 'Verbergen',
-        terms: 'Durch Fortfahren akzeptierst du unsere Nutzungsbedingungen und Datenschutzrichtlinie',
-    },
+// ============================================================
+// LANGUES
+// ============================================================
+const T_MAP = {
+  fr: {
+    appTagline: 'Vidéoconférence Premium',
+    signIn: 'Se connecter', signUp: "S'inscrire",
+    email: 'Email', password: 'Mot de passe', fullName: 'Nom complet',
+    show: 'Afficher', hide: 'Masquer',
+    orContinue: 'ou continuer avec',
+    googleBtn: 'Continuer avec Google',
+    terms: 'En continuant, vous acceptez nos Conditions d\'utilisation et notre Politique de confidentialité.',
+    welcome: 'Bonjour', dashboard: 'Tableau de bord',
+    instantMeeting: 'Réunion instantanée', schedule: 'Planifier',
+    joinCode: 'Rejoindre', dialIn: 'Dial In',
+    recentMeetings: 'Réunions récentes', noMeetings: 'Aucune réunion',
+    noMeetingsHint: 'Créez votre première réunion',
+    participants: 'participant(s)',
+    settings: 'Paramètres', logout: 'Déconnexion', notifications: 'Notifications',
+    noNotif: 'Aucune nouvelle notification',
+    darkMode: 'Mode sombre', language: 'Langue',
+    videoQuality: 'Qualité vidéo', defaultMic: 'Micro activé par défaut',
+    defaultCam: 'Caméra activée par défaut', notifToggle: 'Notifications',
+    about: 'À propos', version: 'Version', team: 'Équipe', support: 'Support',
+    share: 'Partager CRUX', shareMsg: 'Essayez CRUX — Visioconférence Premium!',
+    meetingSettings: 'Réunion', generalSettings: 'Général',
+    low: 'Basse', medium: 'Moyenne', high: 'Haute', veryHigh: 'Très haute',
+    waitingRoom: "Salle d'attente", waitingFor: "En attente de l'hôte...",
+    prepareDevices: 'Préparez vos appareils', camera: 'Caméra', mic: 'Microphone',
+    joinMeeting: 'Rejoindre la réunion', leaveWaiting: "Quitter la salle d'attente",
+    meetingTitle: 'Titre de la réunion', meetingDesc: 'Description (optionnel)',
+    meetingType: 'Type', temporary: 'Temporaire', persistent: 'Persistante',
+    create: 'Créer', cancel: 'Annuler', join: 'Rejoindre',
+    enterCode: 'Entrer l\'ID ou code de réunion',
+    endMeeting: 'Terminer', confirmExit: 'Quitter la réunion ?',
+    confirmExitMsg: 'Êtes-vous sûr de vouloir quitter ?',
+    confirm: 'Quitter', newMeeting: 'Nouvelle réunion',
+    back: '← Retour', contactSupport: 'Contacter le support',
+    loading: 'Chargement...', connecting: 'Connexion en cours...',
+  },
+  en: {
+    appTagline: 'Premium Video Conferencing',
+    signIn: 'Sign In', signUp: 'Sign Up',
+    email: 'Email', password: 'Password', fullName: 'Full Name',
+    show: 'Show', hide: 'Hide',
+    orContinue: 'or continue with',
+    googleBtn: 'Continue with Google',
+    terms: 'By continuing, you agree to our Terms of Service and Privacy Policy.',
+    welcome: 'Hello', dashboard: 'Dashboard',
+    instantMeeting: 'Instant Meeting', schedule: 'Schedule',
+    joinCode: 'Join by Code', dialIn: 'Dial In',
+    recentMeetings: 'Recent Meetings', noMeetings: 'No meetings yet',
+    noMeetingsHint: 'Create your first meeting',
+    participants: 'participant(s)',
+    settings: 'Settings', logout: 'Logout', notifications: 'Notifications',
+    noNotif: 'No new notifications',
+    darkMode: 'Dark Mode', language: 'Language',
+    videoQuality: 'Video Quality', defaultMic: 'Microphone on by default',
+    defaultCam: 'Camera on by default', notifToggle: 'Notifications',
+    about: 'About', version: 'Version', team: 'Team', support: 'Support',
+    share: 'Share CRUX', shareMsg: 'Try CRUX — Premium Video Conferencing!',
+    meetingSettings: 'Meeting', generalSettings: 'General',
+    low: 'Low', medium: 'Medium', high: 'High', veryHigh: 'Very High',
+    waitingRoom: 'Waiting Room', waitingFor: 'Waiting for host to admit you...',
+    prepareDevices: 'Prepare Your Devices', camera: 'Camera', mic: 'Microphone',
+    joinMeeting: 'Join Meeting', leaveWaiting: 'Leave Waiting Room',
+    meetingTitle: 'Meeting Title', meetingDesc: 'Description (optional)',
+    meetingType: 'Type', temporary: 'Temporary', persistent: 'Persistent',
+    create: 'Create', cancel: 'Cancel', join: 'Join',
+    enterCode: 'Enter meeting ID or code',
+    endMeeting: 'End', confirmExit: 'Leave Meeting?',
+    confirmExitMsg: 'Are you sure you want to leave?',
+    confirm: 'Leave', newMeeting: 'New Meeting',
+    back: '← Back', contactSupport: 'Contact Support',
+    loading: 'Loading...', connecting: 'Connecting...',
+  },
+  es: {
+    appTagline: 'Videoconferencia Premium',
+    signIn: 'Iniciar sesión', signUp: 'Registrarse',
+    email: 'Correo', password: 'Contraseña', fullName: 'Nombre completo',
+    show: 'Mostrar', hide: 'Ocultar',
+    orContinue: 'o continuar con',
+    googleBtn: 'Continuar con Google',
+    terms: 'Al continuar, aceptas nuestros Términos y Política de privacidad.',
+    welcome: 'Hola', dashboard: 'Panel',
+    instantMeeting: 'Reunión instantánea', schedule: 'Programar',
+    joinCode: 'Unirse', dialIn: 'Llamar',
+    recentMeetings: 'Reuniones recientes', noMeetings: 'Sin reuniones',
+    noMeetingsHint: 'Crea tu primera reunión',
+    participants: 'participante(s)',
+    settings: 'Configuración', logout: 'Cerrar sesión', notifications: 'Notificaciones',
+    noNotif: 'Sin notificaciones nuevas',
+    darkMode: 'Modo oscuro', language: 'Idioma',
+    videoQuality: 'Calidad de video', defaultMic: 'Micrófono activo por defecto',
+    defaultCam: 'Cámara activa por defecto', notifToggle: 'Notificaciones',
+    about: 'Acerca de', version: 'Versión', team: 'Equipo', support: 'Soporte',
+    share: 'Compartir CRUX', shareMsg: '¡Prueba CRUX — Videoconferencia Premium!',
+    meetingSettings: 'Reunión', generalSettings: 'General',
+    low: 'Baja', medium: 'Media', high: 'Alta', veryHigh: 'Muy alta',
+    waitingRoom: 'Sala de espera', waitingFor: 'Esperando al anfitrión...',
+    prepareDevices: 'Prepara tus dispositivos', camera: 'Cámara', mic: 'Micrófono',
+    joinMeeting: 'Unirse a reunión', leaveWaiting: 'Salir de sala de espera',
+    meetingTitle: 'Título', meetingDesc: 'Descripción (opcional)',
+    meetingType: 'Tipo', temporary: 'Temporal', persistent: 'Persistente',
+    create: 'Crear', cancel: 'Cancelar', join: 'Unirse',
+    enterCode: 'Código de reunión',
+    endMeeting: 'Terminar', confirmExit: '¿Salir?',
+    confirmExitMsg: '¿Seguro que quieres salir?',
+    confirm: 'Salir', newMeeting: 'Nueva reunión',
+    back: '← Volver', contactSupport: 'Contactar soporte',
+    loading: 'Cargando...', connecting: 'Conectando...',
+  },
+  de: {
+    appTagline: 'Premium-Videokonferenz',
+    signIn: 'Anmelden', signUp: 'Registrieren',
+    email: 'E-Mail', password: 'Passwort', fullName: 'Vollständiger Name',
+    show: 'Zeigen', hide: 'Verbergen',
+    orContinue: 'oder fortfahren mit',
+    googleBtn: 'Mit Google fortfahren',
+    terms: 'Durch Fortfahren akzeptierst du unsere Nutzungsbedingungen.',
+    welcome: 'Hallo', dashboard: 'Dashboard',
+    instantMeeting: 'Sofort-Meeting', schedule: 'Planen',
+    joinCode: 'Beitreten', dialIn: 'Einwählen',
+    recentMeetings: 'Letzte Meetings', noMeetings: 'Keine Meetings',
+    noMeetingsHint: 'Erstelle dein erstes Meeting',
+    participants: 'Teilnehmer',
+    settings: 'Einstellungen', logout: 'Abmelden', notifications: 'Benachrichtigungen',
+    noNotif: 'Keine neuen Benachrichtigungen',
+    darkMode: 'Dunkelmodus', language: 'Sprache',
+    videoQuality: 'Videoqualität', defaultMic: 'Mikrofon standardmäßig an',
+    defaultCam: 'Kamera standardmäßig an', notifToggle: 'Benachrichtigungen',
+    about: 'Über', version: 'Version', team: 'Team', support: 'Support',
+    share: 'CRUX teilen', shareMsg: 'Probiere CRUX — Premium-Videokonferenz!',
+    meetingSettings: 'Meeting', generalSettings: 'Allgemein',
+    low: 'Niedrig', medium: 'Mittel', high: 'Hoch', veryHigh: 'Sehr hoch',
+    waitingRoom: 'Warteraum', waitingFor: 'Warte auf den Gastgeber...',
+    prepareDevices: 'Geräte vorbereiten', camera: 'Kamera', mic: 'Mikrofon',
+    joinMeeting: 'Meeting beitreten', leaveWaiting: 'Warteraum verlassen',
+    meetingTitle: 'Meeting-Titel', meetingDesc: 'Beschreibung (optional)',
+    meetingType: 'Typ', temporary: 'Temporär', persistent: 'Dauerhaft',
+    create: 'Erstellen', cancel: 'Abbrechen', join: 'Beitreten',
+    enterCode: 'Meeting-Code eingeben',
+    endMeeting: 'Beenden', confirmExit: 'Meeting verlassen?',
+    confirmExitMsg: 'Möchtest du das Meeting wirklich verlassen?',
+    confirm: 'Verlassen', newMeeting: 'Neues Meeting',
+    back: '← Zurück', contactSupport: 'Support kontaktieren',
+    loading: 'Wird geladen...', connecting: 'Verbinde...',
+  },
 };
 
-// ============================================
-// PREFERENCES (localStorage)
-// ============================================
-function loadPrefs() {
-    try {
-        return JSON.parse(localStorage.getItem('crux_prefs') || '{}');
-    } catch { return {}; }
-}
-function savePrefs(prefs) {
-    localStorage.setItem('crux_prefs', JSON.stringify(prefs));
-}
+// ============================================================
+// PREFS
+// ============================================================
+const loadPrefs = () => { try { return JSON.parse(localStorage.getItem('crux_prefs') || '{}'); } catch { return {}; } };
+const savePrefs = (p) => localStorage.setItem('crux_prefs', JSON.stringify(p));
 
-// ============================================
-// APP PRINCIPALE
-// ============================================
+// ============================================================
+// APP ROOT
+// ============================================================
 export default function CruxApp() {
-    const [prefs, setPrefs] = useState(() => ({
-        darkMode: true,
-        language: 'fr',
-        notifications: true,
-        defaultMic: true,
-        defaultCam: true,
-        videoQuality: 'high',
-        ...loadPrefs(),
-    }));
-    const T = TRANSLATIONS[prefs.language] || TRANSLATIONS.fr;
-    const THEME = THEMES[prefs.darkMode ? 'dark' : 'light'];
+  const [prefs, setPrefs] = useState(() => ({
+    language: 'fr', notifications: true,
+    defaultMic: true, defaultCam: true, videoQuality: 'high',
+    ...loadPrefs(),
+  }));
+  const T = T_MAP[prefs.language] || T_MAP.fr;
 
-    const updatePref = useCallback((key, value) => {
-        setPrefs(prev => {
-            const next = { ...prev, [key]: value };
-            savePrefs(next);
-            return next;
-        });
-    }, []);
+  const updatePref = useCallback((k, v) => setPrefs(p => { const n = { ...p, [k]: v }; savePrefs(n); return n; }), []);
 
-    const [currentPage, setCurrentPage] = useState('landing');
-    const [user, setUser] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [currentMeeting, setCurrentMeeting] = useState(null);
-    const [waitingFor, setWaitingFor] = useState(null);
+  const [page, setPage] = useState('splash');
+  const [user, setUser] = useState(null);
+  const [meeting, setMeeting] = useState(null);
+  const [waiting, setWaiting] = useState(null);
 
-    useEffect(() => {
-        const unsub = AuthService.onAuthStateChanged((authUser) => {
-            setUser(authUser);
-            setCurrentPage(authUser ? 'dashboard' : 'landing');
-            setLoading(false);
-        });
-        return unsub;
-    }, []);
-
-    // Inject global styles
-    useEffect(() => {
-        const id = 'crux-global-styles';
-        let el = document.getElementById(id);
-        if (!el) { el = document.createElement('style'); el.id = id; document.head.appendChild(el); }
-        el.textContent = getGlobalStyles(THEME);
-    }, [THEME]);
-
-    if (loading) {
-        return (
-            <div style={{ ...getAppStyle(THEME), display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-                <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎥</div>
-                    <h2 style={{ color: THEME.primary }}>CRUX</h2>
-                    <p style={{ color: THEME.textSecondary, marginTop: '8px' }}>Chargement...</p>
-                </div>
-            </div>
-        );
+  // Inject global CSS
+  useEffect(() => {
+    let el = document.getElementById('crux-gs');
+    if (!el) { el = document.createElement('style'); el.id = 'crux-gs'; document.head.appendChild(el); }
+    el.textContent = GLOBAL_CSS;
+    // Inject Poppins font
+    if (!document.getElementById('crux-font')) {
+      const link = document.createElement('link');
+      link.id = 'crux-font';
+      link.rel = 'stylesheet';
+      link.href = 'https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap';
+      document.head.appendChild(link);
     }
+  }, []);
 
-    const handleLogout = async () => {
-        await AuthService.logout().catch(() => {});
-        setUser(null);
-        setCurrentMeeting(null);
-        setWaitingFor(null);
-        setCurrentPage('landing');
-    };
+  // Splash → auth check
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const unsub = AuthService.onAuthStateChanged(u => {
+        setUser(u);
+        setPage(u ? 'dashboard' : 'auth');
+      });
+      return unsub;
+    }, 2200);
+    return () => clearTimeout(timer);
+  }, []);
 
-    const goToMeeting = (meeting) => {
-        setWaitingFor(meeting);
-    };
+  const logout = async () => {
+    await AuthService.logout().catch(() => {});
+    setUser(null); setMeeting(null); setWaiting(null); setPage('auth');
+  };
 
-    const enterMeeting = (meeting) => {
-        setWaitingFor(null);
-        setCurrentMeeting(meeting);
-    };
+  const goMeeting = (m) => { setWaiting(m); };
+  const enterMeeting = (m) => { setWaiting(null); setMeeting(m); };
+  const exitMeeting = () => { setMeeting(null); setPage('dashboard'); };
 
-    const exitMeeting = () => {
-        setCurrentMeeting(null);
-        setCurrentPage('dashboard');
-    };
+  // ── SPLASH ──────────────────────────────────────
+  if (page === 'splash') return <SplashScreen T={T} />;
 
-    return (
-        <div style={getAppStyle(THEME)}>
-            {/* Navbar — masquée en réunion ou salle d'attente */}
-            {user && !currentMeeting && !waitingFor && (
-                <Navigation
-                    user={user}
-                    onLogout={handleLogout}
-                    onSettings={() => setCurrentPage('settings')}
-                    onDashboard={() => setCurrentPage('dashboard')}
-                    THEME={THEME}
-                    T={T}
-                    prefs={prefs}
-                />
-            )}
+  // ── AUTH ─────────────────────────────────────────
+  if (!user) return (
+    <AuthPage T={T} onSuccess={u => { setUser(u); setPage('dashboard'); }} />
+  );
 
-            {/* PAGES NON AUTHENTIFIÉES */}
-            {!user && (
-                <>
-                    {currentPage === 'landing' && (
-                        <LandingPage
-                            onLoginClick={() => setCurrentPage('auth')}
-                            THEME={THEME}
-                            T={T}
-                        />
-                    )}
-                    {currentPage === 'auth' && (
-                        <AuthPage
-                            onSuccess={(userData) => { setUser(userData); setCurrentPage('dashboard'); }}
-                            THEME={THEME}
-                            T={T}
-                        />
-                    )}
-                </>
-            )}
+  // ── MEETING ──────────────────────────────────────
+  if (meeting) return (
+    <MeetingRoom meeting={meeting} user={user} T={T} prefs={prefs} onExit={exitMeeting} />
+  );
 
-            {/* PAGES AUTHENTIFIÉES */}
-            {user && !currentMeeting && !waitingFor && (
-                <>
-                    {currentPage === 'dashboard' && (
-                        <Dashboard
-                            user={user}
-                            onJoinMeeting={goToMeeting}
-                            THEME={THEME}
-                            T={T}
-                        />
-                    )}
-                    {currentPage === 'settings' && (
-                        <SettingsPage
-                            prefs={prefs}
-                            onUpdatePref={updatePref}
-                            onBack={() => setCurrentPage('dashboard')}
-                            THEME={THEME}
-                            T={T}
-                        />
-                    )}
-                </>
-            )}
+  // ── WAITING ROOM ─────────────────────────────────
+  if (waiting) return (
+    <WaitingRoom meeting={waiting} user={user} T={T} prefs={prefs}
+      onEnter={() => enterMeeting(waiting)}
+      onLeave={() => setWaiting(null)}
+    />
+  );
 
-            {/* SALLE D'ATTENTE */}
-            {user && waitingFor && !currentMeeting && (
-                <WaitingRoom
-                    meeting={waitingFor}
-                    user={user}
-                    prefs={prefs}
-                    onEnter={() => enterMeeting(waitingFor)}
-                    onLeave={() => setWaitingFor(null)}
-                    THEME={THEME}
-                    T={T}
-                />
-            )}
-
-            {/* RÉUNION */}
-            {user && currentMeeting && (
-                <MeetingRoom
-                    meeting={currentMeeting}
-                    user={user}
-                    onExit={exitMeeting}
-                    THEME={THEME}
-                    T={T}
-                />
-            )}
-        </div>
-    );
+  // ── AUTHENTICATED PAGES ───────────────────────────
+  return (
+    <div style={{ fontFamily: 'Poppins, sans-serif', background: C.lightBg, minHeight: '100vh' }}>
+      <Navbar user={user} T={T} prefs={prefs} onLogout={logout}
+        onSettings={() => setPage('settings')}
+        onDashboard={() => setPage('dashboard')}
+      />
+      <div style={{ paddingTop: '64px' }}>
+        {page === 'dashboard' && (
+          <Dashboard user={user} T={T} onJoin={goMeeting} />
+        )}
+        {page === 'settings' && (
+          <SettingsPage T={T} prefs={prefs} onUpdatePref={updatePref}
+            onBack={() => setPage('dashboard')}
+          />
+        )}
+      </div>
+    </div>
+  );
 }
 
-// ============================================
-// NAVIGATION
-// ============================================
-function Navigation({ user, onLogout, onSettings, onDashboard, THEME, T, prefs }) {
-    const [showNotif, setShowNotif] = useState(false);
+// ============================================================
+// SPLASH SCREEN
+// ============================================================
+function SplashScreen({ T }) {
+  const [scale, setScale] = useState(0.3);
+  const [opacity, setOpacity] = useState(0);
 
-    return (
-        <nav style={{
-            position: 'fixed', top: 0, left: 0, right: 0, height: '60px',
-            background: THEME.surface, borderBottom: `1px solid ${THEME.border}`,
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            padding: '0 32px', zIndex: 1000, backdropFilter: 'blur(10px)',
-        }}>
-            <div
-                onClick={onDashboard}
-                style={{ fontSize: '22px', fontWeight: '900', color: THEME.primary, letterSpacing: '2px', cursor: 'pointer' }}
-            >
-                CRUX
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '13px', color: THEME.textSecondary, marginRight: '8px' }}>{user.name}</span>
+  useEffect(() => {
+    const t1 = setTimeout(() => { setScale(1); setOpacity(1); }, 100);
+    return () => clearTimeout(t1);
+  }, []);
 
-                {/* Notifications */}
-                <div style={{ position: 'relative' }}>
-                    <button
-                        onClick={() => setShowNotif(!showNotif)}
-                        style={iconBtnStyle(THEME)}
-                        title={T.notifications}
-                    >
-                        🔔
-                        {prefs.notifications && (
-                            <span style={{
-                                position: 'absolute', top: '4px', right: '4px',
-                                width: '8px', height: '8px', borderRadius: '50%',
-                                background: THEME.danger, border: `2px solid ${THEME.surface}`,
-                            }} />
-                        )}
-                    </button>
-                    {showNotif && (
-                        <div style={{
-                            position: 'absolute', top: '44px', right: 0,
-                            background: THEME.surface, border: `1px solid ${THEME.border}`,
-                            borderRadius: '12px', padding: '16px', width: '280px',
-                            boxShadow: '0 8px 32px rgba(0,0,0,0.3)', zIndex: 200,
-                        }}>
-                            <p style={{ fontSize: '13px', fontWeight: '700', color: THEME.text, marginBottom: '12px' }}>
-                                {T.notifications}
-                            </p>
-                            <p style={{ fontSize: '12px', color: THEME.textSecondary, textAlign: 'center', padding: '20px 0' }}>
-                                📭 Aucune nouvelle notification
-                            </p>
-                        </div>
-                    )}
-                </div>
+  return (
+    <div style={{
+      minHeight: '100vh', display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center',
+      background: `linear-gradient(160deg, #FFF5F5 0%, #FCEEFF 50%, #F0F8FF 100%)`,
+      fontFamily: 'Poppins, sans-serif', overflow: 'hidden', position: 'relative',
+    }}>
+      {/* Smoke blobs */}
+      <SmokeBlobs />
 
-                {/* Settings */}
-                <button onClick={onSettings} style={iconBtnStyle(THEME)} title={T.settings}>⚙️</button>
-
-                {/* Logout */}
-                <button
-                    onClick={onLogout}
-                    style={{
-                        padding: '7px 16px', background: THEME.primary, color: 'white',
-                        border: 'none', borderRadius: '8px', cursor: 'pointer',
-                        fontSize: '13px', fontWeight: '600',
-                    }}
-                >
-                    {T.logout}
-                </button>
-            </div>
-        </nav>
-    );
-}
-
-// ============================================
-// LANDING PAGE
-// ============================================
-function LandingPage({ onLoginClick, THEME, T }) {
-    return (
-        <div>
-            <section style={{
-                position: 'relative', height: '100vh', display: 'flex',
-                alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
-                background: `linear-gradient(135deg, ${THEME.background} 0%, ${THEME.surface} 100%)`,
-            }}>
-                <div style={{ position: 'relative', zIndex: 10, textAlign: 'center', maxWidth: '640px', padding: '0 24px' }}>
-                    <div style={{ fontSize: '56px', marginBottom: '16px' }}>🎥</div>
-                    <h1 style={{
-                        fontSize: '80px', fontWeight: '900', margin: '0 0 8px 0',
-                        background: `linear-gradient(135deg, ${THEME.primary}, ${THEME.accent})`,
-                        WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-                    }}>
-                        CRUX
-                    </h1>
-                    <p style={{ fontSize: '20px', color: THEME.primary, fontWeight: '600', marginBottom: '16px' }}>
-                        {T.tagline}
-                    </p>
-                    <p style={{ fontSize: '16px', color: THEME.textSecondary, marginBottom: '48px', lineHeight: '1.7' }}>
-                        Connectez-vous, collaborez et créez avec des réunions en temps réel,<br />
-                        partage d'écran, chat intégré et bien plus encore.
-                    </p>
-                    <button
-                        onClick={onLoginClick}
-                        style={{
-                            padding: '16px 48px', background: `linear-gradient(135deg, ${THEME.primary}, ${THEME.accent})`,
-                            color: 'white', border: 'none', borderRadius: '50px', fontSize: '18px',
-                            fontWeight: '700', cursor: 'pointer', boxShadow: `0 8px 32px ${THEME.primary}40`,
-                        }}
-                    >
-                        Commencer gratuitement →
-                    </button>
-                </div>
-
-                {/* Blobs animés */}
-                <div style={{ position: 'absolute', inset: 0, zIndex: 0, overflow: 'hidden' }}>
-                    {[
-                        { w: 400, h: 400, top: '-100px', right: '-100px', color: THEME.primary, dur: '8s' },
-                        { w: 300, h: 300, bottom: '-50px', left: '-50px', color: THEME.accent, dur: '10s', delay: '2s' },
-                        { w: 250, h: 250, top: '40%', left: '20%', color: THEME.primary, dur: '12s', delay: '4s' },
-                    ].map((b, i) => (
-                        <div key={i} style={{
-                            position: 'absolute', width: b.w, height: b.h, borderRadius: '50%',
-                            background: `radial-gradient(circle, ${b.color}20 0%, transparent 70%)`,
-                            top: b.top, bottom: b.bottom, left: b.left, right: b.right,
-                            animation: `blob ${b.dur} infinite ${b.delay || ''}`,
-                        }} />
-                    ))}
-                </div>
-            </section>
-
-            {/* Features */}
-            <section style={{ padding: '100px 40px', background: THEME.secondary }}>
-                <h2 style={{ fontSize: '42px', fontWeight: '800', textAlign: 'center', color: THEME.text, marginBottom: '60px' }}>
-                    Fonctionnalités Premium
-                </h2>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '24px', maxWidth: '1200px', margin: '0 auto' }}>
-                    {[
-                        { icon: '🎥', title: 'Vidéo HD', desc: 'Qualité cristalline avec compression intelligente' },
-                        { icon: '🎤', title: 'Audio Clair', desc: 'Suppression de bruit avancée' },
-                        { icon: '🖥️', title: 'Partage écran', desc: 'Partagez votre écran en HD' },
-                        { icon: '💬', title: 'Chat temps réel', desc: 'Communiquez pendant la réunion' },
-                        { icon: '⏱️', title: 'Salle d\'attente', desc: 'Contrôlez les accès à vos réunions' },
-                        { icon: '🌍', title: 'Multilingue', desc: 'FR, EN, ES, DE disponibles' },
-                    ].map((f, i) => (
-                        <div key={i} style={{
-                            background: THEME.surface, padding: '36px 28px', borderRadius: '16px',
-                            border: `1px solid ${THEME.border}`, textAlign: 'center',
-                        }}>
-                            <div style={{ fontSize: '44px', marginBottom: '16px' }}>{f.icon}</div>
-                            <h3 style={{ fontSize: '18px', fontWeight: '700', color: THEME.text, marginBottom: '8px' }}>{f.title}</h3>
-                            <p style={{ fontSize: '14px', color: THEME.textSecondary, lineHeight: '1.6' }}>{f.desc}</p>
-                        </div>
-                    ))}
-                </div>
-            </section>
-
-            {/* CTA */}
-            <section style={{ padding: '80px 40px', textAlign: 'center', background: `linear-gradient(135deg, ${THEME.primary}15, ${THEME.accent}10)` }}>
-                <h2 style={{ fontSize: '36px', fontWeight: '800', color: THEME.text, marginBottom: '24px' }}>Prêt à collaborer ?</h2>
-                <button
-                    onClick={onLoginClick}
-                    style={{
-                        padding: '14px 40px', background: THEME.primary, color: 'white',
-                        border: 'none', borderRadius: '50px', fontSize: '16px', fontWeight: '700', cursor: 'pointer',
-                    }}
-                >
-                    S'inscrire gratuitement
-                </button>
-            </section>
-        </div>
-    );
-}
-
-// ============================================
-// AUTH PAGE (Sign In / Sign Up unifié)
-// ============================================
-function AuthPage({ onSuccess, THEME, T }) {
-    const [mode, setMode] = useState('signIn');
-    const [name, setName] = useState('');
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [showPass, setShowPass] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setLoading(true);
-        setError('');
-        try {
-            let user;
-            if (mode === 'signUp') {
-                if (!name) { setError('Le nom est requis'); setLoading(false); return; }
-                if (password.length < 6) { setError('6 caractères minimum'); setLoading(false); return; }
-                user = await AuthService.register(email, password, name);
-            } else {
-                user = await AuthService.login(email, password);
-            }
-            onSuccess(user);
-        } catch (err) {
-            setError(err.message || 'Erreur');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
+      <div style={{ transform: `scale(${scale})`, opacity, transition: 'all 0.8s cubic-bezier(0.34,1.56,0.64,1)', textAlign: 'center', zIndex: 10 }}>
+        {/* Logo container */}
         <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            minHeight: '100vh', background: `linear-gradient(135deg, ${THEME.background}, ${THEME.surface})`,
-            padding: '24px',
+          width: 140, height: 140, borderRadius: 32, margin: '0 auto 28px',
+          background: C.primaryGradient,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: `0 20px 60px ${C.fireGlow}, 0 8px 24px ${C.violetGlow}`,
+          fontSize: 64,
         }}>
-            <div style={{
-                background: THEME.surface, padding: '48px 40px', borderRadius: '20px',
-                border: `1px solid ${THEME.border}`, width: '100%', maxWidth: '420px',
-                boxShadow: `0 24px 64px rgba(0,0,0,0.2)`,
-            }}>
-                {/* Header */}
-                <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-                    <div style={{ fontSize: '40px', marginBottom: '8px' }}>🎥</div>
-                    <h1 style={{ fontSize: '32px', fontWeight: '900', color: THEME.primary, letterSpacing: '2px', margin: 0 }}>CRUX</h1>
-                    <p style={{ color: THEME.textSecondary, fontSize: '14px', marginTop: '4px' }}>{T.tagline}</p>
-                </div>
-
-                {/* Toggle Sign In / Sign Up */}
-                <div style={{
-                    display: 'flex', background: THEME.background, borderRadius: '12px',
-                    padding: '4px', marginBottom: '28px',
-                }}>
-                    {['signIn', 'signUp'].map(m => (
-                        <button
-                            key={m}
-                            onClick={() => { setMode(m); setError(''); }}
-                            style={{
-                                flex: 1, padding: '10px', border: 'none', borderRadius: '10px', cursor: 'pointer',
-                                fontWeight: '600', fontSize: '14px', transition: 'all 0.2s',
-                                background: mode === m ? THEME.primary : 'transparent',
-                                color: mode === m ? 'white' : THEME.textSecondary,
-                            }}
-                        >
-                            {m === 'signIn' ? T.signIn : T.signUp}
-                        </button>
-                    ))}
-                </div>
-
-                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                    {mode === 'signUp' && (
-                        <div style={{ position: 'relative' }}>
-                            <span style={inputIconStyle}>👤</span>
-                            <input
-                                type="text" placeholder={T.fullName} value={name}
-                                onChange={e => setName(e.target.value)} required
-                                style={inputStyle(THEME)}
-                            />
-                        </div>
-                    )}
-                    <div style={{ position: 'relative' }}>
-                        <span style={inputIconStyle}>✉️</span>
-                        <input
-                            type="email" placeholder={T.email} value={email}
-                            onChange={e => setEmail(e.target.value)} required
-                            style={inputStyle(THEME)}
-                        />
-                    </div>
-                    <div style={{ position: 'relative' }}>
-                        <span style={inputIconStyle}>🔒</span>
-                        <input
-                            type={showPass ? 'text' : 'password'} placeholder={T.password} value={password}
-                            onChange={e => setPassword(e.target.value)} required
-                            style={{ ...inputStyle(THEME), paddingRight: '70px' }}
-                        />
-                        <button
-                            type="button" onClick={() => setShowPass(!showPass)}
-                            style={{
-                                position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
-                                background: 'none', border: 'none', color: THEME.primary, cursor: 'pointer',
-                                fontSize: '12px', fontWeight: '600',
-                            }}
-                        >
-                            {showPass ? T.hidePassword : T.showPassword}
-                        </button>
-                    </div>
-
-                    {error && (
-                        <div style={{
-                            background: `${THEME.danger}15`, border: `1px solid ${THEME.danger}40`,
-                            color: THEME.danger, borderRadius: '8px', padding: '10px 14px', fontSize: '13px',
-                        }}>
-                            ⚠️ {error}
-                        </div>
-                    )}
-
-                    <button
-                        type="submit" disabled={loading}
-                        style={{
-                            padding: '14px', background: `linear-gradient(135deg, ${THEME.primary}, ${THEME.accent})`,
-                            color: 'white', border: 'none', borderRadius: '12px',
-                            fontSize: '15px', fontWeight: '700', cursor: loading ? 'not-allowed' : 'pointer',
-                            opacity: loading ? 0.7 : 1, marginTop: '4px',
-                        }}
-                    >
-                        {loading ? '...' : (mode === 'signIn' ? T.signIn : T.signUp)}
-                    </button>
-                </form>
-
-                {/* Divider */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '20px 0' }}>
-                    <div style={{ flex: 1, height: '1px', background: THEME.border }} />
-                    <span style={{ fontSize: '12px', color: THEME.textSecondary }}>ou</span>
-                    <div style={{ flex: 1, height: '1px', background: THEME.border }} />
-                </div>
-
-                {/* Google Button */}
-                <button
-                    onClick={() => setError("Google Sign-In non configuré dans cette démo")}
-                    style={{
-                        width: '100%', padding: '12px', background: THEME.background,
-                        color: THEME.text, border: `1px solid ${THEME.border}`, borderRadius: '12px',
-                        fontSize: '14px', fontWeight: '600', cursor: 'pointer', display: 'flex',
-                        alignItems: 'center', justifyContent: 'center', gap: '10px',
-                    }}
-                >
-                    <span style={{ fontSize: '18px' }}>G</span>
-                    {T.continueGoogle}
-                </button>
-
-                {/* Terms */}
-                <p style={{ fontSize: '11px', color: THEME.textSecondary, textAlign: 'center', marginTop: '20px', lineHeight: '1.5' }}>
-                    {T.terms}
-                </p>
-            </div>
+          🎥
         </div>
-    );
+        <h1 style={{
+          fontSize: 56, fontWeight: 900, letterSpacing: 3, margin: '0 0 8px',
+          background: C.primaryGradient, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+        }}>
+          CRUX
+        </h1>
+        <p style={{ fontSize: 16, fontWeight: 500, color: C.textSecondary, margin: '0 0 48px' }}>
+          {T.appTagline}
+        </p>
+        {/* Loading bar */}
+        <div style={{
+          width: 200, height: 4, background: C.mediumBg, borderRadius: 2,
+          margin: '0 auto 16px', overflow: 'hidden',
+        }}>
+          <div className="crux-loading-bar" style={{
+            height: '100%', borderRadius: 2,
+            background: C.primaryGradient,
+            animation: 'loadBar 2s ease-in-out forwards',
+          }} />
+        </div>
+        <p style={{ fontSize: 14, color: C.textTertiary }}>{T.loading}</p>
+      </div>
+    </div>
+  );
 }
 
-// ============================================
+// ============================================================
+// SMOKE BLOBS BACKGROUND
+// ============================================================
+function SmokeBlobs({ dark = false }) {
+  const blobs = [
+    { w: 500, h: 500, top: '-150px', left: '-150px', color: C.flamePrimary, op: 0.08, dur: '12s' },
+    { w: 400, h: 400, bottom: '-100px', right: '-100px', color: C.violet, op: 0.07, dur: '15s', delay: '3s' },
+    { w: 300, h: 300, top: '30%', right: '15%', color: C.accentOrange, op: 0.06, dur: '18s', delay: '6s' },
+    { w: 250, h: 250, bottom: '20%', left: '10%', color: C.violetLight, op: 0.08, dur: '10s', delay: '2s' },
+  ];
+  return (
+    <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 0 }}>
+      {blobs.map((b, i) => (
+        <div key={i} style={{
+          position: 'absolute', width: b.w, height: b.h, borderRadius: '50%',
+          background: `radial-gradient(circle, ${b.color} 0%, transparent 70%)`,
+          opacity: b.op, top: b.top, bottom: b.bottom, left: b.left, right: b.right,
+          filter: 'blur(40px)',
+          animation: `blobFloat ${b.dur} ease-in-out infinite ${b.delay || ''}`,
+        }} />
+      ))}
+    </div>
+  );
+}
+
+// ============================================================
+// NAVBAR
+// ============================================================
+function Navbar({ user, T, prefs, onLogout, onSettings, onDashboard }) {
+  const [showNotif, setShowNotif] = useState(false);
+
+  return (
+    <nav style={{
+      position: 'fixed', top: 0, left: 0, right: 0, height: 64, zIndex: 1000,
+      background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(16px)',
+      borderBottom: `1px solid ${C.border}`,
+      boxShadow: '0 2px 20px rgba(0,0,0,0.06)',
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      padding: '0 32px', fontFamily: 'Poppins, sans-serif',
+    }}>
+      {/* Logo */}
+      <div onClick={onDashboard} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{
+          width: 36, height: 36, borderRadius: 10,
+          background: C.primaryGradient,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
+        }}>🎥</div>
+        <span style={{ fontSize: 20, fontWeight: 900, background: C.primaryGradient, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          CRUX
+        </span>
+      </div>
+
+      {/* Right */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 13, fontWeight: 500, color: C.textSecondary, marginRight: 4 }}>
+          {user.name}
+        </span>
+
+        {/* Notifications */}
+        <div style={{ position: 'relative' }}>
+          <button onClick={() => setShowNotif(v => !v)} style={navIconBtn} title={T.notifications}>
+            🔔
+            {prefs.notifications && <span style={{ position: 'absolute', top: 6, right: 6, width: 8, height: 8, borderRadius: '50%', background: C.flamePrimary, border: '2px solid white' }} />}
+          </button>
+          {showNotif && (
+            <div style={notifPanel} onMouseLeave={() => setShowNotif(false)}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: C.textPrimary, marginBottom: 12 }}>{T.notifications}</p>
+              <div style={{ textAlign: 'center', padding: '24px 0' }}>
+                <div style={{ fontSize: 32, marginBottom: 8 }}>📭</div>
+                <p style={{ fontSize: 13, color: C.textTertiary }}>{T.noNotif}</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Settings */}
+        <button onClick={onSettings} style={navIconBtn} title={T.settings}>⚙️</button>
+
+        {/* Logout */}
+        <button onClick={onLogout} style={{
+          padding: '8px 18px', background: C.primaryGradient, color: 'white',
+          border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 13,
+          cursor: 'pointer', fontFamily: 'Poppins, sans-serif',
+          boxShadow: `0 4px 14px ${C.fireGlow}`,
+        }}>
+          {T.logout}
+        </button>
+      </div>
+    </nav>
+  );
+}
+
+// ============================================================
+// AUTH PAGE
+// ============================================================
+function AuthPage({ T, onSuccess }) {
+  const [mode, setMode] = useState('signIn');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [pass, setPass] = useState('');
+  const [showPass, setShowPass] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setLoading(true); setError('');
+    try {
+      let u;
+      if (mode === 'signUp') {
+        if (!name.trim()) { setError('Le nom est requis'); return; }
+        if (pass.length < 6) { setError('6 caractères minimum'); return; }
+        u = await AuthService.register(email, pass, name);
+      } else {
+        u = await AuthService.login(email, pass);
+      }
+      onSuccess(u);
+    } catch (err) { setError(err.message || 'Erreur'); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <div style={{
+      minHeight: '100vh', display: 'flex', fontFamily: 'Poppins, sans-serif',
+      background: `linear-gradient(160deg, #FFF5F5 0%, #FCEEFF 50%, #F0F8FF 100%)`,
+      position: 'relative', overflow: 'hidden',
+    }}>
+      <SmokeBlobs />
+
+      {/* Left panel — illustration */}
+      <div style={{
+        flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        padding: '48px', position: 'relative', zIndex: 1,
+        display: 'none', // hidden on mobile, show via CSS media would need class
+      }}>
+      </div>
+
+      {/* Right panel — form */}
+      <div style={{
+        width: '100%', maxWidth: 480, margin: '0 auto',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '24px', position: 'relative', zIndex: 1,
+      }}>
+        <div style={{
+          background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(20px)',
+          borderRadius: 24, padding: '48px 40px', width: '100%',
+          boxShadow: '0 32px 80px rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.04)',
+        }}>
+          {/* Header */}
+          <div style={{ textAlign: 'center', marginBottom: 32 }}>
+            <div style={{
+              width: 72, height: 72, borderRadius: 20, margin: '0 auto 16px',
+              background: C.primaryGradient,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 32, boxShadow: `0 12px 32px ${C.fireGlow}`,
+            }}>🎥</div>
+            <h1 style={{ fontSize: 28, fontWeight: 900, margin: '0 0 4px', background: C.primaryGradient, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>CRUX</h1>
+            <p style={{ fontSize: 13, color: C.textSecondary, margin: 0 }}>{T.appTagline}</p>
+          </div>
+
+          {/* Toggle */}
+          <div style={{ display: 'flex', background: C.mediumBg, borderRadius: 12, padding: 4, marginBottom: 28 }}>
+            {['signIn', 'signUp'].map(m => (
+              <button key={m} onClick={() => { setMode(m); setError(''); }} style={{
+                flex: 1, padding: '10px 0', border: 'none', borderRadius: 10, cursor: 'pointer',
+                fontWeight: 700, fontSize: 14, fontFamily: 'Poppins, sans-serif', transition: 'all 0.2s',
+                background: mode === m ? C.primaryGradient : 'transparent',
+                color: mode === m ? 'white' : C.textSecondary,
+                boxShadow: mode === m ? `0 4px 14px ${C.fireGlow}` : 'none',
+              }}>
+                {m === 'signIn' ? T.signIn : T.signUp}
+              </button>
+            ))}
+          </div>
+
+          <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {mode === 'signUp' && (
+              <Field icon="👤" placeholder={T.fullName} value={name} onChange={setName} />
+            )}
+            <Field icon="✉️" type="email" placeholder={T.email} value={email} onChange={setEmail} />
+            <div style={{ position: 'relative' }}>
+              <Field icon="🔒" type={showPass ? 'text' : 'password'} placeholder={T.password} value={pass} onChange={setPass} paddingRight={80} />
+              <button type="button" onClick={() => setShowPass(v => !v)} style={{
+                position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)',
+                background: 'none', border: 'none', color: C.violet, fontWeight: 700,
+                fontSize: 12, cursor: 'pointer', fontFamily: 'Poppins, sans-serif',
+              }}>{showPass ? T.hide : T.show}</button>
+            </div>
+
+            {error && (
+              <div style={{
+                background: '#FEF2F2', border: `1px solid ${C.error}30`,
+                color: C.error, borderRadius: 10, padding: '10px 14px', fontSize: 13, fontWeight: 500,
+              }}>⚠️ {error}</div>
+            )}
+
+            <button type="submit" disabled={loading} style={{
+              padding: 14, background: loading ? C.border : C.primaryGradient,
+              color: 'white', border: 'none', borderRadius: 12, fontSize: 15,
+              fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer',
+              fontFamily: 'Poppins, sans-serif', marginTop: 4,
+              boxShadow: loading ? 'none' : `0 8px 24px ${C.fireGlow}`,
+              transition: 'all 0.2s',
+            }}>
+              {loading ? '...' : (mode === 'signIn' ? T.signIn : T.signUp)}
+            </button>
+          </form>
+
+          {/* Divider */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '20px 0' }}>
+            <div style={{ flex: 1, height: 1, background: C.border }} />
+            <span style={{ fontSize: 12, color: C.textTertiary }}>{T.orContinue}</span>
+            <div style={{ flex: 1, height: 1, background: C.border }} />
+          </div>
+
+          {/* Google */}
+          <button onClick={() => setError('Google Sign-In : configurez Firebase pour activer cette fonctionnalité')} style={{
+            width: '100%', padding: '12px 0', background: C.white,
+            border: `1.5px solid ${C.border}`, borderRadius: 12,
+            fontSize: 14, fontWeight: 600, cursor: 'pointer',
+            fontFamily: 'Poppins, sans-serif', color: C.textPrimary,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+            transition: 'all 0.2s', boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+          }}>
+            <span style={{ fontSize: 20, fontWeight: 900, background: 'linear-gradient(135deg,#EA4335,#4285F4)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>G</span>
+            {T.googleBtn}
+          </button>
+
+          <p style={{ fontSize: 11, color: C.textTertiary, textAlign: 'center', marginTop: 20, lineHeight: 1.6 }}>
+            {T.terms}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
 // DASHBOARD
-// ============================================
-function Dashboard({ user, onJoinMeeting, THEME, T }) {
-    const [meetings, setMeetings] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [showSchedule, setShowSchedule] = useState(false);
-    const [showJoinCode, setShowJoinCode] = useState(false);
-    const [newTitle, setNewTitle] = useState('');
-    const [newDesc, setNewDesc] = useState('');
-    const [joinCode, setJoinCode] = useState('');
-    const [creating, setCreating] = useState(false);
+// ============================================================
+function Dashboard({ user, T, onJoin }) {
+  const [meetings, setMeetings] = useState([]);
+  const [loadingMeetings, setLoadingMeetings] = useState(false);
+  const [showSchedule, setShowSchedule] = useState(false);
+  const [showJoinCode, setShowJoinCode] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [newDesc, setNewDesc] = useState('');
+  const [newType, setNewType] = useState('temporary');
+  const [joinCode, setJoinCode] = useState('');
 
-    useEffect(() => {
-        loadMeetings();
-    }, [user.uid]);
+  useEffect(() => { loadMeetings(); }, [user.uid]);
 
-    const loadMeetings = async () => {
-        setLoading(true);
-        try {
-            const list = await MeetingService.getUserMeetings(user.uid);
-            setMeetings(list);
-        } catch { } finally { setLoading(false); }
-    };
+  const loadMeetings = async () => {
+    setLoadingMeetings(true);
+    try { setMeetings(await MeetingService.getUserMeetings(user.uid)); }
+    catch { } finally { setLoadingMeetings(false); }
+  };
 
-    const startInstant = async () => {
-        setCreating(true);
-        try {
-            const meeting = await MeetingService.createMeeting(
-                `Réunion de ${user.name}`, user.uid, user.name, 'temporary'
-            );
-            setMeetings(prev => [meeting, ...prev]);
-            onJoinMeeting(meeting);
-        } catch (e) { alert('Erreur: ' + e.message); }
-        finally { setCreating(false); }
-    };
+  const startInstant = async () => {
+    setCreating(true);
+    try {
+      const m = await MeetingService.createMeeting(`Réunion de ${user.name}`, user.uid, user.name, 'temporary');
+      setMeetings(p => [m, ...p]);
+      onJoin(m);
+    } catch (e) { alert(e.message); } finally { setCreating(false); }
+  };
 
-    const createScheduled = async () => {
-        if (!newTitle.trim()) return;
-        setCreating(true);
-        try {
-            const meeting = await MeetingService.createMeeting(newTitle, user.uid, user.name, 'persistent', newDesc);
-            setMeetings(prev => [meeting, ...prev]);
-            setNewTitle(''); setNewDesc(''); setShowSchedule(false);
-        } catch (e) { alert('Erreur: ' + e.message); }
-        finally { setCreating(false); }
-    };
+  const createScheduled = async () => {
+    if (!newTitle.trim()) return;
+    setCreating(true);
+    try {
+      const m = await MeetingService.createMeeting(newTitle, user.uid, user.name, newType, newDesc);
+      setMeetings(p => [m, ...p]);
+      setNewTitle(''); setNewDesc(''); setNewType('temporary'); setShowSchedule(false);
+    } catch (e) { alert(e.message); } finally { setCreating(false); }
+  };
 
-    const joinByCode = async () => {
-        if (!joinCode.trim()) return;
-        try {
-            const all = JSON.parse(localStorage.getItem('crux_meetings') || '[]');
-            const found = all.find(m => m.id === joinCode.trim() || m.roomId === joinCode.trim());
-            if (!found) { alert('Réunion introuvable avec ce code'); return; }
-            await MeetingService.joinMeeting(found.id, user.uid);
-            onJoinMeeting({ ...found, createdAt: new Date(found.createdAt) });
-            setJoinCode(''); setShowJoinCode(false);
-        } catch (e) { alert('Erreur: ' + e.message); }
-    };
+  const joinByCode = async () => {
+    const code = joinCode.trim();
+    if (!code) return;
+    try {
+      const all = JSON.parse(localStorage.getItem('crux_meetings') || '[]');
+      const found = all.find(m => m.id === code || m.roomId === code);
+      if (!found) { alert('Aucune réunion trouvée avec ce code.'); return; }
+      await MeetingService.joinMeeting(found.id, user.uid);
+      onJoin({ ...found, createdAt: new Date(found.createdAt) });
+      setJoinCode(''); setShowJoinCode(false);
+    } catch (e) { alert(e.message); }
+  };
 
-    const quickActions = [
-        {
-            icon: '⚡', label: T.instantMeeting, color: '#FF6B35',
-            bg: 'linear-gradient(135deg, #FF6B3520, #FF6B3510)',
-            border: '#FF6B3540',
-            action: startInstant,
-        },
-        {
-            icon: '📅', label: T.scheduleMeeting, color: THEME.primary,
-            bg: `linear-gradient(135deg, ${THEME.primary}20, ${THEME.primary}10)`,
-            border: `${THEME.primary}40`,
-            action: () => setShowSchedule(true),
-        },
-        {
-            icon: '🔗', label: T.joinByCode, color: '#F59E0B',
-            bg: 'linear-gradient(135deg, #F59E0B20, #F59E0B10)',
-            border: '#F59E0B40',
-            action: () => setShowJoinCode(true),
-        },
-        {
-            icon: '📞', label: T.dialIn, color: THEME.success,
-            bg: `linear-gradient(135deg, ${THEME.success}20, ${THEME.success}10)`,
-            border: `${THEME.success}40`,
-            action: () => alert('Dial In — Prochainement disponible'),
-        },
-    ];
+  const quickActions = [
+    { icon: '⚡', label: T.instantMeeting, gradient: `linear-gradient(135deg,${C.flamePrimary},${C.flameLight})`, glow: C.fireGlow, action: startInstant },
+    { icon: '📅', label: T.schedule, gradient: `linear-gradient(135deg,${C.iceBlue},${C.iceLight})`, glow: C.iceGlow, action: () => setShowSchedule(true) },
+    { icon: '🔗', label: T.joinCode, gradient: `linear-gradient(135deg,${C.accentOrange},${C.accentGolden})`, glow: 'rgba(255,152,0,0.2)', action: () => setShowJoinCode(true) },
+    { icon: '📞', label: T.dialIn, gradient: `linear-gradient(135deg,${C.success},#2ECC71)`, glow: 'rgba(39,174,96,0.2)', action: () => alert('Dial In — Prochainement disponible') },
+  ];
 
-    return (
-        <div style={{ paddingTop: '80px', minHeight: '100vh', background: THEME.background }}>
-            <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '32px 40px' }}>
+  return (
+    <div style={{ maxWidth: 1200, margin: '0 auto', padding: '32px 24px', fontFamily: 'Poppins, sans-serif' }}>
+      {/* Header */}
+      <div style={{ marginBottom: 40 }}>
+        <h2 style={{ fontSize: 26, fontWeight: 800, color: C.textPrimary, margin: '0 0 4px' }}>
+          {T.welcome}, {user.name} 👋
+        </h2>
+        <p style={{ color: C.textSecondary, fontSize: 14, margin: 0 }}>{T.dashboard}</p>
+      </div>
 
-                {/* Header */}
-                <div style={{ marginBottom: '40px' }}>
-                    <h2 style={{ fontSize: '28px', fontWeight: '800', color: THEME.text, margin: 0 }}>
-                        {T.welcome}, {user.name} 👋
-                    </h2>
-                    <p style={{ color: THEME.textSecondary, marginTop: '6px', fontSize: '15px' }}>
-                        {T.dashboard}
-                    </p>
-                </div>
-
-                {/* 4 Quick Actions */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '48px' }}>
-                    {quickActions.map((a, i) => (
-                        <button
-                            key={i}
-                            onClick={a.action}
-                            disabled={creating}
-                            style={{
-                                background: a.bg, border: `1px solid ${a.border}`,
-                                borderRadius: '16px', padding: '28px 20px', cursor: 'pointer',
-                                textAlign: 'center', transition: 'all 0.2s', color: THEME.text,
-                            }}
-                        >
-                            <div style={{ fontSize: '36px', marginBottom: '12px' }}>{a.icon}</div>
-                            <div style={{ fontWeight: '700', fontSize: '14px', color: a.color }}>{a.label}</div>
-                        </button>
-                    ))}
-                </div>
-
-                {/* Recent meetings */}
-                <div>
-                    <h3 style={{ fontSize: '18px', fontWeight: '700', color: THEME.text, marginBottom: '20px' }}>
-                        {T.recentMeetings} ({meetings.length})
-                    </h3>
-
-                    {loading ? (
-                        <div style={{ textAlign: 'center', padding: '40px', color: THEME.textSecondary }}>
-                            ⏳ Chargement...
-                        </div>
-                    ) : meetings.length === 0 ? (
-                        <div style={{
-                            textAlign: 'center', padding: '60px 24px', background: THEME.surface,
-                            borderRadius: '16px', border: `1px dashed ${THEME.border}`,
-                        }}>
-                            <div style={{ fontSize: '52px', marginBottom: '16px' }}>📅</div>
-                            <p style={{ color: THEME.textSecondary }}>{T.noMeetings}</p>
-                        </div>
-                    ) : (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
-                            {meetings.map(m => (
-                                <MeetingCard
-                                    key={m.id}
-                                    meeting={m}
-                                    onJoin={() => onJoinMeeting(m)}
-                                    THEME={THEME}
-                                    T={T}
-                                />
-                            ))}
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* Modal: Planifier */}
-            {showSchedule && (
-                <Modal onClose={() => setShowSchedule(false)} THEME={THEME}>
-                    <h3 style={{ color: THEME.text, marginBottom: '20px' }}>📅 {T.scheduleMeeting}</h3>
-                    <input
-                        type="text" placeholder={T.meetingTitle} value={newTitle}
-                        onChange={e => setNewTitle(e.target.value)} autoFocus
-                        style={{ ...inputStyle(THEME), marginBottom: '12px' }}
-                    />
-                    <textarea
-                        placeholder={T.meetingDesc} value={newDesc}
-                        onChange={e => setNewDesc(e.target.value)}
-                        rows={3}
-                        style={{ ...inputStyle(THEME), resize: 'vertical', marginBottom: '20px' }}
-                    />
-                    <div style={{ display: 'flex', gap: '12px' }}>
-                        <button onClick={createScheduled} disabled={creating || !newTitle.trim()} style={primaryBtn(THEME)}>
-                            {creating ? '...' : T.create}
-                        </button>
-                        <button onClick={() => setShowSchedule(false)} style={secondaryBtn(THEME)}>
-                            {T.cancel}
-                        </button>
-                    </div>
-                </Modal>
-            )}
-
-            {/* Modal: Rejoindre par code */}
-            {showJoinCode && (
-                <Modal onClose={() => setShowJoinCode(false)} THEME={THEME}>
-                    <h3 style={{ color: THEME.text, marginBottom: '20px' }}>🔗 {T.joinByCode}</h3>
-                    <input
-                        type="text" placeholder={T.enterCode} value={joinCode}
-                        onChange={e => setJoinCode(e.target.value)} autoFocus
-                        style={{ ...inputStyle(THEME), marginBottom: '20px' }}
-                        onKeyDown={e => e.key === 'Enter' && joinByCode()}
-                    />
-                    <div style={{ display: 'flex', gap: '12px' }}>
-                        <button onClick={joinByCode} disabled={!joinCode.trim()} style={primaryBtn(THEME)}>
-                            {T.joinMeeting}
-                        </button>
-                        <button onClick={() => setShowJoinCode(false)} style={secondaryBtn(THEME)}>
-                            {T.cancel}
-                        </button>
-                    </div>
-                </Modal>
-            )}
-        </div>
-    );
-}
-
-// ============================================
-// MEETING CARD
-// ============================================
-function MeetingCard({ meeting, onJoin, THEME, T }) {
-    const ago = Math.floor((Date.now() - meeting.createdAt) / 60000);
-    return (
-        <div style={{
-            background: THEME.surface, padding: '20px', borderRadius: '16px',
-            border: `1px solid ${THEME.border}`,
-        }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px' }}>
-                <h4 style={{ color: THEME.text, margin: 0, fontSize: '15px', fontWeight: '700' }}>{meeting.title}</h4>
-                <span style={{
-                    fontSize: '10px', fontWeight: '700', padding: '3px 8px', borderRadius: '20px',
-                    background: meeting.type === 'persistent' ? `${THEME.primary}20` : `${THEME.warning}20`,
-                    color: meeting.type === 'persistent' ? THEME.primary : THEME.warning,
-                }}>
-                    {meeting.type === 'persistent' ? '📌' : '⏱️'} {meeting.type === 'persistent' ? 'Persistante' : 'Temporaire'}
-                </span>
-            </div>
-            {meeting.description && (
-                <p style={{ fontSize: '13px', color: THEME.textSecondary, margin: '0 0 10px', lineHeight: '1.4' }}>
-                    {meeting.description}
-                </p>
-            )}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
-                <span style={{ fontSize: '12px', color: THEME.textSecondary }}>
-                    👥 {meeting.participantCount || 1} • {ago > 0 ? `${ago}min` : "À l'instant"}
-                </span>
-                <button onClick={onJoin} style={{
-                    padding: '8px 16px', background: THEME.primary, color: 'white',
-                    border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer',
-                }}>
-                    {T.joinMeeting}
-                </button>
-            </div>
-        </div>
-    );
-}
-
-// ============================================
-// SALLE D'ATTENTE
-// ============================================
-function WaitingRoom({ meeting, user, prefs, onEnter, onLeave, THEME, T }) {
-    const [micOn, setMicOn] = useState(prefs.defaultMic);
-    const [camOn, setCamOn] = useState(prefs.defaultCam);
-    const [pulse, setPulse] = useState(1);
-
-    useEffect(() => {
-        const interval = setInterval(() => setPulse(p => p === 1 ? 1.08 : 1), 1000);
-        return () => clearInterval(interval);
-    }, []);
-
-    return (
-        <div style={{
-            minHeight: '100vh', background: THEME.background,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px',
-        }}>
+      {/* Quick actions 2x2 grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 48 }}>
+        {quickActions.map((a, i) => (
+          <button key={i} onClick={a.action} disabled={creating} style={{
+            background: C.white, border: `1.5px solid ${C.border}`,
+            borderRadius: 16, padding: '28px 20px', cursor: 'pointer',
+            textAlign: 'center', transition: 'all 0.22s',
+            boxShadow: '0 2px 12px rgba(0,0,0,0.05)',
+            fontFamily: 'Poppins, sans-serif',
+          }}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = `0 12px 32px ${a.glow}`; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.05)'; }}
+          >
             <div style={{
-                background: THEME.surface, borderRadius: '24px', padding: '48px 40px',
-                maxWidth: '460px', width: '100%', border: `1px solid ${THEME.border}`,
-                textAlign: 'center', boxShadow: `0 24px 64px rgba(0,0,0,0.3)`,
+              width: 56, height: 56, borderRadius: 16, margin: '0 auto 14px',
+              background: a.gradient, display: 'flex', alignItems: 'center',
+              justifyContent: 'center', fontSize: 26, boxShadow: `0 8px 20px ${a.glow}`,
             }}>
-                {/* Icône animée */}
-                <div style={{
-                    width: '100px', height: '100px', borderRadius: '50%', margin: '0 auto 24px',
-                    background: `linear-gradient(135deg, ${THEME.primary}, ${THEME.accent})`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: '44px', transform: `scale(${pulse})`, transition: 'transform 1s ease',
-                    boxShadow: `0 0 40px ${THEME.primary}40`,
-                }}>
-                    ⏳
-                </div>
-
-                <h2 style={{ fontSize: '24px', fontWeight: '800', color: THEME.text, margin: '0 0 8px' }}>
-                    {T.waitingRoom}
-                </h2>
-                <p style={{ color: THEME.primary, fontWeight: '600', fontSize: '15px', marginBottom: '8px' }}>
-                    {meeting.title}
-                </p>
-                <div style={{
-                    background: `${THEME.primary}15`, border: `1px solid ${THEME.primary}30`,
-                    borderRadius: '10px', padding: '12px 16px', marginBottom: '32px',
-                }}>
-                    <p style={{ color: THEME.textSecondary, fontSize: '14px', margin: 0 }}>
-                        ℹ️ {T.waitingMessage}
-                    </p>
-                </div>
-
-                {/* Contrôles appareils */}
-                <div style={{
-                    background: THEME.background, borderRadius: '16px', padding: '20px', marginBottom: '28px',
-                    border: `1px solid ${THEME.border}`,
-                }}>
-                    <p style={{ fontWeight: '700', color: THEME.text, fontSize: '14px', marginBottom: '16px' }}>
-                        {T.prepareDevices}
-                    </p>
-                    {[
-                        { icon: '📹', label: 'Caméra', state: camOn, toggle: setCamOn },
-                        { icon: '🎤', label: 'Microphone', state: micOn, toggle: setMicOn },
-                    ].map((d, i) => (
-                        <div key={i} style={{
-                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                            padding: '10px 0', borderTop: i > 0 ? `1px solid ${THEME.border}` : 'none',
-                        }}>
-                            <span style={{ color: THEME.text, fontSize: '14px' }}>{d.icon} {d.label}</span>
-                            <ToggleSwitch on={d.state} onChange={d.toggle} color={THEME.success} />
-                        </div>
-                    ))}
-                </div>
-
-                <button
-                    onClick={onEnter}
-                    style={{
-                        width: '100%', padding: '14px', background: `linear-gradient(135deg, ${THEME.primary}, ${THEME.accent})`,
-                        color: 'white', border: 'none', borderRadius: '12px',
-                        fontSize: '15px', fontWeight: '700', cursor: 'pointer', marginBottom: '12px',
-                    }}
-                >
-                    {T.joinMeeting} →
-                </button>
-                <button
-                    onClick={onLeave}
-                    style={{
-                        width: '100%', padding: '12px', background: 'transparent',
-                        color: THEME.danger, border: `1px solid ${THEME.danger}40`,
-                        borderRadius: '12px', fontSize: '14px', fontWeight: '600', cursor: 'pointer',
-                    }}
-                >
-                    {T.leaveWaiting}
-                </button>
+              {a.icon}
             </div>
-        </div>
-    );
-}
+            <span style={{ fontWeight: 700, fontSize: 14, color: C.textPrimary }}>{a.label}</span>
+          </button>
+        ))}
+      </div>
 
-// ============================================
-// MEETING ROOM (ZegoUIKit)
-// ============================================
-function MeetingRoom({ meeting, user, onExit, THEME, T }) {
-    const containerRef = useRef(null);
-    const zpRef = useRef(null);
-    const [showConfirm, setShowConfirm] = useState(false);
-    const [participantCount, setParticipantCount] = useState(1);
-    const [elapsed, setElapsed] = useState(0);
-
-    useEffect(() => {
-        const timer = setInterval(() => setElapsed(e => e + 1), 1000);
-        return () => clearInterval(timer);
-    }, []);
-
-    useEffect(() => {
-        if (!containerRef.current) return;
-        const appID = parseInt(process.env.REACT_APP_ZEGO_APP_ID || '0');
-        const serverSecret = process.env.REACT_APP_ZEGO_SERVER_SECRET || '';
-        if (!appID || !serverSecret) return;
-
-        const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
-            appID, serverSecret, meeting.roomId, user.uid, user.name
-        );
-        const zp = ZegoUIKitPrebuilt.create(kitToken);
-        zpRef.current = zp;
-
-        zp.joinRoom({
-            container: containerRef.current,
-            scenario: { mode: ZegoUIKitPrebuilt.VideoConference },
-            showScreenSharingButton: true,
-            showPreJoinView: false,
-            onUserCountOrListChanged: (list) => setParticipantCount(list.length + 1),
-            onLeaveRoom: () => handleExit(),
-        });
-
-        return () => {
-            if (zpRef.current) { try { zpRef.current.destroy(); } catch (_) {} zpRef.current = null; }
-        };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [meeting.roomId, user.uid]);
-
-    const handleExit = async () => {
-        try { await MeetingService.endMeeting(meeting.id, meeting.type); } catch (_) {}
-        onExit();
-    };
-
-    const formatTime = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
-
-    return (
-        <div style={{ width: '100vw', height: '100vh', background: '#000', position: 'relative' }}>
-            {/* Header info */}
-            <div style={{
-                position: 'absolute', top: 0, left: 0, right: 0, zIndex: 100,
-                background: 'linear-gradient(to bottom, rgba(0,0,0,0.7), transparent)',
-                padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span style={{ color: 'white', fontWeight: '700', fontSize: '15px' }}>
-                        {meeting.title}
-                    </span>
-                    <span style={{
-                        background: '#EF444490', color: 'white', fontSize: '11px',
-                        fontWeight: '800', padding: '3px 8px', borderRadius: '6px', letterSpacing: '1px',
-                    }}>
-                        ⏺ REC
-                    </span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span style={{ color: 'white', fontSize: '13px' }}>
-                        👥 {participantCount} {T.participants}
-                    </span>
-                    <span style={{ color: '#B0B8C1', fontSize: '13px' }}>
-                        🕐 {formatTime(elapsed)}
-                    </span>
-                    <button
-                        onClick={() => setShowConfirm(true)}
-                        style={{
-                            padding: '7px 16px', background: '#EF4444', color: 'white',
-                            border: 'none', borderRadius: '8px', fontSize: '13px',
-                            fontWeight: '700', cursor: 'pointer',
-                        }}
-                    >
-                        📞 {T.endMeeting}
-                    </button>
-                </div>
-            </div>
-
-            {/* Video container */}
-            <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
-
-            {/* Confirmation dialog */}
-            {showConfirm && (
-                <div style={{
-                    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200,
-                }}>
-                    <div style={{
-                        background: THEME.surface, borderRadius: '20px', padding: '36px',
-                        maxWidth: '380px', width: '90%', border: `1px solid ${THEME.border}`,
-                        textAlign: 'center',
-                    }}>
-                        <div style={{ fontSize: '48px', marginBottom: '16px' }}>📞</div>
-                        <h3 style={{ color: THEME.text, marginBottom: '12px' }}>{T.confirmExit}</h3>
-                        <p style={{ color: THEME.textSecondary, fontSize: '14px', marginBottom: '28px' }}>
-                            {T.confirmExitMsg}
-                        </p>
-                        <div style={{ display: 'flex', gap: '12px' }}>
-                            <button onClick={() => setShowConfirm(false)} style={secondaryBtn(THEME)}>
-                                {T.cancel}
-                            </button>
-                            <button
-                                onClick={handleExit}
-                                style={{ ...primaryBtn(THEME), background: '#EF4444' }}
-                            >
-                                {T.confirm}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-}
-
-// ============================================
-// SETTINGS PAGE
-// ============================================
-function SettingsPage({ prefs, onUpdatePref, onBack, THEME, T }) {
-    const qualities = ['low', 'medium', 'high', 'veryHigh'];
-    const languages = [
-        { code: 'fr', label: 'Français 🇫🇷' },
-        { code: 'en', label: 'English 🇬🇧' },
-        { code: 'es', label: 'Español 🇪🇸' },
-        { code: 'de', label: 'Deutsch 🇩🇪' },
-    ];
-
-    return (
-        <div style={{ paddingTop: '80px', minHeight: '100vh', background: THEME.background }}>
-            <div style={{ maxWidth: '700px', margin: '0 auto', padding: '32px 24px' }}>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '36px' }}>
-                    <button onClick={onBack} style={{
-                        background: THEME.surface, border: `1px solid ${THEME.border}`,
-                        color: THEME.text, borderRadius: '10px', padding: '8px 14px',
-                        cursor: 'pointer', fontSize: '14px',
-                    }}>← Retour</button>
-                    <h2 style={{ fontSize: '24px', fontWeight: '800', color: THEME.text, margin: 0 }}>
-                        ⚙️ {T.settings}
-                    </h2>
-                </div>
-
-                {/* Réunion */}
-                <SettingsSection title="🎥 Réunion" THEME={THEME}>
-                    <SettingSelect
-                        label={T.videoQuality} value={prefs.videoQuality}
-                        options={qualities.map(q => ({ value: q, label: T[q] || q }))}
-                        onChange={v => onUpdatePref('videoQuality', v)} THEME={THEME}
-                    />
-                    <SettingToggle label={T.defaultMic} value={prefs.defaultMic}
-                        onChange={v => onUpdatePref('defaultMic', v)} THEME={THEME} />
-                    <SettingToggle label={T.defaultCam} value={prefs.defaultCam}
-                        onChange={v => onUpdatePref('defaultCam', v)} THEME={THEME} />
-                </SettingsSection>
-
-                {/* Général */}
-                <SettingsSection title="🌐 Général" THEME={THEME}>
-                    <SettingSelect
-                        label={T.language} value={prefs.language}
-                        options={languages.map(l => ({ value: l.code, label: l.label }))}
-                        onChange={v => onUpdatePref('language', v)} THEME={THEME}
-                    />
-                    <SettingToggle label={T.notifications} value={prefs.notifications}
-                        onChange={v => onUpdatePref('notifications', v)} THEME={THEME} />
-                    <SettingToggle label={T.darkMode} value={prefs.darkMode}
-                        onChange={v => onUpdatePref('darkMode', v)} THEME={THEME} />
-                </SettingsSection>
-
-                {/* À propos */}
-                <SettingsSection title="ℹ️ À propos" THEME={THEME}>
-                    <div style={settingRowStyle(THEME)}>
-                        <span style={{ color: THEME.text }}>{T.version}</span>
-                        <span style={{ color: THEME.textSecondary }}>1.0.0 (build 1)</span>
-                    </div>
-                    <div style={settingRowStyle(THEME)}>
-                        <span style={{ color: THEME.text }}>Équipe</span>
-                        <span style={{ color: THEME.textSecondary }}>CRUX Team</span>
-                    </div>
-                </SettingsSection>
-
-                {/* Support */}
-                <SettingsSection title="💬 Support" THEME={THEME}>
-                    <button
-                        onClick={() => alert('📧 Email: support@crux.app')}
-                        style={{ ...primaryBtn(THEME), marginBottom: '8px' }}
-                    >
-                        📧 Contacter le support
-                    </button>
-                    <button
-                        onClick={() => navigator.share?.({ title: 'CRUX', text: 'Essaie CRUX — Visioconférence Premium!' }).catch(() => alert('Partagez : https://cruxweb.netlify.app'))}
-                        style={secondaryBtn(THEME)}
-                    >
-                        🔗 Partager CRUX
-                    </button>
-                </SettingsSection>
-            </div>
-        </div>
-    );
-}
-
-// ============================================
-// COMPOSANTS UTILITAIRES
-// ============================================
-function Modal({ children, onClose, THEME }) {
-    return (
-        <div style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            zIndex: 2000, padding: '24px',
-        }}
-            onClick={e => e.target === e.currentTarget && onClose()}
-        >
-            <div style={{
-                background: THEME.surface, borderRadius: '20px', padding: '36px',
-                maxWidth: '440px', width: '100%', border: `1px solid ${THEME.border}`,
-            }}>
-                {children}
-            </div>
-        </div>
-    );
-}
-
-function ToggleSwitch({ on, onChange, color }) {
-    return (
-        <div
-            onClick={() => onChange(!on)}
-            style={{
-                width: '44px', height: '24px', borderRadius: '12px', cursor: 'pointer',
-                background: on ? color : '#4B5563', position: 'relative', transition: 'background 0.2s',
-                flexShrink: 0,
-            }}
-        >
-            <div style={{
-                position: 'absolute', top: '3px', left: on ? '23px' : '3px',
-                width: '18px', height: '18px', borderRadius: '50%', background: 'white',
-                transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
-            }} />
-        </div>
-    );
-}
-
-function SettingsSection({ title, children, THEME }) {
-    return (
-        <div style={{
-            background: THEME.surface, borderRadius: '16px', padding: '24px',
-            border: `1px solid ${THEME.border}`, marginBottom: '16px',
+      {/* New meeting button */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <h3 style={{ fontSize: 18, fontWeight: 700, color: C.textPrimary, margin: 0 }}>
+          {T.recentMeetings} {!loadingMeetings && `(${meetings.length})`}
+        </h3>
+        <button onClick={() => setShowSchedule(true)} style={{
+          padding: '10px 20px', background: C.primaryGradient, color: 'white',
+          border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 13,
+          cursor: 'pointer', fontFamily: 'Poppins, sans-serif',
+          boxShadow: `0 4px 14px ${C.fireGlow}`, display: 'flex', alignItems: 'center', gap: 6,
         }}>
-            <h4 style={{ color: THEME.text, fontWeight: '700', fontSize: '15px', marginBottom: '16px' }}>
-                {title}
-            </h4>
-            {children}
-        </div>
-    );
-}
+          + {T.newMeeting}
+        </button>
+      </div>
 
-function SettingToggle({ label, value, onChange, THEME }) {
-    return (
-        <div style={settingRowStyle(THEME)}>
-            <span style={{ color: THEME.text, fontSize: '14px' }}>{label}</span>
-            <ToggleSwitch on={value} onChange={onChange} color={THEME.primary} />
+      {/* Meetings list */}
+      {loadingMeetings ? (
+        <div style={{ textAlign: 'center', padding: '48px', color: C.textTertiary }}>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>⏳</div>
+          <p>{T.loading}</p>
         </div>
-    );
-}
+      ) : meetings.length === 0 ? (
+        <div style={{
+          textAlign: 'center', padding: '64px 24px', background: C.white,
+          borderRadius: 20, border: `2px dashed ${C.border}`,
+        }}>
+          <div style={{ fontSize: 56, marginBottom: 16 }}>📅</div>
+          <h4 style={{ color: C.textPrimary, fontWeight: 700, marginBottom: 8 }}>{T.noMeetings}</h4>
+          <p style={{ color: C.textTertiary, fontSize: 14 }}>{T.noMeetingsHint}</p>
+          <button onClick={() => setShowSchedule(true)} style={{
+            marginTop: 20, padding: '12px 28px', background: C.primaryGradient,
+            color: 'white', border: 'none', borderRadius: 12, fontWeight: 700,
+            fontSize: 14, cursor: 'pointer', fontFamily: 'Poppins, sans-serif',
+          }}>
+            + {T.newMeeting}
+          </button>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
+          {meetings.map(m => (
+            <MeetingCard key={m.id} meeting={m} T={T} onJoin={() => onJoin(m)} />
+          ))}
+        </div>
+      )}
 
-function SettingSelect({ label, value, options, onChange, THEME }) {
-    return (
-        <div style={{ ...settingRowStyle(THEME), flexWrap: 'wrap', gap: '8px' }}>
-            <span style={{ color: THEME.text, fontSize: '14px' }}>{label}</span>
-            <select
-                value={value}
-                onChange={e => onChange(e.target.value)}
-                style={{
-                    background: THEME.background, color: THEME.text,
-                    border: `1px solid ${THEME.border}`, borderRadius: '8px',
-                    padding: '6px 12px', fontSize: '13px', cursor: 'pointer',
-                }}
-            >
-                {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+      {/* Modal Schedule */}
+      {showSchedule && (
+        <CruxModal onClose={() => setShowSchedule(false)}>
+          <ModalHeader icon="📅" title={T.schedule} />
+          <Field placeholder={T.meetingTitle} value={newTitle} onChange={setNewTitle} autoFocus />
+          <div style={{ marginTop: 12 }}>
+            <textarea placeholder={T.meetingDesc} value={newDesc} onChange={e => setNewDesc(e.target.value)} rows={3} style={{ ...fieldStyle, resize: 'vertical' }} />
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <select value={newType} onChange={e => setNewType(e.target.value)} style={{ ...fieldStyle, cursor: 'pointer' }}>
+              <option value="temporary">{T.temporary}</option>
+              <option value="persistent">{T.persistent}</option>
             </select>
-        </div>
-    );
+          </div>
+          <ModalActions>
+            <PrimaryBtn onClick={createScheduled} disabled={creating || !newTitle.trim()}>{creating ? '...' : T.create}</PrimaryBtn>
+            <SecondaryBtn onClick={() => setShowSchedule(false)}>{T.cancel}</SecondaryBtn>
+          </ModalActions>
+        </CruxModal>
+      )}
+
+      {/* Modal Join by code */}
+      {showJoinCode && (
+        <CruxModal onClose={() => setShowJoinCode(false)}>
+          <ModalHeader icon="🔗" title={T.joinCode} />
+          <Field placeholder={T.enterCode} value={joinCode} onChange={setJoinCode}
+            autoFocus onKeyDown={e => e.key === 'Enter' && joinByCode()} />
+          <ModalActions>
+            <PrimaryBtn onClick={joinByCode} disabled={!joinCode.trim()}>{T.join}</PrimaryBtn>
+            <SecondaryBtn onClick={() => setShowJoinCode(false)}>{T.cancel}</SecondaryBtn>
+          </ModalActions>
+        </CruxModal>
+      )}
+    </div>
+  );
 }
 
-// ============================================
-// STYLES HELPERS
-// ============================================
-const inputIconStyle = {
-    position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)',
-    fontSize: '16px', pointerEvents: 'none',
+// ============================================================
+// MEETING CARD
+// ============================================================
+function MeetingCard({ meeting, T, onJoin }) {
+  const ago = Math.floor((Date.now() - meeting.createdAt) / 60000);
+  const isPersistent = meeting.type === 'persistent';
+
+  return (
+    <div style={{
+      background: C.white, borderRadius: 16, padding: 20,
+      border: `1.5px solid ${C.border}`, transition: 'all 0.22s',
+      boxShadow: '0 2px 12px rgba(0,0,0,0.04)', fontFamily: 'Poppins, sans-serif',
+    }}
+      onMouseEnter={e => { e.currentTarget.style.boxShadow = `0 8px 28px ${C.violetGlow}`; e.currentTarget.style.borderColor = C.violetLight; }}
+      onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.04)'; e.currentTarget.style.borderColor = C.border; }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+        <h4 style={{ fontSize: 15, fontWeight: 700, color: C.textPrimary, margin: 0, flex: 1, marginRight: 8 }}>
+          {meeting.title}
+        </h4>
+        <span style={{
+          fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 20,
+          background: isPersistent ? `${C.violet}15` : `${C.flamePrimary}12`,
+          color: isPersistent ? C.violet : C.flamePrimary, flexShrink: 0,
+        }}>
+          {isPersistent ? '📌' : '⏱'} {isPersistent ? T.persistent : T.temporary}
+        </span>
+      </div>
+
+      {meeting.description && (
+        <p style={{ fontSize: 13, color: C.textSecondary, margin: '0 0 12px', lineHeight: 1.5 }}>
+          {meeting.description}
+        </p>
+      )}
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{
+            fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 20,
+            background: `${C.success}15`, color: C.success,
+          }}>
+            👥 {meeting.participantCount || 1}
+          </span>
+          <span style={{ fontSize: 12, color: C.textTertiary }}>
+            {ago > 0 ? `${ago}min` : "À l'instant"}
+          </span>
+        </div>
+        <button onClick={onJoin} style={{
+          padding: '8px 16px', background: C.primaryGradient, color: 'white',
+          border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700,
+          cursor: 'pointer', fontFamily: 'Poppins, sans-serif',
+          boxShadow: `0 4px 12px ${C.fireGlow}`,
+        }}>
+          {T.joinMeeting} →
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// WAITING ROOM
+// ============================================================
+function WaitingRoom({ meeting, user, T, prefs, onEnter, onLeave }) {
+  const [micOn, setMicOn] = useState(prefs.defaultMic);
+  const [camOn, setCamOn] = useState(prefs.defaultCam);
+  const [pulseSize, setPulseSize] = useState(1);
+  const [camStream, setCamStream] = useState(null);
+  const videoRef = useRef(null);
+
+  // Pulse animation
+  useEffect(() => {
+    const t = setInterval(() => setPulseSize(p => p === 1 ? 1.07 : 1), 1200);
+    return () => clearInterval(t);
+  }, []);
+
+  // Camera preview
+  useEffect(() => {
+    if (camOn) {
+      navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+        .then(stream => {
+          setCamStream(stream);
+          if (videoRef.current) videoRef.current.srcObject = stream;
+        })
+        .catch(() => setCamOn(false));
+    } else {
+      if (camStream) { camStream.getTracks().forEach(t => t.stop()); setCamStream(null); }
+      if (videoRef.current) videoRef.current.srcObject = null;
+    }
+    return () => { if (camStream) camStream.getTracks().forEach(t => t.stop()); };
+  }, [camOn]);
+
+  return (
+    <div style={{
+      minHeight: '100vh', fontFamily: 'Poppins, sans-serif',
+      background: `linear-gradient(160deg, #FFF5F5 0%, #FCEEFF 50%, #F0F8FF 100%)`,
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+      position: 'relative', overflow: 'hidden',
+    }}>
+      <SmokeBlobs />
+
+      <div style={{
+        background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(20px)',
+        borderRadius: 28, padding: '48px 40px', maxWidth: 520, width: '100%',
+        boxShadow: '0 32px 80px rgba(0,0,0,0.10)',
+        border: '1px solid rgba(255,255,255,0.8)', position: 'relative', zIndex: 1,
+        textAlign: 'center',
+      }}>
+        {/* Animated icon */}
+        <div style={{
+          width: 100, height: 100, borderRadius: '50%', margin: '0 auto 24px',
+          background: C.primaryGradient,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 44, transform: `scale(${pulseSize})`,
+          transition: 'transform 1.2s ease-in-out',
+          boxShadow: `0 0 0 12px ${C.fireGlow}, 0 0 0 24px ${C.smokeWarm}`,
+        }}>⏳</div>
+
+        <h2 style={{ fontSize: 24, fontWeight: 800, color: C.textPrimary, margin: '0 0 6px' }}>
+          {T.waitingRoom}
+        </h2>
+        <p style={{ fontSize: 16, fontWeight: 600, color: C.flamePrimary, margin: '0 0 8px' }}>
+          {meeting.title}
+        </p>
+        <div style={{
+          background: `${C.iceBlue}12`, border: `1px solid ${C.iceBlue}30`,
+          borderRadius: 12, padding: '12px 16px', margin: '0 0 32px',
+        }}>
+          <p style={{ fontSize: 13, color: C.textSecondary, margin: 0 }}>ℹ️ {T.waitingFor}</p>
+        </div>
+
+        {/* Camera preview */}
+        <div style={{
+          width: '100%', aspectRatio: '16/9', borderRadius: 16, overflow: 'hidden',
+          background: camOn ? '#000' : C.mediumBg,
+          marginBottom: 24, position: 'relative',
+          border: `2px solid ${camOn ? C.flamePrimary : C.border}`,
+        }}>
+          <video ref={videoRef} autoPlay muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: camOn ? 'block' : 'none' }} />
+          {!camOn && (
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ fontSize: 48, marginBottom: 8 }}>🚫</span>
+              <p style={{ color: C.textTertiary, fontSize: 13 }}>Caméra désactivée</p>
+            </div>
+          )}
+          {/* Name overlay */}
+          <div style={{
+            position: 'absolute', bottom: 10, left: 10,
+            background: 'rgba(0,0,0,0.6)', color: 'white',
+            padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600,
+          }}>
+            {user.name}
+          </div>
+        </div>
+
+        {/* Device controls */}
+        <div style={{
+          background: C.lightBg, borderRadius: 16, padding: '16px 20px',
+          marginBottom: 28, border: `1px solid ${C.border}`,
+        }}>
+          <p style={{ fontWeight: 700, color: C.textPrimary, fontSize: 13, margin: '0 0 14px', textAlign: 'left' }}>
+            {T.prepareDevices}
+          </p>
+          {[
+            { icon: '📹', label: T.camera, state: camOn, set: setCamOn },
+            { icon: '🎤', label: T.mic, state: micOn, set: setMicOn },
+          ].map((d, i) => (
+            <div key={i} style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '10px 0', borderTop: i > 0 ? `1px solid ${C.border}` : 'none',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{
+                  width: 36, height: 36, borderRadius: 10,
+                  background: d.state ? `${C.success}15` : C.mediumBg,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
+                }}>{d.icon}</div>
+                <span style={{ fontSize: 14, fontWeight: 500, color: C.textPrimary }}>{d.label}</span>
+              </div>
+              <ToggleSwitch on={d.state} onChange={d.set} colorOn={C.success} />
+            </div>
+          ))}
+        </div>
+
+        {/* Meeting info */}
+        <div style={{
+          background: C.lightBg, borderRadius: 12, padding: '12px 16px',
+          marginBottom: 24, border: `1px solid ${C.border}`,
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        }}>
+          <div style={{ textAlign: 'left' }}>
+            <p style={{ fontSize: 11, color: C.textTertiary, margin: 0 }}>Code de réunion</p>
+            <p style={{ fontSize: 13, fontWeight: 700, color: C.textPrimary, margin: 0, fontFamily: 'monospace' }}>
+              {meeting.id}
+            </p>
+          </div>
+          <button onClick={() => { navigator.clipboard?.writeText(meeting.id); }} style={{
+            padding: '6px 12px', background: C.mediumBg, border: `1px solid ${C.border}`,
+            borderRadius: 8, fontSize: 12, cursor: 'pointer', color: C.textSecondary, fontFamily: 'Poppins, sans-serif',
+          }}>📋 Copier</button>
+        </div>
+
+        <button onClick={onEnter} style={{
+          width: '100%', padding: 14, background: C.primaryGradient, color: 'white',
+          border: 'none', borderRadius: 14, fontSize: 15, fontWeight: 700,
+          cursor: 'pointer', marginBottom: 12, fontFamily: 'Poppins, sans-serif',
+          boxShadow: `0 8px 24px ${C.fireGlow}`,
+        }}>
+          {T.joinMeeting} →
+        </button>
+        <button onClick={onLeave} style={{
+          width: '100%', padding: 12, background: 'transparent',
+          color: C.error, border: `1.5px solid ${C.error}40`,
+          borderRadius: 14, fontSize: 14, fontWeight: 700, cursor: 'pointer',
+          fontFamily: 'Poppins, sans-serif',
+        }}>
+          {T.leaveWaiting}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// MEETING ROOM
+// ============================================================
+function MeetingRoom({ meeting, user, T, prefs, onExit }) {
+  const containerRef = useRef(null);
+  const zpRef = useRef(null);
+  const [elapsed, setElapsed] = useState(0);
+  const [count, setCount] = useState(1);
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  useEffect(() => {
+    const t = setInterval(() => setElapsed(e => e + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const appID = parseInt(process.env.REACT_APP_ZEGO_APP_ID || '0');
+    const secret = process.env.REACT_APP_ZEGO_SERVER_SECRET || '';
+    if (!appID || !secret) return;
+
+    const token = ZegoUIKitPrebuilt.generateKitTokenForTest(appID, secret, meeting.roomId, user.uid, user.name);
+    const zp = ZegoUIKitPrebuilt.create(token);
+    zpRef.current = zp;
+    zp.joinRoom({
+      container: containerRef.current,
+      scenario: { mode: ZegoUIKitPrebuilt.VideoConference },
+      showScreenSharingButton: true,
+      showPreJoinView: false,
+      onUserCountOrListChanged: list => setCount((list?.length || 0) + 1),
+      onLeaveRoom: handleExit,
+    });
+    return () => { if (zpRef.current) { try { zpRef.current.destroy(); } catch { } zpRef.current = null; } };
+    // eslint-disable-next-line
+  }, [meeting.roomId, user.uid]);
+
+  const handleExit = async () => {
+    try { await MeetingService.endMeeting(meeting.id, meeting.type); } catch { }
+    onExit();
+  };
+
+  const fmt = s => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+
+  return (
+    <div style={{ width: '100vw', height: '100vh', background: '#0A0A0A', position: 'relative', fontFamily: 'Poppins, sans-serif' }}>
+      {/* Top bar */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0, zIndex: 100,
+        background: 'linear-gradient(to bottom, rgba(0,0,0,0.75) 0%, transparent 100%)',
+        padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: C.primaryGradient, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>🎥</div>
+            <span style={{ color: 'white', fontWeight: 700, fontSize: 15 }}>
+              {meeting.title.length > 30 ? meeting.title.slice(0, 30) + '…' : meeting.title}
+            </span>
+          </div>
+          <span style={{
+            background: C.flamePrimary, color: 'white', fontSize: 10, fontWeight: 800,
+            padding: '3px 8px', borderRadius: 6, letterSpacing: 1, animation: 'recPulse 2s infinite',
+          }}>⏺ REC</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ color: 'white', fontSize: 13, fontWeight: 500 }}>👥 {count} {T.participants}</span>
+          <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13 }}>🕐 {fmt(elapsed)}</span>
+          <button onClick={() => setShowConfirm(true)} style={{
+            padding: '8px 16px', background: C.error, color: 'white',
+            border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700,
+            cursor: 'pointer', fontFamily: 'Poppins, sans-serif',
+            boxShadow: `0 4px 14px rgba(231,76,60,0.4)`,
+          }}>📞 {T.endMeeting}</button>
+        </div>
+      </div>
+
+      <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+
+      {/* Confirm exit */}
+      {showConfirm && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 200,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+        }}>
+          <div style={{
+            background: C.white, borderRadius: 24, padding: '40px 36px',
+            maxWidth: 380, width: '100%', textAlign: 'center',
+            boxShadow: '0 32px 80px rgba(0,0,0,0.3)',
+          }}>
+            <div style={{ fontSize: 52, marginBottom: 16 }}>📞</div>
+            <h3 style={{ fontSize: 20, fontWeight: 800, color: C.textPrimary, margin: '0 0 10px' }}>{T.confirmExit}</h3>
+            <p style={{ color: C.textSecondary, fontSize: 14, margin: '0 0 28px' }}>{T.confirmExitMsg}</p>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button onClick={() => setShowConfirm(false)} style={{ ...secBtn, flex: 1 }}>{T.cancel}</button>
+              <button onClick={handleExit} style={{ ...primBtn, flex: 1, background: C.error, boxShadow: 'none' }}>{T.confirm}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// SETTINGS PAGE
+// ============================================================
+function SettingsPage({ T, prefs, onUpdatePref, onBack }) {
+  const qualities = ['low', 'medium', 'high', 'veryHigh'];
+  const langs = [{ code: 'fr', label: '🇫🇷 Français' }, { code: 'en', label: '🇬🇧 English' }, { code: 'es', label: '🇪🇸 Español' }, { code: 'de', label: '🇩🇪 Deutsch' }];
+
+  return (
+    <div style={{ maxWidth: 720, margin: '0 auto', padding: '32px 24px', fontFamily: 'Poppins, sans-serif' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 36 }}>
+        <button onClick={onBack} style={{
+          padding: '8px 16px', background: C.white, border: `1.5px solid ${C.border}`,
+          borderRadius: 10, color: C.textPrimary, fontWeight: 600, fontSize: 13,
+          cursor: 'pointer', fontFamily: 'Poppins, sans-serif',
+        }}>{T.back}</button>
+        <h2 style={{ fontSize: 22, fontWeight: 800, color: C.textPrimary, margin: 0 }}>⚙️ {T.settings}</h2>
+      </div>
+
+      <SettSection title={`🎥 ${T.meetingSettings}`}>
+        <SettSelect label={T.videoQuality} value={prefs.videoQuality}
+          options={qualities.map(q => ({ v: q, l: T[q] }))} onChange={v => onUpdatePref('videoQuality', v)} />
+        <SettToggle label={T.defaultMic} value={prefs.defaultMic} onChange={v => onUpdatePref('defaultMic', v)} />
+        <SettToggle label={T.defaultCam} value={prefs.defaultCam} onChange={v => onUpdatePref('defaultCam', v)} />
+      </SettSection>
+
+      <SettSection title={`🌐 ${T.generalSettings}`}>
+        <SettSelect label={T.language} value={prefs.language}
+          options={langs.map(l => ({ v: l.code, l: l.label }))} onChange={v => onUpdatePref('language', v)} />
+        <SettToggle label={T.notifToggle} value={prefs.notifications} onChange={v => onUpdatePref('notifications', v)} />
+      </SettSection>
+
+      <SettSection title={`ℹ️ ${T.about}`}>
+        <SettRow label={T.version}><span style={{ color: C.textSecondary, fontSize: 14 }}>1.0.0 (build 1)</span></SettRow>
+        <SettRow label={T.team}><span style={{ color: C.textSecondary, fontSize: 14 }}>CRUX Team</span></SettRow>
+      </SettSection>
+
+      <SettSection title={`💬 ${T.support}`}>
+        <button onClick={() => alert('📧 support@crux.app')} style={{ ...primBtn, marginBottom: 10 }}>
+          📧 {T.contactSupport}
+        </button>
+        <button onClick={() => navigator.share?.({ title: 'CRUX', text: T.shareMsg }).catch(() => alert(T.shareMsg))} style={secBtn}>
+          🔗 {T.share}
+        </button>
+      </SettSection>
+    </div>
+  );
+}
+
+// ============================================================
+// SHARED COMPONENTS
+// ============================================================
+function Field({ icon, type = 'text', placeholder, value, onChange, paddingRight, autoFocus, onKeyDown }) {
+  return (
+    <div style={{ position: 'relative' }}>
+      {icon && <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 16, pointerEvents: 'none' }}>{icon}</span>}
+      <input
+        type={type} placeholder={placeholder} value={value}
+        onChange={e => onChange(e.target.value)}
+        autoFocus={autoFocus} onKeyDown={onKeyDown}
+        style={{ ...fieldStyle, paddingLeft: icon ? 42 : 14, paddingRight: paddingRight || 14 }}
+      />
+    </div>
+  );
+}
+
+function CruxModal({ children, onClose }) {
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 2000,
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+    }} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{
+        background: C.white, borderRadius: 24, padding: '40px 36px',
+        maxWidth: 460, width: '100%', boxShadow: '0 32px 80px rgba(0,0,0,0.15)',
+        fontFamily: 'Poppins, sans-serif',
+      }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+const ModalHeader = ({ icon, title }) => (
+  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+    <div style={{
+      width: 44, height: 44, borderRadius: 12, background: C.primaryGradient,
+      display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
+    }}>{icon}</div>
+    <h3 style={{ fontSize: 18, fontWeight: 800, color: C.textPrimary, margin: 0 }}>{title}</h3>
+  </div>
+);
+
+const ModalActions = ({ children }) => (
+  <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>{children}</div>
+);
+
+const PrimaryBtn = ({ children, onClick, disabled }) => (
+  <button onClick={onClick} disabled={disabled} style={{
+    ...primBtn, flex: 1,
+    opacity: disabled ? 0.5 : 1, cursor: disabled ? 'not-allowed' : 'pointer',
+  }}>{children}</button>
+);
+const SecondaryBtn = ({ children, onClick }) => (
+  <button onClick={onClick} style={{ ...secBtn, flex: 1 }}>{children}</button>
+);
+
+function ToggleSwitch({ on, onChange, colorOn = C.success }) {
+  return (
+    <div onClick={() => onChange(!on)} style={{
+      width: 46, height: 26, borderRadius: 13, cursor: 'pointer', flexShrink: 0,
+      background: on ? colorOn : C.mediumBg, position: 'relative', transition: 'background 0.25s',
+      border: `1px solid ${on ? colorOn : C.border}`,
+    }}>
+      <div style={{
+        position: 'absolute', top: 3, left: on ? 22 : 3,
+        width: 18, height: 18, borderRadius: '50%', background: 'white',
+        transition: 'left 0.25s', boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
+      }} />
+    </div>
+  );
+}
+
+function SettSection({ title, children }) {
+  return (
+    <div style={{
+      background: C.white, borderRadius: 16, padding: 24,
+      border: `1.5px solid ${C.border}`, marginBottom: 16,
+      boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+    }}>
+      <h4 style={{ fontSize: 14, fontWeight: 700, color: C.textPrimary, margin: '0 0 16px' }}>{title}</h4>
+      {children}
+    </div>
+  );
+}
+
+function SettRow({ label, children }) {
+  return (
+    <div style={{
+      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+      padding: '12px 0', borderTop: `1px solid ${C.border}`,
+    }}>
+      <span style={{ fontSize: 14, fontWeight: 500, color: C.textPrimary }}>{label}</span>
+      {children}
+    </div>
+  );
+}
+
+function SettToggle({ label, value, onChange }) {
+  return (
+    <SettRow label={label}>
+      <ToggleSwitch on={value} onChange={onChange} colorOn={C.violet} />
+    </SettRow>
+  );
+}
+
+function SettSelect({ label, value, options, onChange }) {
+  return (
+    <SettRow label={label}>
+      <select value={value} onChange={e => onChange(e.target.value)} style={{
+        background: C.lightBg, color: C.textPrimary, border: `1.5px solid ${C.border}`,
+        borderRadius: 8, padding: '6px 12px', fontSize: 13,
+        cursor: 'pointer', fontFamily: 'Poppins, sans-serif',
+      }}>
+        {options.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
+      </select>
+    </SettRow>
+  );
+}
+
+// ============================================================
+// STYLE CONSTANTS
+// ============================================================
+const fieldStyle = {
+  width: '100%', padding: '12px 14px', boxSizing: 'border-box',
+  background: C.lightBg, border: `1.5px solid ${C.border}`,
+  borderRadius: 12, color: C.textPrimary, fontSize: 14,
+  outline: 'none', fontFamily: 'Poppins, sans-serif',
+  transition: 'border-color 0.2s, box-shadow 0.2s',
 };
 
-const inputStyle = (THEME) => ({
-    width: '100%', padding: '12px 14px 12px 42px', boxSizing: 'border-box',
-    background: THEME.background, border: `1px solid ${THEME.border}`,
-    borderRadius: '12px', color: THEME.text, fontSize: '14px', outline: 'none',
-});
+const primBtn = {
+  padding: '12px 20px', background: C.primaryGradient, color: 'white',
+  border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 700,
+  cursor: 'pointer', width: '100%', fontFamily: 'Poppins, sans-serif',
+  boxShadow: `0 6px 18px ${C.fireGlow}`,
+};
 
-const primaryBtn = (THEME) => ({
-    flex: 1, padding: '12px 20px', background: THEME.primary, color: 'white',
-    border: 'none', borderRadius: '12px', fontSize: '14px', fontWeight: '700',
-    cursor: 'pointer', width: '100%',
-});
+const secBtn = {
+  padding: '12px 20px', background: 'transparent', color: C.primary,
+  border: `2px solid ${C.primary}`, borderRadius: 12, fontSize: 14,
+  fontWeight: 700, cursor: 'pointer', width: '100%', fontFamily: 'Poppins, sans-serif',
+};
 
-const secondaryBtn = (THEME) => ({
-    flex: 1, padding: '12px 20px', background: 'transparent', color: THEME.primary,
-    border: `2px solid ${THEME.primary}`, borderRadius: '12px', fontSize: '14px',
-    fontWeight: '700', cursor: 'pointer', width: '100%',
-});
+const navIconBtn = {
+  width: 38, height: 38, borderRadius: 10, background: C.lightBg,
+  border: `1.5px solid ${C.border}`, cursor: 'pointer', fontSize: 16,
+  display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative',
+};
 
-const settingRowStyle = (THEME) => ({
-    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    padding: '12px 0', borderTop: `1px solid ${THEME.border}`,
-});
+const notifPanel = {
+  position: 'absolute', top: 44, right: 0, background: C.white,
+  border: `1.5px solid ${C.border}`, borderRadius: 16, padding: '20px',
+  width: 300, boxShadow: '0 8px 32px rgba(0,0,0,0.12)', zIndex: 200,
+};
 
-const iconBtnStyle = (THEME) => ({
-    position: 'relative', width: '36px', height: '36px', borderRadius: '10px',
-    background: THEME.background, border: `1px solid ${THEME.border}`,
-    cursor: 'pointer', fontSize: '16px', display: 'flex', alignItems: 'center',
-    justifyContent: 'center',
-});
-
-const getAppStyle = (THEME) => ({
-    fontFamily: '"Segoe UI", system-ui, sans-serif',
-    background: THEME.background, color: THEME.text, minHeight: '100vh',
-});
-
-const getGlobalStyles = (THEME) => `
-  @keyframes blob {
-    0%, 100% { transform: scale(1) translate(0,0); }
-    33% { transform: scale(1.1) translate(20px, -30px); }
-    66% { transform: scale(0.9) translate(-15px, 15px); }
-  }
+// ============================================================
+// GLOBAL CSS
+// ============================================================
+const GLOBAL_CSS = `
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { font-family: "Segoe UI", system-ui, sans-serif; background: ${THEME.background}; color: ${THEME.text}; }
-  input, select, textarea { font-family: inherit; }
-  button { font-family: inherit; }
-  button:hover { opacity: 0.9; transform: translateY(-1px); transition: all 0.15s; }
+  html, body { font-family: 'Poppins', system-ui, sans-serif; background: #F8F9FA; }
+
+  @keyframes loadBar {
+    0%   { width: 0%; }
+    30%  { width: 40%; }
+    70%  { width: 75%; }
+    100% { width: 100%; }
+  }
+
+  @keyframes blobFloat {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33%  { transform: translate(30px, -40px) scale(1.08); }
+    66%  { transform: translate(-20px, 25px) scale(0.94); }
+  }
+
+  @keyframes recPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
   input:focus, select:focus, textarea:focus {
-    border-color: ${THEME.primary} !important;
-    box-shadow: 0 0 0 3px ${THEME.primary}20;
+    border-color: ${C.violetLight} !important;
+    box-shadow: 0 0 0 3px ${C.violetGlow};
     outline: none;
   }
-  ::-webkit-scrollbar { width: 6px; }
-  ::-webkit-scrollbar-track { background: ${THEME.surface}; }
-  ::-webkit-scrollbar-thumb { background: ${THEME.primary}50; border-radius: 3px; }
+
+  button { font-family: 'Poppins', sans-serif; }
+  button:hover:not(:disabled) { opacity: 0.92; transform: translateY(-1px); transition: all 0.15s; }
+  button:active:not(:disabled) { transform: translateY(0); }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: ${C.lightBg}; }
+  ::-webkit-scrollbar-thumb { background: ${C.violetLight}; border-radius: 3px; }
 `;
