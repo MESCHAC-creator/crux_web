@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <rect width="200" height="200" rx="44" fill="#1A3EF0"/>
+  <!-- Left vertical bar top segment -->
+  <rect x="58" y="36" width="22" height="54" rx="8" fill="white"/>
+  <!-- Left vertical bar bottom segment -->
+  <rect x="58" y="106" width="22" height="54" rx="8" fill="white"/>
+  <!-- Horizontal connector -->
+  <rect x="58" y="90" width="88" height="20" fill="white"/>
+  <!-- Play triangle -->
+  <polygon points="82,42 152,100 82,158" fill="white"/>
+  <!-- Cut the middle horizontal from triangle (to create the gap/cross effect) -->
+  <rect x="82" y="90" width="72" height="20" fill="#1A3EF0"/>
+  <!-- Re-draw the horizontal bar on top -->
+  <rect x="58" y="90" width="88" height="20" fill="white"/>
+  <!-- Recut triangle gap precisely -->
+  <rect x="82" y="92" width="68" height="16" fill="#1A3EF0"/>
+</svg>
