@@ -5,15 +5,16 @@ workflows:
     instance_type: mac_mini_m2
 
     environment:
-      node: 18.17.0
+      node: 20.11.0
       vars:
-        # Variables publiques (non-sensibles)
         REACT_APP_ZEGO_APP_ID: "2042049519"
         GENERATE_SOURCEMAP: "false"
         SKIP_PREFLIGHT_CHECK: "true"
         DISABLE_ESLINT_PLUGIN: "true"
-        # REACT_APP_ZEGO_SERVER_SECRET : à définir dans Codemagic > App settings > Environment variables (type Secret)
-        # GITHUB_TOKEN               : Personal Access Token GitHub avec permission repo (type Secret)
+        CI: "false"
+        # Secrets à définir dans Codemagic > App settings > Environment variables :
+        #   REACT_APP_ZEGO_SERVER_SECRET  (type Secret)
+        #   GITHUB_TOKEN                  (Personal Access Token GitHub, scope: repo)
 
     triggering:
       events:
@@ -28,33 +29,28 @@ workflows:
           source: true
 
     scripts:
-      - name: Vérification de la version Node
-        script: node --version && npm --version
+      - name: Vérification de l'environnement
+        script: |
+          node --version
+          npm --version
 
       - name: Installation des dépendances
-        script: npm ci
+        script: npm ci --legacy-peer-deps
 
       - name: Build de production
         script: npm run build
-        # Les variables d'environnement REACT_APP_* sont injectées automatiquement dans le build
 
       - name: Déploiement sur GitHub Pages
         script: |
-          # Ne déployer que depuis la branche main
           if [ "$CM_BRANCH" = "main" ]; then
             echo "Déploiement depuis la branche main..."
             git config --global user.email "codemagic-bot@crux.app"
             git config --global user.name "Codemagic Bot"
-
-            # Configurer l'authentification via le token GitHub
             git remote set-url origin https://x-access-token:$GITHUB_TOKEN@github.com/MESCHAC-creator/crux_web.git
-
-            # Déployer le dossier build/ sur la branche gh-pages
             npx gh-pages -d build --message "Deploy [skip ci]"
-
-            echo "✅ Déploiement terminé : https://MESCHAC-creator.github.io/crux_web/"
+            echo "Site déployé : https://MESCHAC-creator.github.io/crux_web/"
           else
-            echo "ℹ️ Branche $CM_BRANCH — build vérifié, pas de déploiement."
+            echo "Branche $CM_BRANCH — build OK, pas de déploiement."
           fi
 
     artifacts:
