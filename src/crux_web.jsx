@@ -3,6 +3,34 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ZegoUIKitPrebuilt } from '@zegocloud/zego-uikit-prebuilt';
 
 // ============================================================
+// LOGO COMPONENT (matches uploaded brand icon)
+// ============================================================
+function CruxLogo({ size = 36 }) {
+  const r = size * 0.22;
+  return (
+    <svg width={size} height={size} viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+      <rect width="200" height="200" rx="44" fill="url(#lg)"/>
+      <defs>
+        <linearGradient id="lg" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#E74C3C"/>
+          <stop offset="100%" stopColor="#8E44AD"/>
+        </linearGradient>
+      </defs>
+      {/* left top bar */}
+      <rect x="56" y="34" width="20" height="54" rx="7" fill="white"/>
+      {/* left bottom bar */}
+      <rect x="56" y="106" width="20" height="54" rx="7" fill="white"/>
+      {/* play triangle */}
+      <polygon points="78,38 154,100 78,162" fill="white"/>
+      {/* horizontal cut to separate bars from triangle (creates the cross gap) */}
+      <rect x="78" y="92" width="76" height="16" fill="url(#lg)"/>
+      {/* horizontal white connector bar */}
+      <rect x="56" y="92" width="80" height="16" fill="white"/>
+    </svg>
+  );
+}
+
+// ============================================================
 // COULEURS
 // ============================================================
 const C = {
@@ -407,12 +435,9 @@ function SplashScreen({ T }) {
     }}>
       <SmokeBlobs />
       <div style={{ transform: `scale(${scale})`, opacity, transition: 'all 0.8s cubic-bezier(0.34,1.56,0.64,1)', textAlign: 'center', zIndex: 10 }}>
-        <div style={{
-          width: 140, height: 140, borderRadius: 32, margin: '0 auto 28px',
-          background: C.primaryGradient,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: `0 20px 60px ${C.fireGlow}, 0 8px 24px ${C.violetGlow}`, fontSize: 64,
-        }}>🎥</div>
+        <div style={{ margin: '0 auto 28px', display: 'flex', justifyContent: 'center' }}>
+          <CruxLogo size={140} />
+        </div>
         <h1 style={{
           fontSize: 56, fontWeight: 900, letterSpacing: 3, margin: '0 0 8px',
           background: C.primaryGradient, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
@@ -466,7 +491,7 @@ function Navbar({ user, T, prefs, onLogout, onSettings, onDashboard }) {
       padding: '0 32px', fontFamily: 'Poppins, sans-serif',
     }}>
       <div onClick={onDashboard} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{ width: 36, height: 36, borderRadius: 10, background: C.primaryGradient, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🎥</div>
+        <CruxLogo size={36} />
         <span style={{ fontSize: 20, fontWeight: 900, background: C.primaryGradient, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>CRUX</span>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -533,7 +558,7 @@ function AuthPage({ T, onSuccess }) {
       <div style={{ width: '100%', maxWidth: 480, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', position: 'relative', zIndex: 1 }}>
         <div style={{ background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(20px)', borderRadius: 24, padding: '48px 40px', width: '100%', boxShadow: '0 32px 80px rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.04)' }}>
           <div style={{ textAlign: 'center', marginBottom: 32 }}>
-            <div style={{ width: 72, height: 72, borderRadius: 20, margin: '0 auto 16px', background: C.primaryGradient, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, boxShadow: `0 12px 32px ${C.fireGlow}` }}>🎥</div>
+            <div style={{ margin: '0 auto 16px', display: 'flex', justifyContent: 'center' }}><CruxLogo size={72} /></div>
             <h1 style={{ fontSize: 28, fontWeight: 900, margin: '0 0 4px', background: C.primaryGradient, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>CRUX</h1>
             <p style={{ fontSize: 13, color: C.textSecondary, margin: 0 }}>{T.appTagline}</p>
           </div>
@@ -653,7 +678,7 @@ function Dashboard({ user, T, onJoin }) {
         gap: 32, flexWrap: 'wrap', boxShadow: `0 12px 40px ${C.fireGlow}`,
         position: 'relative', overflow: 'hidden',
       }}>
-        <SmokeBlobs />
+        <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}><SmokeBlobs /></div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, zIndex: 1 }}>
           <div style={{
             width: 56, height: 56, borderRadius: '50%', background: 'rgba(255,255,255,0.2)',
@@ -949,6 +974,7 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
   const [showNotes, setShowNotes] = useState(false);
   const [notes, setNotes] = useState(() => localStorage.getItem(`crux_notes_${meeting.id}`) || '');
   const [showPoll, setShowPoll] = useState(false);
+  const [showEmojiBar, setShowEmojiBar] = useState(false);
   const [reactions, setReactions] = useState([]);
   const [privacyMode, setPrivacyMode] = useState(false);
   const reactIdRef = useRef(0);
@@ -973,6 +999,8 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
       scenario: { mode: ZegoUIKitPrebuilt.VideoConference },
       showScreenSharingButton: true,
       showPreJoinView: false,
+      turnOnCameraWhenJoining: prefs.defaultCam,
+      turnOnMicrophoneWhenJoining: prefs.defaultMic,
       onUserCountOrListChanged: list => setCount((list?.length || 0) + 1),
       onLeaveRoom: handleExit,
     });
@@ -991,7 +1019,7 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
 
   const sendReaction = (emoji) => {
     const id = ++reactIdRef.current;
-    const left = 10 + Math.random() * 80;
+    const left = 12 + Math.random() * 70;
     GamService.addReaction(user.uid);
     setReactions(r => [...r, { id, emoji, left }]);
     setTimeout(() => setReactions(r => r.filter(x => x.id !== id)), 3000);
@@ -1005,111 +1033,152 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
 
   const fmt = s => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
+  // Tool button style for top bar
+  const toolBtn = (active, activeColor) => ({
+    height: 32, padding: '0 12px', borderRadius: 8, border: 'none', cursor: 'pointer',
+    fontSize: 13, fontWeight: 700, fontFamily: 'Poppins, sans-serif',
+    background: active ? activeColor : 'rgba(255,255,255,0.15)',
+    color: 'white', backdropFilter: 'blur(8px)',
+    transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 5,
+    boxShadow: active ? `0 2px 10px ${activeColor}80` : 'none',
+    whiteSpace: 'nowrap',
+  });
+
   return (
     <div style={{ width: '100vw', height: '100vh', background: '#0A0A0A', position: 'relative', fontFamily: 'Poppins, sans-serif', overflow: 'hidden' }}>
-      {/* Floating emoji reactions */}
-      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 150 }}>
+
+      {/* ── Floating emoji reactions (pointer-events: none, above video, below panels) ── */}
+      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 90 }}>
         {reactions.map(r => (
-          <div key={r.id} style={{ position: 'absolute', bottom: 120, left: `${r.left}%`, fontSize: 36, animation: 'floatUp 3s ease-out forwards' }}>
+          <div key={r.id} style={{ position: 'absolute', bottom: 100, left: `${r.left}%`, fontSize: 34, animation: 'floatUp 3s ease-out forwards' }}>
             {r.emoji}
           </div>
         ))}
       </div>
 
-      {/* Top bar */}
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 100, background: 'linear-gradient(to bottom, rgba(0,0,0,0.75) 0%, transparent 100%)', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: C.primaryGradient, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>🎥</div>
-            <span style={{ color: 'white', fontWeight: 700, fontSize: 15 }}>{meeting.title.length > 30 ? meeting.title.slice(0, 30) + '…' : meeting.title}</span>
-          </div>
-          <span style={{ background: C.flamePrimary, color: 'white', fontSize: 10, fontWeight: 800, padding: '3px 8px', borderRadius: 6, letterSpacing: 1, animation: 'recPulse 2s infinite' }}>⏺ REC</span>
-          {handRaised && <span style={{ background: C.accentOrange, color: 'white', fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 6, animation: 'recPulse 1s infinite' }}>✋ {T.handRaised}</span>}
-          {privacyMode && <span style={{ background: C.violet, color: 'white', fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 6 }}>🌫 {T.privacyMode}</span>}
+      {/* ── TOP BAR ── */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0, zIndex: 200,
+        background: 'linear-gradient(to bottom, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.0) 100%)',
+        padding: '10px 16px 24px',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+      }}>
+        {/* Left: logo + title + badges */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+          <CruxLogo size={30} />
+          <span style={{ color: 'white', fontWeight: 700, fontSize: 14, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {meeting.title}
+          </span>
+          <span style={{ background: C.flamePrimary, color: 'white', fontSize: 10, fontWeight: 800, padding: '2px 7px', borderRadius: 5, letterSpacing: 1, animation: 'recPulse 2s infinite' }}>⏺ REC</span>
+          {handRaised && (
+            <span style={{ background: C.accentOrange, color: 'white', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 5, animation: 'recPulse 1s infinite' }}>✋</span>
+          )}
+          {privacyMode && (
+            <span style={{ background: C.violetDark, color: 'white', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 5 }}>🌫</span>
+          )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ color: 'white', fontSize: 13, fontWeight: 500 }}>👥 {count} {T.participants}</span>
-          <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13 }}>🕐 {fmt(elapsed)}</span>
-          <button onClick={() => setShowConfirm(true)} style={{ padding: '8px 16px', background: C.error, color: 'white', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'Poppins, sans-serif', boxShadow: `0 4px 14px rgba(231,76,60,0.4)` }}>📞 {T.endMeeting}</button>
+
+        {/* Center: CRUX tools — all in the top bar, nothing in the bottom */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
+          {/* Emoji reactions toggle */}
+          <div style={{ position: 'relative' }}>
+            <button onClick={() => setShowEmojiBar(v => !v)} style={toolBtn(showEmojiBar, C.accentOrange)}>
+              😊 {T.reactions}
+            </button>
+            {showEmojiBar && (
+              <div style={{
+                position: 'absolute', top: 40, left: '50%', transform: 'translateX(-50%)',
+                background: 'rgba(10,10,10,0.90)', backdropFilter: 'blur(16px)',
+                borderRadius: 40, padding: '10px 14px',
+                display: 'flex', gap: 4, zIndex: 300, whiteSpace: 'nowrap',
+                border: '1px solid rgba(255,255,255,0.12)',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+              }}>
+                {EMOJI_REACTIONS.map(e => (
+                  <button key={e} onClick={() => { sendReaction(e); setShowEmojiBar(false); }} style={{ background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', padding: '2px 3px', borderRadius: 8, transition: 'transform 0.15s' }}
+                    onMouseEnter={ev => { ev.currentTarget.style.transform = 'scale(1.35)'; }}
+                    onMouseLeave={ev => { ev.currentTarget.style.transform = 'scale(1)'; }}
+                  >{e}</button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Hand raise */}
+          <button onClick={toggleHand} style={toolBtn(handRaised, C.accentOrange)}>
+            ✋ {T.raiseHand}
+          </button>
+
+          {/* Notes */}
+          <button onClick={() => { setShowNotes(v => !v); setShowPoll(false); }} style={toolBtn(showNotes, C.iceBlue)}>
+            📝 {T.notes}
+          </button>
+
+          {/* Polls */}
+          <button onClick={() => { setShowPoll(v => !v); setShowNotes(false); }} style={toolBtn(showPoll, C.violet)}>
+            📊 {T.polls}
+          </button>
+
+          {/* Privacy mode */}
+          <button onClick={() => setPrivacyMode(v => !v)} style={toolBtn(privacyMode, C.violetDark)}>
+            🌫 {T.privacyMode}
+          </button>
+        </div>
+
+        {/* Right: stats + exit */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+          <span style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12, fontWeight: 500 }}>👥 {count}</span>
+          <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>🕐 {fmt(elapsed)}</span>
+          <button onClick={() => setShowConfirm(true)} style={{ padding: '7px 14px', background: C.error, color: 'white', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'Poppins, sans-serif', boxShadow: `0 3px 12px rgba(231,76,60,0.45)` }}>
+            📞 {T.endMeeting}
+          </button>
         </div>
       </div>
 
-      {/* Privacy mode overlay on video */}
-      <div ref={containerRef} style={{ width: '100%', height: '100%', filter: privacyMode ? 'blur(10px)' : 'none', transition: 'filter 0.4s' }} />
+      {/* ── ZEGO VIDEO CONTAINER — full screen, unobstructed bottom ── */}
+      <div ref={containerRef} style={{
+        position: 'absolute', inset: 0,
+        filter: privacyMode ? 'blur(10px)' : 'none',
+        transition: 'filter 0.4s',
+        zIndex: 1,
+      }} />
+
+      {/* Privacy reveal hint */}
       {privacyMode && (
-        <div onClick={() => setPrivacyMode(false)} style={{ position: 'absolute', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: 'rgba(0,0,0,0.2)' }}>
-          <div style={{ background: 'rgba(0,0,0,0.7)', color: 'white', padding: '12px 24px', borderRadius: 12, fontSize: 14, fontWeight: 600 }}>🌫 {T.privacyModeOn}</div>
+        <div onClick={() => setPrivacyMode(false)} style={{ position: 'absolute', inset: 0, zIndex: 80, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+          <div style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)', color: 'white', padding: '10px 22px', borderRadius: 12, fontSize: 13, fontWeight: 600, border: '1px solid rgba(255,255,255,0.2)' }}>
+            🌫 {T.privacyModeOn}
+          </div>
         </div>
       )}
 
-      {/* Bottom toolbar */}
-      <div style={{
-        position: 'absolute', bottom: 20, left: '50%', transform: 'translateX(-50%)',
-        zIndex: 200, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'center',
-      }}>
-        {/* Emoji reactions */}
-        <div style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(12px)', borderRadius: 40, padding: '8px 16px', display: 'flex', gap: 6 }}>
-          {EMOJI_REACTIONS.map(e => (
-            <button key={e} onClick={() => sendReaction(e)} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', padding: '4px 2px', borderRadius: 8, transition: 'transform 0.15s' }}
-              onMouseEnter={el => { el.currentTarget.style.transform = 'scale(1.3)'; }}
-              onMouseLeave={el => { el.currentTarget.style.transform = 'scale(1)'; }}
-            >{e}</button>
-          ))}
-        </div>
-
-        {/* Hand raise */}
-        <button onClick={toggleHand} style={{
-          width: 44, height: 44, borderRadius: '50%', border: 'none', cursor: 'pointer', fontSize: 20,
-          background: handRaised ? C.accentOrange : 'rgba(0,0,0,0.7)', backdropFilter: 'blur(12px)',
-          transition: 'background 0.2s', boxShadow: handRaised ? `0 4px 14px rgba(255,152,0,0.5)` : 'none',
-        }} title={T.raiseHand}>✋</button>
-
-        {/* Notes */}
-        <button onClick={() => setShowNotes(v => !v)} style={{
-          width: 44, height: 44, borderRadius: '50%', border: 'none', cursor: 'pointer', fontSize: 20,
-          background: showNotes ? C.iceBlue : 'rgba(0,0,0,0.7)', backdropFilter: 'blur(12px)', transition: 'background 0.2s',
-        }} title={T.notes}>📝</button>
-
-        {/* Poll */}
-        <button onClick={() => setShowPoll(v => !v)} style={{
-          width: 44, height: 44, borderRadius: '50%', border: 'none', cursor: 'pointer', fontSize: 20,
-          background: showPoll ? C.violet : 'rgba(0,0,0,0.7)', backdropFilter: 'blur(12px)', transition: 'background 0.2s',
-        }} title={T.polls}>📊</button>
-
-        {/* Privacy mode */}
-        <button onClick={() => setPrivacyMode(v => !v)} style={{
-          width: 44, height: 44, borderRadius: '50%', border: 'none', cursor: 'pointer', fontSize: 20,
-          background: privacyMode ? C.violetDark : 'rgba(0,0,0,0.7)', backdropFilter: 'blur(12px)', transition: 'background 0.2s',
-        }} title={T.privacyMode}>🌫</button>
-      </div>
-
-      {/* Notes panel */}
+      {/* ── NOTES PANEL — right side, starts below top bar ── */}
       {showNotes && (
         <div style={{
-          position: 'absolute', right: 16, top: 80, bottom: 100, width: 320, zIndex: 180,
-          background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(16px)',
-          borderRadius: 20, boxShadow: '0 16px 48px rgba(0,0,0,0.3)',
-          display: 'flex', flexDirection: 'column', overflow: 'hidden',
+          position: 'absolute', right: 0, top: 0, bottom: 0, width: 300, zIndex: 250,
+          background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(16px)',
+          boxShadow: '-8px 0 32px rgba(0,0,0,0.3)',
+          display: 'flex', flexDirection: 'column',
         }}>
-          <div style={{ padding: '16px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontWeight: 700, fontSize: 15, color: C.textPrimary }}>📝 {T.notes}</span>
-            <button onClick={() => setShowNotes(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: C.textTertiary }}>×</button>
+          <div style={{ padding: '60px 16px 12px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontWeight: 700, fontSize: 14, color: C.textPrimary }}>📝 {T.notes}</span>
+            <button onClick={() => setShowNotes(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: C.textTertiary, lineHeight: 1 }}>×</button>
           </div>
           <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder={T.notesPlaceholder}
-            style={{ flex: 1, padding: '16px', border: 'none', resize: 'none', fontFamily: 'Poppins, sans-serif', fontSize: 13, color: C.textPrimary, background: 'transparent', outline: 'none', lineHeight: 1.6 }} />
+            style={{ flex: 1, padding: '14px', border: 'none', resize: 'none', fontFamily: 'Poppins, sans-serif', fontSize: 13, color: C.textPrimary, background: 'transparent', outline: 'none', lineHeight: 1.7 }} />
         </div>
       )}
 
-      {/* Poll panel */}
+      {/* ── POLL PANEL — left side, starts below top bar ── */}
       {showPoll && (
         <LivePoll meetingId={meeting.id} userId={user.uid} userName={user.name} T={T} onClose={() => setShowPoll(false)} />
       )}
 
-      {/* Confirm exit */}
+      {/* ── CONFIRM EXIT ── */}
       {showConfirm && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.80)', zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
           <div style={{ background: C.white, borderRadius: 24, padding: '40px 36px', maxWidth: 380, width: '100%', textAlign: 'center', boxShadow: '0 32px 80px rgba(0,0,0,0.3)' }}>
-            <div style={{ fontSize: 52, marginBottom: 16 }}>📞</div>
+            <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'center' }}><CruxLogo size={56} /></div>
             <h3 style={{ fontSize: 20, fontWeight: 800, color: C.textPrimary, margin: '0 0 10px' }}>{T.confirmExit}</h3>
             <p style={{ color: C.textSecondary, fontSize: 14, margin: '0 0 28px' }}>{T.confirmExitMsg}</p>
             <div style={{ display: 'flex', gap: 12 }}>
@@ -1176,10 +1245,10 @@ function LivePoll({ meetingId, userId, userName, T, onClose }) {
   const totalVotes = poll ? poll.options.reduce((s, o) => s + o.votes.length, 0) : 0;
 
   return (
-    <div style={{ position: 'absolute', left: 16, top: 80, bottom: 100, width: 300, zIndex: 180, background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(16px)', borderRadius: 20, boxShadow: '0 16px 48px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <div style={{ padding: '16px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ fontWeight: 700, fontSize: 15, color: C.textPrimary }}>📊 {T.polls}</span>
-        <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: C.textTertiary }}>×</button>
+    <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 300, zIndex: 250, background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(16px)', boxShadow: '8px 0 32px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ padding: '60px 20px 12px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ fontWeight: 700, fontSize: 14, color: C.textPrimary }}>📊 {T.polls}</span>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: C.textTertiary, lineHeight: 1 }}>×</button>
       </div>
       <div style={{ flex: 1, padding: '16px 20px', overflowY: 'auto' }}>
         {!poll && !creating && (
