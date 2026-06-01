@@ -330,6 +330,10 @@ export default function CruxApp() {
   const [meeting, setMeeting] = useState(null);
   const [waiting, setWaiting] = useState(null);
   const [newBadge, setNewBadge] = useState(null);
+  const [showIOSBanner, setShowIOSBanner] = useState(() => {
+    // Show only if iOS + not standalone + not dismissed before
+    return isIOS() && !isInStandaloneMode() && !localStorage.getItem('crux_ios_banner_dismissed');
+  });
 
   useEffect(() => {
     let el = document.getElementById('crux-gs');
@@ -377,9 +381,15 @@ export default function CruxApp() {
   );
 
   return (
-    <div style={{ fontFamily: 'Poppins, sans-serif', background: C.lightBg, minHeight: '100vh' }}>
+    <div style={{ fontFamily: 'Poppins, sans-serif', background: C.lightBg, minHeight: '100vh', minHeight: '-webkit-fill-available' }}>
       {newBadge && (
         <BadgeToast badge={newBadge} T={T} onClose={() => setNewBadge(null)} />
+      )}
+      {showIOSBanner && (
+        <IOSInstallBanner onDismiss={() => {
+          setShowIOSBanner(false);
+          localStorage.setItem('crux_ios_banner_dismissed', '1');
+        }} />
       )}
       <Navbar user={user} T={T} prefs={prefs} onLogout={logout}
         onSettings={() => setPage('settings')} onDashboard={() => setPage('dashboard')} />
@@ -844,7 +854,7 @@ function WaitingRoom({ meeting, user, T, prefs, onEnter, onLeave }) {
   // Camera
   useEffect(() => {
     if (camOn) {
-      navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+      getMediaStream(true, false)
         .then(stream => { setCamStream(stream); if (videoRef.current) videoRef.current.srcObject = stream; })
         .catch(() => setCamOn(false));
     } else {
@@ -858,7 +868,7 @@ function WaitingRoom({ meeting, user, T, prefs, onEnter, onLeave }) {
   useEffect(() => {
     if (!micOn) { setAudioLevel(0); return; }
     let active = true;
-    navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+    getMediaStream(false, true)
       .then(stream => {
         if (!active) { stream.getTracks().forEach(t => t.stop()); return; }
         audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
@@ -888,7 +898,7 @@ function WaitingRoom({ meeting, user, T, prefs, onEnter, onLeave }) {
   };
 
   return (
-    <div style={{ minHeight: '100vh', fontFamily: 'Poppins, sans-serif', background: 'linear-gradient(160deg, #FFF5F5 0%, #FCEEFF 50%, #F0F8FF 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, position: 'relative', overflow: 'hidden' }}>
+    <div className="crux-fullscreen crux-scroll" style={{ fontFamily: 'Poppins, sans-serif', background: 'linear-gradient(160deg, #FFF5F5 0%, #FCEEFF 50%, #F0F8FF 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, position: 'relative', overflow: 'hidden' }}>
       <SmokeBlobs />
       <div style={{ background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(20px)', borderRadius: 28, padding: '48px 40px', maxWidth: 520, width: '100%', boxShadow: '0 32px 80px rgba(0,0,0,0.10)', border: '1px solid rgba(255,255,255,0.8)', position: 'relative', zIndex: 1, textAlign: 'center' }}>
         <div style={{ width: 100, height: 100, borderRadius: '50%', margin: '0 auto 24px', background: C.primaryGradient, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 44, transform: `scale(${pulseSize})`, transition: 'transform 1.2s ease-in-out', boxShadow: `0 0 0 12px ${C.fireGlow}, 0 0 0 24px ${C.smokeWarm}` }}>⏳</div>
@@ -1045,7 +1055,7 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
   });
 
   return (
-    <div style={{ width: '100vw', height: '100vh', background: '#0A0A0A', position: 'relative', fontFamily: 'Poppins, sans-serif', overflow: 'hidden' }}>
+    <div className="crux-fullscreen" style={{ width: '100vw', background: '#0A0A0A', position: 'relative', fontFamily: 'Poppins, sans-serif', overflow: 'hidden' }}>
 
       {/* ── Floating emoji reactions (pointer-events: none, above video, below panels) ── */}
       <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 90 }}>
@@ -1437,11 +1447,108 @@ const notifPanel = {
 };
 
 // ============================================================
+// IOS UTILITIES
+// ============================================================
+const isIOS = () => /iP(hone|ad|od)/.test(navigator.userAgent) ||
+  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+const isInStandaloneMode = () =>
+  window.matchMedia('(display-mode: standalone)').matches ||
+  window.navigator.standalone === true;
+
+// iOS-safe getUserMedia — adds iOS-specific constraints
+async function getMediaStream(video = true, audio = true) {
+  const constraints = {
+    video: video ? {
+      facingMode: 'user',
+      width: { ideal: 1280 },
+      height: { ideal: 720 },
+    } : false,
+    audio: audio ? {
+      echoCancellation: true,
+      noiseSuppression: true,
+      sampleRate: 44100,
+    } : false,
+  };
+  return navigator.mediaDevices.getUserMedia(constraints);
+}
+
+// ── iOS "Add to Home Screen" prompt banner ──────────────────
+function IOSInstallBanner({ onDismiss }) {
+  if (!isIOS() || isInStandaloneMode()) return null;
+  return (
+    <div style={{
+      position: 'fixed', bottom: `calc(env(safe-area-inset-bottom) + 12px)`,
+      left: 16, right: 16, zIndex: 9998,
+      background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(16px)',
+      borderRadius: 16, padding: '14px 18px',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
+      border: `1px solid ${C.border}`,
+      display: 'flex', alignItems: 'center', gap: 14,
+      fontFamily: 'Poppins, sans-serif',
+      animation: 'slideInRight 0.4s cubic-bezier(0.34,1.56,0.64,1)',
+    }}>
+      <CruxLogo size={40} />
+      <div style={{ flex: 1 }}>
+        <p style={{ fontWeight: 700, fontSize: 13, color: C.textPrimary, margin: 0 }}>
+          Installer CRUX sur votre iPhone
+        </p>
+        <p style={{ fontSize: 11, color: C.textSecondary, margin: '2px 0 0', lineHeight: 1.4 }}>
+          Appuyez sur <strong>⎙ Partager</strong> puis <strong>Sur l'écran d'accueil</strong>
+        </p>
+      </div>
+      <button onClick={onDismiss} style={{
+        background: 'none', border: 'none', cursor: 'pointer',
+        fontSize: 20, color: C.textTertiary, padding: 4, flexShrink: 0,
+      }}>×</button>
+    </div>
+  );
+}
+
+// ============================================================
 // GLOBAL CSS
 // ============================================================
 const GLOBAL_CSS = `
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { font-family: 'Poppins', system-ui, sans-serif; background: #F8F9FA; }
+
+  html {
+    height: -webkit-fill-available;
+    font-family: 'Poppins', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  }
+  body {
+    font-family: 'Poppins', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    background: #F8F9FA;
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* ── iOS full-height fix (100dvh not supported on old iOS) ── */
+  .crux-fullscreen {
+    height: 100vh;
+    height: 100dvh;
+    height: -webkit-fill-available;
+  }
+
+  /* ── Safe area padding for notch / home bar ── */
+  .crux-safe-top    { padding-top: env(safe-area-inset-top, 0px); }
+  .crux-safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+
+  /* ── Prevent iOS double-tap zoom & callout ── */
+  * {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+  }
+  input, textarea, select {
+    -webkit-touch-callout: default;
+    /* Prevent iOS zoom on focus (font-size must be ≥ 16px) */
+    font-size: 16px !important;
+  }
+  button { -webkit-appearance: none; appearance: none; }
+
+  /* ── iOS scroll momentum ── */
+  .crux-scroll { -webkit-overflow-scrolling: touch; overflow-y: auto; }
 
   @keyframes loadBar {
     0%   { width: 0%; }

@@ -1,25 +1,81 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "name": "CRUX — Visioconférence Premium",
+  "short_name": "CRUX",
+  "description": "Plateforme de visioconférence premium avec réactions, sondages, gamification et mode vie privée.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "portrait-primary",
+  "theme_color": "#E74C3C",
+  "background_color": "#FFFFFF",
+  "lang": "fr",
+  "categories": ["productivity", "communication"],
   "icons": [
     {
-      "src": "favicon.ico",
-      "sizes": "64x64 32x32 24x24 16x16",
-      "type": "image/x-icon"
+      "src": "icons/icon-72.png",
+      "type": "image/png",
+      "sizes": "72x72",
+      "purpose": "any maskable"
     },
     {
-      "src": "logo192.png",
+      "src": "icons/icon-96.png",
       "type": "image/png",
-      "sizes": "192x192"
+      "sizes": "96x96",
+      "purpose": "any maskable"
     },
     {
-      "src": "logo512.png",
+      "src": "icons/icon-128.png",
       "type": "image/png",
-      "sizes": "512x512"
+      "sizes": "128x128",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-144.png",
+      "type": "image/png",
+      "sizes": "144x144",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-152.png",
+      "type": "image/png",
+      "sizes": "152x152",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-384.png",
+      "type": "image/png",
+      "sizes": "384x384",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/apple-touch-icon-180.png",
+      "type": "image/png",
+      "sizes": "180x180",
+      "purpose": "any"
     }
   ],
-  "start_url": ".",
-  "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "shortcuts": [
+    {
+      "name": "Nouvelle réunion",
+      "short_name": "Réunion",
+      "description": "Démarrer une réunion instantanée",
+      "url": "/?action=instant",
+      "icons": [{ "src": "icons/icon-96.png", "sizes": "96x96" }]
+    }
+  ],
+  "screenshots": [],
+  "prefer_related_applications": false
 }
