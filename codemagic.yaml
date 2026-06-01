@@ -8,13 +8,11 @@ workflows:
       node: 20.11.0
       vars:
         REACT_APP_ZEGO_APP_ID: "2042049519"
+        REACT_APP_ZEGO_SERVER_SECRET: "41fb869d2bbcb148571a22b1ad4840ae"
         GENERATE_SOURCEMAP: "false"
         SKIP_PREFLIGHT_CHECK: "true"
         DISABLE_ESLINT_PLUGIN: "true"
         CI: "false"
-        # Secrets à définir dans Codemagic > App settings > Environment variables :
-        #   REACT_APP_ZEGO_SERVER_SECRET  (type Secret)
-        #   GITHUB_TOKEN                  (Personal Access Token GitHub, scope: repo)
 
     triggering:
       events:
@@ -46,11 +44,13 @@ workflows:
             echo "Déploiement depuis la branche main..."
             git config --global user.email "codemagic-bot@crux.app"
             git config --global user.name "Codemagic Bot"
-            git remote set-url origin https://x-access-token:$GITHUB_TOKEN@github.com/MESCHAC-creator/crux_web.git
+            # Utilise le token GitHub fourni automatiquement par Codemagic
+            DEPLOY_TOKEN="${GITHUB_TOKEN:-$CM_GITHUB_TOKEN}"
+            git remote set-url origin https://x-access-token:${DEPLOY_TOKEN}@github.com/MESCHAC-creator/crux_web.git
             npx gh-pages -d build --message "Deploy [skip ci]"
             echo "Site déployé : https://MESCHAC-creator.github.io/crux_web/"
           else
-            echo "Branche $CM_BRANCH — build OK, pas de déploiement."
+            echo "Branche $CM_BRANCH — build vérifié, pas de déploiement."
           fi
 
     artifacts:
