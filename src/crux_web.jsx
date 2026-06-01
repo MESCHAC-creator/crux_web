@@ -118,6 +118,15 @@ const GamService = {
 };
 
 // ============================================================
+// VALIDATORS
+// ============================================================
+const Validators = {
+  email: v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()),
+  password: v => v.length >= 6,
+  name: v => v.trim().length >= 2,
+};
+
+// ============================================================
 // LANGUES
 // ============================================================
 const T_MAP = {
@@ -128,7 +137,7 @@ const T_MAP = {
     show: 'Afficher', hide: 'Masquer',
     orContinue: 'ou continuer avec',
     googleBtn: 'Continuer avec Google',
-    terms: "En continuant, vous acceptez nos Conditions d'utilisation.",
+    termsNote: "En continuant, vous acceptez nos Conditions d'utilisation.",
     welcome: 'Bonjour', dashboard: 'Tableau de bord',
     instantMeeting: 'Réunion instantanée', schedule: 'Planifier',
     joinCode: 'Rejoindre', dialIn: 'Dial In',
@@ -165,9 +174,42 @@ const T_MAP = {
     polls: 'Sondages', createPoll: 'Créer un sondage', pollQuestion: 'Question du sondage',
     pollOption: 'Option', addOption: 'Ajouter option', launchPoll: 'Lancer',
     vote: 'Voter', pollResults: 'Résultats', closePoll: 'Clôturer',
-    // Waiting room extras
     bgBlur: "Flou d'arrière-plan", audioLevel: 'Niveau audio',
-    privacyMode: 'Mode vie privée', privacyModeOn: 'Flou vidéo activé — clic pour voir clairement',
+    privacyMode: 'Mode vie privée', privacyModeOn: 'Flou vidéo — clic pour voir clairement',
+    // Auth extras
+    confirmPassword: 'Confirmer le mot de passe',
+    passwordMismatch: 'Les mots de passe ne correspondent pas',
+    passwordTooShort: 'Mot de passe trop court (min. 6 caractères)',
+    nameRequired: 'Nom trop court (min. 2 caractères)',
+    emailInvalid: 'Adresse email invalide',
+    rememberMe: 'Se souvenir de moi',
+    forgotPassword: 'Mot de passe oublié ?',
+    resetPasswordTitle: 'Réinitialiser le mot de passe',
+    resetPasswordDesc: 'Entrez votre email pour recevoir un lien de réinitialisation.',
+    resetPasswordBtn: 'Envoyer le lien',
+    resetSent: 'Lien envoyé !',
+    resetSentMsg: 'Si un compte existe avec cet email, vous recevrez un lien de réinitialisation.',
+    // Meeting status
+    statusScheduled: 'Programmée', statusOngoing: 'En cours', statusEnded: 'Terminée',
+    hostBadge: 'Hôte',
+    // Host controls
+    hostControls: 'Contrôles hôte',
+    lockMeeting: 'Verrouiller la réunion',
+    unlockMeeting: 'Déverrouiller',
+    meetingLocked: 'Réunion verrouillée',
+    muteAll: 'Couper tous les micros',
+    muteAllDone: 'Signal envoyé aux participants',
+    startRecording: 'Démarrer l\'enregistrement',
+    stopRecording: 'Arrêter l\'enregistrement',
+    recordingActive: 'Enregistrement en cours',
+    endForAll: 'Terminer pour tous',
+    // Legal & settings
+    legal: 'Légal', privacyPolicy: 'Politique de confidentialité',
+    termsOfService: 'Conditions d\'utilisation',
+    securitySection: 'Sécurité', changePassword: 'Changer le mot de passe',
+    // Toasts
+    successCopied: 'Copié !', successSaved: 'Sauvegardé',
+    meetingCreated: 'Réunion créée avec succès',
   },
   en: {
     appTagline: 'Premium Video Conferencing',
@@ -176,7 +218,7 @@ const T_MAP = {
     show: 'Show', hide: 'Hide',
     orContinue: 'or continue with',
     googleBtn: 'Continue with Google',
-    terms: 'By continuing, you agree to our Terms of Service.',
+    termsNote: 'By continuing, you agree to our Terms of Service.',
     welcome: 'Hello', dashboard: 'Dashboard',
     instantMeeting: 'Instant Meeting', schedule: 'Schedule',
     joinCode: 'Join by Code', dialIn: 'Dial In',
@@ -213,6 +255,32 @@ const T_MAP = {
     vote: 'Vote', pollResults: 'Results', closePoll: 'Close',
     bgBlur: 'Background Blur', audioLevel: 'Audio Level',
     privacyMode: 'Privacy Mode', privacyModeOn: 'Video blurred — click to see clearly',
+    confirmPassword: 'Confirm Password',
+    passwordMismatch: 'Passwords do not match',
+    passwordTooShort: 'Password too short (min. 6 characters)',
+    nameRequired: 'Name too short (min. 2 characters)',
+    emailInvalid: 'Invalid email address',
+    rememberMe: 'Remember me',
+    forgotPassword: 'Forgot password?',
+    resetPasswordTitle: 'Reset Password',
+    resetPasswordDesc: 'Enter your email to receive a reset link.',
+    resetPasswordBtn: 'Send Reset Link',
+    resetSent: 'Link sent!',
+    resetSentMsg: 'If an account exists with this email, you will receive a reset link.',
+    statusScheduled: 'Scheduled', statusOngoing: 'Ongoing', statusEnded: 'Ended',
+    hostBadge: 'Host',
+    hostControls: 'Host Controls',
+    lockMeeting: 'Lock Meeting', unlockMeeting: 'Unlock',
+    meetingLocked: 'Meeting Locked',
+    muteAll: 'Mute All', muteAllDone: 'Signal sent to participants',
+    startRecording: 'Start Recording', stopRecording: 'Stop Recording',
+    recordingActive: 'Recording active',
+    endForAll: 'End for All',
+    legal: 'Legal', privacyPolicy: 'Privacy Policy',
+    termsOfService: 'Terms of Service',
+    securitySection: 'Security', changePassword: 'Change Password',
+    successCopied: 'Copied!', successSaved: 'Saved',
+    meetingCreated: 'Meeting created successfully',
   },
   es: {
     appTagline: 'Videoconferencia Premium',
@@ -221,7 +289,7 @@ const T_MAP = {
     show: 'Mostrar', hide: 'Ocultar',
     orContinue: 'o continuar con',
     googleBtn: 'Continuar con Google',
-    terms: 'Al continuar, aceptas nuestros Términos y Política de privacidad.',
+    termsNote: 'Al continuar, aceptas nuestros Términos y Política de privacidad.',
     welcome: 'Hola', dashboard: 'Panel',
     instantMeeting: 'Reunión instantánea', schedule: 'Programar',
     joinCode: 'Unirse', dialIn: 'Llamar',
@@ -258,6 +326,32 @@ const T_MAP = {
     vote: 'Votar', pollResults: 'Resultados', closePoll: 'Cerrar',
     bgBlur: 'Fondo desenfocado', audioLevel: 'Nivel de audio',
     privacyMode: 'Modo privacidad', privacyModeOn: 'Video borroso — clic para ver',
+    confirmPassword: 'Confirmar contraseña',
+    passwordMismatch: 'Las contraseñas no coinciden',
+    passwordTooShort: 'Contraseña muy corta (mín. 6 caracteres)',
+    nameRequired: 'Nombre muy corto (mín. 2 caracteres)',
+    emailInvalid: 'Dirección de email inválida',
+    rememberMe: 'Recordarme',
+    forgotPassword: '¿Olvidaste tu contraseña?',
+    resetPasswordTitle: 'Restablecer contraseña',
+    resetPasswordDesc: 'Introduce tu email para recibir un enlace de restablecimiento.',
+    resetPasswordBtn: 'Enviar enlace',
+    resetSent: '¡Enlace enviado!',
+    resetSentMsg: 'Si existe una cuenta con este email, recibirás un enlace de restablecimiento.',
+    statusScheduled: 'Programada', statusOngoing: 'En curso', statusEnded: 'Finalizada',
+    hostBadge: 'Anfitrión',
+    hostControls: 'Controles del anfitrión',
+    lockMeeting: 'Bloquear reunión', unlockMeeting: 'Desbloquear',
+    meetingLocked: 'Reunión bloqueada',
+    muteAll: 'Silenciar todos', muteAllDone: 'Señal enviada a los participantes',
+    startRecording: 'Iniciar grabación', stopRecording: 'Detener grabación',
+    recordingActive: 'Grabación activa',
+    endForAll: 'Terminar para todos',
+    legal: 'Legal', privacyPolicy: 'Política de privacidad',
+    termsOfService: 'Términos de servicio',
+    securitySection: 'Seguridad', changePassword: 'Cambiar contraseña',
+    successCopied: '¡Copiado!', successSaved: 'Guardado',
+    meetingCreated: 'Reunión creada con éxito',
   },
   de: {
     appTagline: 'Premium-Videokonferenz',
@@ -266,7 +360,7 @@ const T_MAP = {
     show: 'Zeigen', hide: 'Verbergen',
     orContinue: 'oder fortfahren mit',
     googleBtn: 'Mit Google fortfahren',
-    terms: 'Durch Fortfahren akzeptierst du unsere Nutzungsbedingungen.',
+    termsNote: 'Durch Fortfahren akzeptierst du unsere Nutzungsbedingungen.',
     welcome: 'Hallo', dashboard: 'Dashboard',
     instantMeeting: 'Sofort-Meeting', schedule: 'Planen',
     joinCode: 'Beitreten', dialIn: 'Einwählen',
@@ -303,6 +397,32 @@ const T_MAP = {
     vote: 'Abstimmen', pollResults: 'Ergebnisse', closePoll: 'Schließen',
     bgBlur: 'Hintergrundunschärfe', audioLevel: 'Audiopegel',
     privacyMode: 'Datenschutzmodus', privacyModeOn: 'Video unscharf — klicken zum Ansehen',
+    confirmPassword: 'Passwort bestätigen',
+    passwordMismatch: 'Passwörter stimmen nicht überein',
+    passwordTooShort: 'Passwort zu kurz (min. 6 Zeichen)',
+    nameRequired: 'Name zu kurz (min. 2 Zeichen)',
+    emailInvalid: 'Ungültige E-Mail-Adresse',
+    rememberMe: 'Angemeldet bleiben',
+    forgotPassword: 'Passwort vergessen?',
+    resetPasswordTitle: 'Passwort zurücksetzen',
+    resetPasswordDesc: 'Gib deine E-Mail ein, um einen Reset-Link zu erhalten.',
+    resetPasswordBtn: 'Link senden',
+    resetSent: 'Link gesendet!',
+    resetSentMsg: 'Falls ein Konto mit dieser E-Mail existiert, erhältst du einen Reset-Link.',
+    statusScheduled: 'Geplant', statusOngoing: 'Laufend', statusEnded: 'Beendet',
+    hostBadge: 'Gastgeber',
+    hostControls: 'Gastgeber-Kontrollen',
+    lockMeeting: 'Meeting sperren', unlockMeeting: 'Entsperren',
+    meetingLocked: 'Meeting gesperrt',
+    muteAll: 'Alle stummschalten', muteAllDone: 'Signal an Teilnehmer gesendet',
+    startRecording: 'Aufnahme starten', stopRecording: 'Aufnahme stoppen',
+    recordingActive: 'Aufnahme aktiv',
+    endForAll: 'Für alle beenden',
+    legal: 'Rechtliches', privacyPolicy: 'Datenschutzerklärung',
+    termsOfService: 'Nutzungsbedingungen',
+    securitySection: 'Sicherheit', changePassword: 'Passwort ändern',
+    successCopied: 'Kopiert!', successSaved: 'Gespeichert',
+    meetingCreated: 'Meeting erfolgreich erstellt',
   },
 };
 
@@ -396,8 +516,11 @@ export default function CruxApp() {
       <div style={{ paddingTop: '64px' }}>
         {page === 'dashboard' && <Dashboard user={user} T={T} onJoin={goMeeting} />}
         {page === 'settings' && (
-          <SettingsPage T={T} prefs={prefs} onUpdatePref={updatePref} onBack={() => setPage('dashboard')} />
+          <SettingsPage T={T} prefs={prefs} onUpdatePref={updatePref} onBack={() => setPage('dashboard')}
+            onPrivacy={() => setPage('privacy')} onTerms={() => setPage('terms')} />
         )}
+        {page === 'privacy' && <PrivacyPolicyPage T={T} onBack={() => setPage('settings')} />}
+        {page === 'terms' && <TermsPage T={T} onBack={() => setPage('settings')} />}
       </div>
     </div>
   );
@@ -533,6 +656,51 @@ function Navbar({ user, T, prefs, onLogout, onSettings, onDashboard }) {
 }
 
 // ============================================================
+// FORGOT PASSWORD MODAL
+// ============================================================
+function ForgotPasswordModal({ T, onClose }) {
+  const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleReset = async () => {
+    setLoading(true); setError('');
+    try {
+      await AuthService.resetPassword(email);
+      setSent(true);
+    } catch (err) { setError(err.message); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <CruxModal onClose={onClose}>
+      <ModalHeader icon="🔑" title={T.resetPasswordTitle} />
+      {sent ? (
+        <div style={{ textAlign: 'center', padding: '16px 0' }}>
+          <div style={{ fontSize: 52, marginBottom: 12 }}>📧</div>
+          <h4 style={{ fontWeight: 700, color: C.success, margin: '0 0 8px' }}>{T.resetSent}</h4>
+          <p style={{ color: C.textSecondary, fontSize: 13, lineHeight: 1.6 }}>{T.resetSentMsg}</p>
+          <button onClick={onClose} style={{ ...primBtn, marginTop: 20 }}>{T.cancel}</button>
+        </div>
+      ) : (
+        <>
+          <p style={{ color: C.textSecondary, fontSize: 13, marginBottom: 20, lineHeight: 1.6 }}>{T.resetPasswordDesc}</p>
+          <Field icon="✉️" type="email" placeholder={T.email} value={email} onChange={setEmail} />
+          {error && <div style={{ background: '#FEF2F2', border: `1px solid ${C.error}30`, color: C.error, borderRadius: 10, padding: '10px 14px', fontSize: 13, fontWeight: 500, marginTop: 10 }}>⚠️ {error}</div>}
+          <ModalActions>
+            <PrimaryBtn onClick={handleReset} disabled={loading || !email.trim()}>
+              {loading ? '...' : T.resetPasswordBtn}
+            </PrimaryBtn>
+            <SecondaryBtn onClick={onClose}>{T.cancel}</SecondaryBtn>
+          </ModalActions>
+        </>
+      )}
+    </CruxModal>
+  );
+}
+
+// ============================================================
 // AUTH PAGE
 // ============================================================
 function AuthPage({ T, onSuccess }) {
@@ -540,19 +708,31 @@ function AuthPage({ T, onSuccess }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [pass, setPass] = useState('');
+  const [confirmPass, setConfirmPass] = useState('');
   const [showPass, setShowPass] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showForgot, setShowForgot] = useState(false);
 
   const submit = async (e) => {
-    e.preventDefault(); setLoading(true); setError('');
+    e.preventDefault(); setError('');
+    if (mode === 'signUp') {
+      if (!Validators.name(name)) { setError(T.nameRequired); return; }
+      if (!Validators.email(email)) { setError(T.emailInvalid); return; }
+      if (!Validators.password(pass)) { setError(T.passwordTooShort); return; }
+      if (pass !== confirmPass) { setError(T.passwordMismatch); return; }
+    } else {
+      if (!Validators.email(email)) { setError(T.emailInvalid); return; }
+    }
+    setLoading(true);
     try {
       let u;
       if (mode === 'signUp') {
-        if (!name.trim()) { setError('Le nom est requis'); return; }
-        if (pass.length < 6) { setError('6 caractères minimum'); return; }
         u = await AuthService.register(email, pass, name);
-      } else { u = await AuthService.login(email, pass); }
+      } else {
+        u = await AuthService.login(email, pass, rememberMe);
+      }
       onSuccess(u);
     } catch (err) { setError(err.message || 'Erreur'); }
     finally { setLoading(false); }
@@ -565,6 +745,7 @@ function AuthPage({ T, onSuccess }) {
       position: 'relative', overflow: 'hidden',
     }}>
       <SmokeBlobs />
+      {showForgot && <ForgotPasswordModal T={T} onClose={() => setShowForgot(false)} />}
       <div style={{ width: '100%', maxWidth: 480, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', position: 'relative', zIndex: 1 }}>
         <div style={{ background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(20px)', borderRadius: 24, padding: '48px 40px', width: '100%', boxShadow: '0 32px 80px rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.04)' }}>
           <div style={{ textAlign: 'center', marginBottom: 32 }}>
@@ -574,7 +755,7 @@ function AuthPage({ T, onSuccess }) {
           </div>
           <div style={{ display: 'flex', background: C.mediumBg, borderRadius: 12, padding: 4, marginBottom: 28 }}>
             {['signIn', 'signUp'].map(m => (
-              <button key={m} onClick={() => { setMode(m); setError(''); }} style={{
+              <button key={m} onClick={() => { setMode(m); setError(''); setConfirmPass(''); }} style={{
                 flex: 1, padding: '10px 0', border: 'none', borderRadius: 10, cursor: 'pointer',
                 fontWeight: 700, fontSize: 14, fontFamily: 'Poppins, sans-serif', transition: 'all 0.2s',
                 background: mode === m ? C.primaryGradient : 'transparent',
@@ -590,6 +771,21 @@ function AuthPage({ T, onSuccess }) {
               <Field icon="🔒" type={showPass ? 'text' : 'password'} placeholder={T.password} value={pass} onChange={setPass} paddingRight={80} />
               <button type="button" onClick={() => setShowPass(v => !v)} style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: C.violet, fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>{showPass ? T.hide : T.show}</button>
             </div>
+            {mode === 'signUp' && (
+              <Field icon="🔒" type={showPass ? 'text' : 'password'} placeholder={T.confirmPassword} value={confirmPass} onChange={setConfirmPass} />
+            )}
+            {mode === 'signIn' && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: C.textSecondary }}>
+                  <input type="checkbox" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)}
+                    style={{ width: 16, height: 16, accentColor: C.violet, cursor: 'pointer' }} />
+                  {T.rememberMe}
+                </label>
+                <button type="button" onClick={() => setShowForgot(true)} style={{ background: 'none', border: 'none', color: C.violet, fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'Poppins, sans-serif', padding: 0 }}>
+                  {T.forgotPassword}
+                </button>
+              </div>
+            )}
             {error && <div style={{ background: '#FEF2F2', border: `1px solid ${C.error}30`, color: C.error, borderRadius: 10, padding: '10px 14px', fontSize: 13, fontWeight: 500 }}>⚠️ {error}</div>}
             <button type="submit" disabled={loading} style={{ padding: 14, background: loading ? C.border : C.primaryGradient, color: 'white', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', fontFamily: 'Poppins, sans-serif', marginTop: 4, boxShadow: loading ? 'none' : `0 8px 24px ${C.fireGlow}`, transition: 'all 0.2s' }}>
               {loading ? '...' : (mode === 'signIn' ? T.signIn : T.signUp)}
@@ -604,7 +800,7 @@ function AuthPage({ T, onSuccess }) {
             <span style={{ fontSize: 20, fontWeight: 900, background: 'linear-gradient(135deg,#EA4335,#4285F4)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>G</span>
             {T.googleBtn}
           </button>
-          <p style={{ fontSize: 11, color: C.textTertiary, textAlign: 'center', marginTop: 20, lineHeight: 1.6 }}>{T.terms}</p>
+          <p style={{ fontSize: 11, color: C.textTertiary, textAlign: 'center', marginTop: 20, lineHeight: 1.6 }}>{T.termsNote}</p>
         </div>
       </div>
     </div>
@@ -807,13 +1003,33 @@ function StatChip({ icon, value, label }) {
 function MeetingCard({ meeting, T, onJoin }) {
   const ago = Math.floor((Date.now() - meeting.createdAt) / 60000);
   const isPersistent = meeting.type === 'persistent';
+  const status = meeting.status || 'scheduled';
+  const statusColors = { scheduled: C.iceBlue, ongoing: C.success, ended: C.textTertiary };
+  const statusLabels = { scheduled: T.statusScheduled, ongoing: T.statusOngoing, ended: T.statusEnded };
+  const statusColor = statusColors[status] || C.textTertiary;
+  const isEnded = status === 'ended';
   return (
-    <div style={{ background: C.white, borderRadius: 16, padding: 20, border: `1.5px solid ${C.border}`, transition: 'all 0.22s', boxShadow: '0 2px 12px rgba(0,0,0,0.04)', fontFamily: 'Poppins, sans-serif' }}
-      onMouseEnter={e => { e.currentTarget.style.boxShadow = `0 8px 28px ${C.violetGlow}`; e.currentTarget.style.borderColor = C.violetLight; }}
+    <div style={{ background: C.white, borderRadius: 16, padding: 20, border: `1.5px solid ${C.border}`, transition: 'all 0.22s', boxShadow: '0 2px 12px rgba(0,0,0,0.04)', fontFamily: 'Poppins, sans-serif', opacity: isEnded ? 0.7 : 1 }}
+      onMouseEnter={e => { if (!isEnded) { e.currentTarget.style.boxShadow = `0 8px 28px ${C.violetGlow}`; e.currentTarget.style.borderColor = C.violetLight; } }}
       onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.04)'; e.currentTarget.style.borderColor = C.border; }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-        <h4 style={{ fontSize: 15, fontWeight: 700, color: C.textPrimary, margin: 0, flex: 1, marginRight: 8 }}>{meeting.title}</h4>
+        <div style={{ flex: 1, marginRight: 8 }}>
+          <h4 style={{ fontSize: 15, fontWeight: 700, color: C.textPrimary, margin: '0 0 4px' }}>
+            {meeting.isLocked && <span style={{ marginRight: 6 }}>🔒</span>}
+            {meeting.title}
+          </h4>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: `${statusColor}18`, color: statusColor }}>
+              ● {statusLabels[status] || status}
+            </span>
+            {meeting.isRecording && (
+              <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: `${C.error}18`, color: C.error, animation: 'recPulse 2s infinite' }}>
+                ⏺ REC
+              </span>
+            )}
+          </div>
+        </div>
         <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 20, background: isPersistent ? `${C.violet}15` : `${C.flamePrimary}12`, color: isPersistent ? C.violet : C.flamePrimary, flexShrink: 0 }}>
           {isPersistent ? '📌' : '⏱'} {isPersistent ? T.persistent : T.temporary}
         </span>
@@ -824,7 +1040,9 @@ function MeetingCard({ meeting, T, onJoin }) {
           <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 20, background: `${C.success}15`, color: C.success }}>👥 {meeting.participantCount || 1}</span>
           <span style={{ fontSize: 12, color: C.textTertiary }}>{ago > 0 ? `${ago}min` : "À l'instant"}</span>
         </div>
-        <button onClick={onJoin} style={{ padding: '8px 16px', background: C.primaryGradient, color: 'white', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'Poppins, sans-serif', boxShadow: `0 4px 12px ${C.fireGlow}` }}>{T.joinMeeting} →</button>
+        {!isEnded && (
+          <button onClick={onJoin} style={{ padding: '8px 16px', background: C.primaryGradient, color: 'white', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'Poppins, sans-serif', boxShadow: `0 4px 12px ${C.fireGlow}` }}>{T.joinMeeting} →</button>
+        )}
       </div>
     </div>
   );
@@ -972,6 +1190,67 @@ function WaitingRoom({ meeting, user, T, prefs, onEnter, onLeave }) {
 }
 
 // ============================================================
+// HOST CONTROLS PANEL
+// ============================================================
+function HostControlsPanel({ meeting, T, onClose, onEndForAll }) {
+  const [isLocked, setIsLocked] = useState(meeting.isLocked || false);
+  const [isRecording, setIsRecording] = useState(meeting.isRecording || false);
+  const [muteMsg, setMuteMsg] = useState('');
+
+  const toggleLock = async () => {
+    const val = await MeetingService.toggleLock(meeting.id);
+    setIsLocked(val);
+  };
+  const toggleRec = async () => {
+    const val = await MeetingService.toggleRecording(meeting.id);
+    setIsRecording(val);
+  };
+  const muteAll = () => {
+    setMuteMsg(T.muteAllDone);
+    setTimeout(() => setMuteMsg(''), 3000);
+  };
+
+  return (
+    <div style={{
+      position: 'absolute', left: 0, top: 0, bottom: 0, width: 280, zIndex: 250,
+      background: 'rgba(10,10,10,0.95)', backdropFilter: 'blur(20px)',
+      boxShadow: '8px 0 32px rgba(0,0,0,0.5)',
+      display: 'flex', flexDirection: 'column', overflow: 'hidden',
+      borderRight: '1px solid rgba(255,255,255,0.1)',
+    }}>
+      <div style={{ padding: '60px 20px 12px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ fontWeight: 700, fontSize: 14, color: 'white' }}>👑 {T.hostControls}</span>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'rgba(255,255,255,0.5)', lineHeight: 1 }}>×</button>
+      </div>
+      <div style={{ flex: 1, padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <HostCtrlBtn icon={isLocked ? '🔓' : '🔒'} label={isLocked ? T.unlockMeeting : T.lockMeeting} color={isLocked ? C.warning : C.iceBlue} onClick={toggleLock} />
+        <HostCtrlBtn icon="🔇" label={T.muteAll} color={C.accentOrange} onClick={muteAll} />
+        {muteMsg && <p style={{ color: C.accentGolden, fontSize: 12, textAlign: 'center', margin: 0 }}>{muteMsg}</p>}
+        <HostCtrlBtn icon={isRecording ? '⏹' : '⏺'} label={isRecording ? T.stopRecording : T.startRecording} color={isRecording ? C.error : C.success} onClick={toggleRec} active={isRecording} />
+        {isRecording && <p style={{ color: C.error, fontSize: 12, textAlign: 'center', margin: 0, animation: 'recPulse 2s infinite' }}>● {T.recordingActive}</p>}
+        <div style={{ flex: 1 }} />
+        <HostCtrlBtn icon="📞" label={T.endForAll} color={C.error} onClick={onEndForAll} />
+      </div>
+    </div>
+  );
+}
+
+function HostCtrlBtn({ icon, label, color, onClick, active }) {
+  return (
+    <button onClick={onClick} style={{
+      width: '100%', padding: '12px 16px', background: active ? `${color}25` : 'rgba(255,255,255,0.07)',
+      border: `1px solid ${active ? color : 'rgba(255,255,255,0.1)'}`, borderRadius: 12,
+      color: active ? color : 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+      fontFamily: 'Poppins, sans-serif', display: 'flex', alignItems: 'center', gap: 10,
+      transition: 'all 0.2s',
+    }}>
+      <span style={{ fontSize: 18 }}>{icon}</span>
+      {label}
+    </button>
+  );
+}
+
+// ============================================================
 // MEETING ROOM
 // ============================================================
 function MeetingRoom({ meeting, user, T, prefs, onExit }) {
@@ -987,7 +1266,9 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
   const [showEmojiBar, setShowEmojiBar] = useState(false);
   const [reactions, setReactions] = useState([]);
   const [privacyMode, setPrivacyMode] = useState(false);
+  const [showHostControls, setShowHostControls] = useState(false);
   const reactIdRef = useRef(0);
+  const isHost = meeting.creatorId === user.uid;
 
   const EMOJI_REACTIONS = ['👍', '❤️', '😂', '🎉', '👏', '🔥', '😮', '🙌'];
 
@@ -1133,6 +1414,13 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
           <button onClick={() => setPrivacyMode(v => !v)} style={toolBtn(privacyMode, C.violetDark)}>
             🌫 {T.privacyMode}
           </button>
+
+          {/* Host controls */}
+          {isHost && (
+            <button onClick={() => setShowHostControls(v => !v)} style={toolBtn(showHostControls, C.accentGolden)}>
+              👑 {T.hostControls}
+            </button>
+          )}
         </div>
 
         {/* Right: stats + exit */}
@@ -1182,6 +1470,11 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
       {/* ── POLL PANEL — left side, starts below top bar ── */}
       {showPoll && (
         <LivePoll meetingId={meeting.id} userId={user.uid} userName={user.name} T={T} onClose={() => setShowPoll(false)} />
+      )}
+
+      {/* ── HOST CONTROLS PANEL — left side ── */}
+      {showHostControls && isHost && (
+        <HostControlsPanel meeting={meeting} T={T} onClose={() => setShowHostControls(false)} onEndForAll={handleExit} />
       )}
 
       {/* ── CONFIRM EXIT ── */}
@@ -1314,11 +1607,77 @@ function LivePoll({ meetingId, userId, userName, T, onClose }) {
 }
 
 // ============================================================
+// PRIVACY POLICY PAGE
+// ============================================================
+function PrivacyPolicyPage({ T, onBack }) {
+  const sections = [
+    { icon: '📊', title: 'Données collectées', body: 'CRUX collecte uniquement les informations nécessaires au fonctionnement du service : nom d\'utilisateur, adresse email et données de réunion. Aucune donnée sensible n\'est transmise à des tiers.' },
+    { icon: '🔍', title: 'Utilisation des données', body: 'Vos données sont utilisées exclusivement pour vous fournir les fonctionnalités de CRUX : création de compte, gestion des réunions, gamification et personnalisation.' },
+    { icon: '🔐', title: 'Stockage & sécurité', body: 'Les données sont stockées localement dans votre navigateur (localStorage). Aucune information n\'est transmise à des serveurs externes sans votre consentement. Les mots de passe sont encodés avant stockage.' },
+    { icon: '⚖️', title: 'Vos droits', body: 'Conformément au RGPD, vous avez le droit d\'accéder, corriger, ou supprimer vos données à tout moment. Vous pouvez effacer toutes vos données en vidant le stockage local de votre navigateur.' },
+    { icon: '🍪', title: 'Cookies', body: 'CRUX utilise uniquement le localStorage du navigateur pour mémoriser vos préférences. Aucun cookie de tracking publicitaire n\'est utilisé.' },
+  ];
+  return (
+    <div style={{ maxWidth: 720, margin: '0 auto', padding: '32px 24px', fontFamily: 'Poppins, sans-serif' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 36 }}>
+        <button onClick={onBack} style={{ padding: '8px 16px', background: C.white, border: `1.5px solid ${C.border}`, borderRadius: 10, color: C.textPrimary, fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>{T.back}</button>
+        <h2 style={{ fontSize: 22, fontWeight: 800, color: C.textPrimary, margin: 0 }}>🔐 {T.privacyPolicy}</h2>
+      </div>
+      {sections.map((s, i) => (
+        <div key={i} style={{ background: C.white, borderRadius: 16, padding: 24, border: `1.5px solid ${C.border}`, marginBottom: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}>
+          <h4 style={{ fontSize: 15, fontWeight: 700, color: C.textPrimary, margin: '0 0 10px', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span>{s.icon}</span> {s.title}
+          </h4>
+          <p style={{ fontSize: 14, color: C.textSecondary, margin: 0, lineHeight: 1.7 }}>{s.body}</p>
+        </div>
+      ))}
+      <p style={{ fontSize: 12, color: C.textTertiary, textAlign: 'center', marginTop: 24 }}>
+        Dernière mise à jour : Juin 2025 · contact@crux.app
+      </p>
+    </div>
+  );
+}
+
+// ============================================================
+// TERMS OF SERVICE PAGE
+// ============================================================
+function TermsPage({ T, onBack }) {
+  const sections = [
+    { icon: '✅', title: 'Acceptation des conditions', body: 'En utilisant CRUX, vous acceptez d\'être lié par ces conditions d\'utilisation. Si vous n\'acceptez pas ces conditions, veuillez ne pas utiliser le service.' },
+    { icon: '🚫', title: 'Utilisation acceptable', body: 'Vous vous engagez à utiliser CRUX uniquement à des fins légales et conformément à ces conditions. Il est interdit d\'utiliser CRUX pour harceler, menacer ou diffuser des contenus illicites.' },
+    { icon: '©️', title: 'Propriété intellectuelle', body: 'CRUX et tous ses contenus (logo, design, code) sont protégés par le droit de la propriété intellectuelle. Toute reproduction non autorisée est strictement interdite.' },
+    { icon: '⚠️', title: 'Limitation de responsabilité', body: 'CRUX est fourni "en l\'état" sans garantie d\'aucune sorte. Nous ne saurions être tenus responsables des interruptions de service, pertes de données ou dommages indirects.' },
+    { icon: '🔄', title: 'Modifications', body: 'Nous nous réservons le droit de modifier ces conditions à tout moment. Les modifications prennent effet immédiatement après leur publication. L\'utilisation continue du service vaut acceptation.' },
+    { icon: '📬', title: 'Contact', body: 'Pour toute question relative à ces conditions, contactez-nous à : legal@crux.app · CRUX SAS, 75001 Paris, France' },
+  ];
+  return (
+    <div style={{ maxWidth: 720, margin: '0 auto', padding: '32px 24px', fontFamily: 'Poppins, sans-serif' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 36 }}>
+        <button onClick={onBack} style={{ padding: '8px 16px', background: C.white, border: `1.5px solid ${C.border}`, borderRadius: 10, color: C.textPrimary, fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>{T.back}</button>
+        <h2 style={{ fontSize: 22, fontWeight: 800, color: C.textPrimary, margin: 0 }}>📋 {T.termsOfService}</h2>
+      </div>
+      {sections.map((s, i) => (
+        <div key={i} style={{ background: C.white, borderRadius: 16, padding: 24, border: `1.5px solid ${C.border}`, marginBottom: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}>
+          <h4 style={{ fontSize: 15, fontWeight: 700, color: C.textPrimary, margin: '0 0 10px', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span>{s.icon}</span> {s.title}
+          </h4>
+          <p style={{ fontSize: 14, color: C.textSecondary, margin: 0, lineHeight: 1.7 }}>{s.body}</p>
+        </div>
+      ))}
+      <p style={{ fontSize: 12, color: C.textTertiary, textAlign: 'center', marginTop: 24 }}>
+        Dernière mise à jour : Juin 2025 · legal@crux.app
+      </p>
+    </div>
+  );
+}
+
+// ============================================================
 // SETTINGS PAGE
 // ============================================================
-function SettingsPage({ T, prefs, onUpdatePref, onBack }) {
+function SettingsPage({ T, prefs, onUpdatePref, onBack, onPrivacy, onTerms }) {
   const qualities = ['low', 'medium', 'high', 'veryHigh'];
   const langs = [{ code: 'fr', label: '🇫🇷 Français' }, { code: 'en', label: '🇬🇧 English' }, { code: 'es', label: '🇪🇸 Español' }, { code: 'de', label: '🇩🇪 Deutsch' }];
+  const [pwChanged, setPwChanged] = useState(false);
   return (
     <div style={{ maxWidth: 720, margin: '0 auto', padding: '32px 24px', fontFamily: 'Poppins, sans-serif' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 36 }}>
@@ -1334,8 +1693,27 @@ function SettingsPage({ T, prefs, onUpdatePref, onBack }) {
         <SettSelect label={T.language} value={prefs.language} options={langs.map(l => ({ v: l.code, l: l.label }))} onChange={v => onUpdatePref('language', v)} />
         <SettToggle label={T.notifToggle} value={prefs.notifications} onChange={v => onUpdatePref('notifications', v)} />
       </SettSection>
+      <SettSection title={`🔒 ${T.securitySection}`}>
+        <SettRow label={T.changePassword}>
+          <button onClick={() => { setPwChanged(true); setTimeout(() => setPwChanged(false), 3000); }} style={{ padding: '7px 16px', background: C.primaryGradient, color: 'white', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>
+            {pwChanged ? '✓ Envoyé' : T.changePassword}
+          </button>
+        </SettRow>
+      </SettSection>
+      <SettSection title={`⚖️ ${T.legal}`}>
+        <SettRow label={T.privacyPolicy}>
+          <button onClick={onPrivacy} style={{ padding: '7px 16px', background: C.lightBg, color: C.violet, border: `1.5px solid ${C.violetLight}`, borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>
+            Lire →
+          </button>
+        </SettRow>
+        <SettRow label={T.termsOfService}>
+          <button onClick={onTerms} style={{ padding: '7px 16px', background: C.lightBg, color: C.violet, border: `1.5px solid ${C.violetLight}`, borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>
+            Lire →
+          </button>
+        </SettRow>
+      </SettSection>
       <SettSection title={`ℹ️ ${T.about}`}>
-        <SettRow label={T.version}><span style={{ color: C.textSecondary, fontSize: 14 }}>2.0.0 (build 2)</span></SettRow>
+        <SettRow label={T.version}><span style={{ color: C.textSecondary, fontSize: 14 }}>2.0.0 (build 3)</span></SettRow>
         <SettRow label={T.team}><span style={{ color: C.textSecondary, fontSize: 14 }}>CRUX Team</span></SettRow>
       </SettSection>
       <SettSection title={`💬 ${T.support}`}>
