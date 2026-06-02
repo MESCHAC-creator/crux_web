@@ -2404,3 +2404,4 @@ const GLOBAL_CSS = `
   ::-webkit-scrollbar-track { background: ${C.lightBg}; }
   ::-webkit-scrollbar-thumb { background: ${C.violetLight}; border-radius: 3px; }
 `;
+
