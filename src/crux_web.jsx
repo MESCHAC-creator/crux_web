@@ -603,7 +603,8 @@ export default function CruxApp() {
 
   if (page === 'splash') return <><ToastContainer /><SplashScreen T={T} /></>;
   if (!user) return <><ToastContainer /><AuthPage T={T} onSuccess={u => { setUser(u); setPage('dashboard'); }} /></>;
-  if (meeting) return <><ToastContainer /><MeetingRoom meeting={meeting} user={user} T={T} prefs={prefs} onExit={exitMeeting} /></>;
+  if (meeting) return <><ToastContainer /><MeetingErrorBoundary onExit={exitMeeting}><MeetingRoom meeting={meeting} user={user} T={T} prefs={prefs} onExit={exitMeeting} /></MeetingErrorBoundary></>;
+
   if (waiting) return (
     <><ToastContainer />
     <WaitingRoom meeting={waiting} user={user} T={T} prefs={prefs}
@@ -1376,6 +1377,31 @@ function HostCtrlBtn({ icon, label, color, onClick, active }) {
 }
 
 // ============================================================
+// ERROR BOUNDARY
+// ============================================================
+class MeetingErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { hasError: false, error: null }; }
+  static getDerivedStateFromError(error) { return { hasError: true, error }; }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0A0A0A', fontFamily: 'Poppins, sans-serif' }}>
+          <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 20, padding: '40px 36px', maxWidth: 400, textAlign: 'center', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <div style={{ fontSize: 52, marginBottom: 16 }}>⚠️</div>
+            <h3 style={{ color: 'white', fontWeight: 800, margin: '0 0 10px' }}>Erreur dans la réunion</h3>
+            <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, marginBottom: 24 }}>{String(this.state.error?.message || 'Une erreur inattendue s\'est produite.')}</p>
+            <button onClick={this.props.onExit} style={{ padding: '12px 28px', background: 'linear-gradient(135deg,#E74C3C,#8E44AD)', color: 'white', border: 'none', borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>
+              ← Retour au tableau de bord
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// ============================================================
 // MEETING ROOM
 // ============================================================
 function MeetingRoom({ meeting, user, T, prefs, onExit }) {
@@ -1397,6 +1423,8 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
   const [chatInput, setChatInput] = useState('');
   const reactIdRef = useRef(0);
   const isHost = meeting.creatorId === user.uid;
+  const [zegoReady, setZegoReady] = useState(false);
+  const [zegoError, setZegoError] = useState('');
 
   const EMOJI_REACTIONS = ['👍', '❤️', '😂', '🎉', '👏', '🔥', '😮', '🙌'];
 
@@ -1409,23 +1437,38 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
     if (!containerRef.current) return;
     const appID = parseInt(process.env.REACT_APP_ZEGO_APP_ID || '0');
     const secret = process.env.REACT_APP_ZEGO_SERVER_SECRET || '';
-    if (!appID || !secret) return;
-    const token = ZegoUIKitPrebuilt.generateKitTokenForTest(appID, secret, meeting.roomId, user.uid, user.name);
-    const zp = ZegoUIKitPrebuilt.create(token);
-    zpRef.current = zp;
-    zp.joinRoom({
-      container: containerRef.current,
-      scenario: { mode: ZegoUIKitPrebuilt.VideoConference },
-      showScreenSharingButton: true,
-      showPreJoinView: false,
-      turnOnCameraWhenJoining: prefs.defaultCam,
-      turnOnMicrophoneWhenJoining: prefs.defaultMic,
-      onUserCountOrListChanged: list => setCount((list?.length || 0) + 1),
-      onLeaveRoom: handleExit,
-    });
-    return () => { if (zpRef.current) { try { zpRef.current.destroy(); } catch { } zpRef.current = null; } };
+    if (!appID || !secret) {
+      setZegoError('Clés API vidéo manquantes. Vérifiez les variables REACT_APP_ZEGO_APP_ID et REACT_APP_ZEGO_SERVER_SECRET.');
+      return;
+    }
+    let destroyed = false;
+    try {
+      const roomId = meeting.roomId || meeting.id;
+      const token = ZegoUIKitPrebuilt.generateKitTokenForTest(appID, secret, roomId, user.uid, user.name);
+      const zp = ZegoUIKitPrebuilt.create(token);
+      zpRef.current = zp;
+      zp.joinRoom({
+        container: containerRef.current,
+        scenario: { mode: ZegoUIKitPrebuilt.VideoConference },
+        showScreenSharingButton: true,
+        showPreJoinView: false,
+        turnOnCameraWhenJoining: prefs.defaultCam,
+        turnOnMicrophoneWhenJoining: prefs.defaultMic,
+        onUserCountOrListChanged: list => { if (!destroyed) setCount((list?.length || 0) + 1); },
+        onJoinRoom: () => { if (!destroyed) setZegoReady(true); },
+        onLeaveRoom: handleExit,
+      });
+      // Fallback: show video after 4s even if onJoinRoom never fires
+      setTimeout(() => { if (!destroyed) setZegoReady(true); }, 4000);
+    } catch (err) {
+      setZegoError(err.message || 'Erreur de connexion vidéo');
+    }
+    return () => {
+      destroyed = true;
+      if (zpRef.current) { try { zpRef.current.destroy(); } catch { } zpRef.current = null; }
+    };
     // eslint-disable-next-line
-  }, [meeting.roomId, user.uid]);
+  }, [meeting.roomId, meeting.id, user.uid]);
 
   useEffect(() => {
     localStorage.setItem(`crux_notes_${meeting.id}`, notes);
@@ -1481,8 +1524,38 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
     whiteSpace: 'nowrap',
   });
 
+  if (zegoError) {
+    return (
+      <div style={{ minHeight: '100vh', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0A0A0A', fontFamily: 'Poppins, sans-serif' }}>
+        <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 20, padding: '40px 36px', maxWidth: 400, textAlign: 'center', border: '1px solid rgba(255,255,255,0.1)' }}>
+          <div style={{ fontSize: 52, marginBottom: 16 }}>⚠️</div>
+          <h3 style={{ color: 'white', fontWeight: 800, margin: '0 0 10px' }}>Connexion impossible</h3>
+          <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, marginBottom: 24 }}>{zegoError}</p>
+          <button onClick={onExit} style={{ padding: '12px 28px', background: 'linear-gradient(135deg,#E74C3C,#8E44AD)', color: 'white', border: 'none', borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>
+            ← Retour
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="crux-fullscreen" style={{ width: '100vw', background: '#0A0A0A', position: 'relative', fontFamily: 'Poppins, sans-serif', overflow: 'hidden' }}>
+    <div className="crux-fullscreen" style={{ width: '100vw', height: '100vh', minHeight: '100vh', background: '#0A0A0A', position: 'relative', fontFamily: 'Poppins, sans-serif', overflow: 'hidden' }}>
+
+      {/* ── Connecting overlay — hides Zego white flash ── */}
+      {!zegoReady && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 500, background: '#0A0A0A', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
+          <CruxLogo size={72} />
+          <div>
+            <h2 style={{ color: 'white', fontWeight: 800, fontSize: 22, margin: '0 0 8px', textAlign: 'center' }}>{meeting.title}</h2>
+            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, textAlign: 'center', margin: 0 }}>{T.connecting}</p>
+          </div>
+          <div style={{ width: 200, height: 3, background: 'rgba(255,255,255,0.1)', borderRadius: 2, overflow: 'hidden' }}>
+            <div style={{ height: '100%', background: 'linear-gradient(90deg,#E74C3C,#8E44AD)', borderRadius: 2, animation: 'loadBar 4s ease-in-out forwards' }} />
+          </div>
+          <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, margin: 0 }}>ID : {meeting.id}</p>
+        </div>
+      )}
 
       {/* ── Floating emoji reactions (pointer-events: none, above video, below panels) ── */}
       <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 90 }}>
@@ -1594,6 +1667,7 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
       {/* ── ZEGO VIDEO CONTAINER — full screen, unobstructed bottom ── */}
       <div ref={containerRef} style={{
         position: 'absolute', inset: 0,
+        background: '#0A0A0A',
         filter: privacyMode ? 'blur(10px)' : 'none',
         transition: 'filter 0.4s',
         zIndex: 1,
