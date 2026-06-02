@@ -210,6 +210,15 @@ const T_MAP = {
     // Toasts
     successCopied: 'Copié !', successSaved: 'Sauvegardé',
     meetingCreated: 'Réunion créée avec succès',
+    chat: 'Chat',
+    participants: 'Participants',
+    inviteLink: 'Lien d\'invitation',
+    linkCopied: 'Lien copié !',
+    chatPlaceholder: 'Votre message...',
+    noMessages: 'Aucun message',
+    send: 'Envoyer',
+    guestJoin: 'Rejoindre en tant qu\'invité',
+    shareCode: 'Partager le code',
   },
   en: {
     appTagline: 'Premium Video Conferencing',
@@ -281,6 +290,15 @@ const T_MAP = {
     securitySection: 'Security', changePassword: 'Change Password',
     successCopied: 'Copied!', successSaved: 'Saved',
     meetingCreated: 'Meeting created successfully',
+    chat: 'Chat',
+    participants: 'Participants',
+    inviteLink: 'Invite Link',
+    linkCopied: 'Link copied!',
+    chatPlaceholder: 'Your message...',
+    noMessages: 'No messages',
+    send: 'Send',
+    guestJoin: 'Join as guest',
+    shareCode: 'Share code',
   },
   es: {
     appTagline: 'Videoconferencia Premium',
@@ -352,6 +370,15 @@ const T_MAP = {
     securitySection: 'Seguridad', changePassword: 'Cambiar contraseña',
     successCopied: '¡Copiado!', successSaved: 'Guardado',
     meetingCreated: 'Reunión creada con éxito',
+    chat: 'Chat',
+    participants: 'Participantes',
+    inviteLink: 'Enlace de invitación',
+    linkCopied: '¡Enlace copiado!',
+    chatPlaceholder: 'Tu mensaje...',
+    noMessages: 'Sin mensajes',
+    send: 'Enviar',
+    guestJoin: 'Unirse como invitado',
+    shareCode: 'Compartir código',
   },
   de: {
     appTagline: 'Premium-Videokonferenz',
@@ -423,6 +450,15 @@ const T_MAP = {
     securitySection: 'Sicherheit', changePassword: 'Passwort ändern',
     successCopied: 'Kopiert!', successSaved: 'Gespeichert',
     meetingCreated: 'Meeting erfolgreich erstellt',
+    chat: 'Chat',
+    participants: 'Teilnehmer',
+    inviteLink: 'Einladungslink',
+    linkCopied: 'Link kopiert!',
+    chatPlaceholder: 'Ihre Nachricht...',
+    noMessages: 'Keine Nachrichten',
+    send: 'Senden',
+    guestJoin: 'Als Gast beitreten',
+    shareCode: 'Code teilen',
   },
 };
 
@@ -431,6 +467,44 @@ const T_MAP = {
 // ============================================================
 const loadPrefs = () => { try { return JSON.parse(localStorage.getItem('crux_prefs') || '{}'); } catch { return {}; } };
 const savePrefs = (p) => localStorage.setItem('crux_prefs', JSON.stringify(p));
+
+// ============================================================
+// TOAST SYSTEM
+// ============================================================
+const toastListeners = [];
+const showToast = (msg, type = 'success', duration = 3000) => {
+  const id = Date.now() + Math.random();
+  toastListeners.forEach(cb => cb({ id, msg, type, duration }));
+};
+
+function ToastContainer() {
+  const [toasts, setToasts] = useState([]);
+  useEffect(() => {
+    const handler = (t) => {
+      setToasts(p => [...p, t]);
+      setTimeout(() => setToasts(p => p.filter(x => x.id !== t.id)), t.duration + 500);
+    };
+    toastListeners.push(handler);
+    return () => { const i = toastListeners.indexOf(handler); if (i > -1) toastListeners.splice(i, 1); };
+  }, []);
+
+  const colors = { success: C.success, error: C.error, info: C.iceBlue, warning: C.warning };
+  return (
+    <div style={{ position: 'fixed', top: 80, right: 24, zIndex: 9999, display: 'flex', flexDirection: 'column', gap: 10, pointerEvents: 'none' }}>
+      {toasts.map(t => (
+        <div key={t.id} style={{
+          background: 'rgba(20,20,20,0.95)', backdropFilter: 'blur(16px)',
+          color: 'white', borderRadius: 14, padding: '12px 20px',
+          fontSize: 13, fontWeight: 600, fontFamily: 'Poppins, sans-serif',
+          borderLeft: `4px solid ${colors[t.type] || C.success}`,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+          animation: 'slideInRight 0.35s cubic-bezier(0.34,1.56,0.64,1)',
+          minWidth: 220, maxWidth: 340,
+        }}>{t.msg}</div>
+      ))}
+    </div>
+  );
+}
 
 // ============================================================
 // APP ROOT
@@ -442,7 +516,6 @@ export default function CruxApp() {
     ...loadPrefs(),
   }));
   const T = T_MAP[prefs.language] || T_MAP.fr;
-
   const updatePref = useCallback((k, v) => setPrefs(p => { const n = { ...p, [k]: v }; savePrefs(n); return n; }), []);
 
   const [page, setPage] = useState('splash');
@@ -450,8 +523,10 @@ export default function CruxApp() {
   const [meeting, setMeeting] = useState(null);
   const [waiting, setWaiting] = useState(null);
   const [newBadge, setNewBadge] = useState(null);
+  const [pendingJoinCode, setPendingJoinCode] = useState(() => {
+    return new URLSearchParams(window.location.search).get('join') || null;
+  });
   const [showIOSBanner, setShowIOSBanner] = useState(() => {
-    // Show only if iOS + not standalone + not dismissed before
     return isIOS() && !isInStandaloneMode() && !localStorage.getItem('crux_ios_banner_dismissed');
   });
 
@@ -477,6 +552,40 @@ export default function CruxApp() {
     return () => clearTimeout(timer);
   }, []);
 
+  // Auto-join from URL param after login
+  useEffect(() => {
+    if (user && pendingJoinCode && page === 'dashboard') {
+      handleJoinByCode(pendingJoinCode, user);
+      setPendingJoinCode(null);
+      // Clean URL
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [user, pendingJoinCode, page]); // eslint-disable-line
+
+  const handleJoinByCode = async (code, u) => {
+    const trimmed = code.trim();
+    if (!trimmed) return;
+    const all = JSON.parse(localStorage.getItem('crux_meetings') || '[]');
+    let found = all.find(m => m.id === trimmed || m.roomId === trimmed);
+    if (!found) {
+      // Cross-device join: meeting exists on another device — join via Zego directly
+      found = {
+        id: trimmed, roomId: trimmed,
+        title: 'Réunion CRUX',
+        type: 'temporary', status: 'ongoing',
+        isLocked: false, isRecording: false,
+        creatorId: null, creatorName: 'Hôte',
+        participants: [], participantCount: 1,
+        createdAt: new Date().toISOString(),
+        description: '',
+      };
+    } else {
+      if (found.isLocked) { showToast('🔒 Cette réunion est verrouillée.', 'error'); return; }
+      try { await MeetingService.joinMeeting(found.id, u.uid); } catch {}
+    }
+    goMeeting({ ...found, createdAt: new Date(found.createdAt) });
+  };
+
   const logout = async () => {
     await AuthService.logout().catch(() => {});
     setUser(null); setMeeting(null); setWaiting(null); setPage('auth');
@@ -492,19 +601,20 @@ export default function CruxApp() {
   };
   const exitMeeting = () => { setMeeting(null); setPage('dashboard'); };
 
-  if (page === 'splash') return <SplashScreen T={T} />;
-  if (!user) return <AuthPage T={T} onSuccess={u => { setUser(u); setPage('dashboard'); }} />;
-  if (meeting) return <MeetingRoom meeting={meeting} user={user} T={T} prefs={prefs} onExit={exitMeeting} />;
+  if (page === 'splash') return <><ToastContainer /><SplashScreen T={T} /></>;
+  if (!user) return <><ToastContainer /><AuthPage T={T} onSuccess={u => { setUser(u); setPage('dashboard'); }} /></>;
+  if (meeting) return <><ToastContainer /><MeetingRoom meeting={meeting} user={user} T={T} prefs={prefs} onExit={exitMeeting} /></>;
   if (waiting) return (
+    <><ToastContainer />
     <WaitingRoom meeting={waiting} user={user} T={T} prefs={prefs}
       onEnter={() => enterMeeting(waiting)} onLeave={() => setWaiting(null)} />
+    </>
   );
 
   return (
     <div style={{ fontFamily: 'Poppins, sans-serif', background: C.lightBg, minHeight: '100vh', minHeight: '-webkit-fill-available' }}>
-      {newBadge && (
-        <BadgeToast badge={newBadge} T={T} onClose={() => setNewBadge(null)} />
-      )}
+      <ToastContainer />
+      {newBadge && <BadgeToast badge={newBadge} T={T} onClose={() => setNewBadge(null)} />}
       {showIOSBanner && (
         <IOSInstallBanner onDismiss={() => {
           setShowIOSBanner(false);
@@ -514,7 +624,7 @@ export default function CruxApp() {
       <Navbar user={user} T={T} prefs={prefs} onLogout={logout}
         onSettings={() => setPage('settings')} onDashboard={() => setPage('dashboard')} />
       <div style={{ paddingTop: '64px' }}>
-        {page === 'dashboard' && <Dashboard user={user} T={T} onJoin={goMeeting} />}
+        {page === 'dashboard' && <Dashboard user={user} T={T} onJoin={goMeeting} onJoinByCode={(code) => handleJoinByCode(code, user)} />}
         {page === 'settings' && (
           <SettingsPage T={T} prefs={prefs} onUpdatePref={updatePref} onBack={() => setPage('dashboard')}
             onPrivacy={() => setPage('privacy')} onTerms={() => setPage('terms')} />
@@ -810,7 +920,7 @@ function AuthPage({ T, onSuccess }) {
 // ============================================================
 // DASHBOARD
 // ============================================================
-function Dashboard({ user, T, onJoin }) {
+function Dashboard({ user, T, onJoin, onJoinByCode }) {
   const [meetings, setMeetings] = useState([]);
   const [loadingMeetings, setLoadingMeetings] = useState(false);
   const [showSchedule, setShowSchedule] = useState(false);
@@ -835,7 +945,7 @@ function Dashboard({ user, T, onJoin }) {
     try {
       const m = await MeetingService.createMeeting(`Réunion de ${user.name}`, user.uid, user.name, 'temporary');
       setMeetings(p => [m, ...p]); onJoin(m);
-    } catch (e) { alert(e.message); } finally { setCreating(false); }
+    } catch (e) { showToast(e.message, 'error'); } finally { setCreating(false); }
   };
 
   const createScheduled = async () => {
@@ -845,19 +955,14 @@ function Dashboard({ user, T, onJoin }) {
       const m = await MeetingService.createMeeting(newTitle, user.uid, user.name, newType, newDesc);
       setMeetings(p => [m, ...p]);
       setNewTitle(''); setNewDesc(''); setNewType('temporary'); setShowSchedule(false);
-    } catch (e) { alert(e.message); } finally { setCreating(false); }
+      showToast(T.meetingCreated, 'success');
+    } catch (e) { showToast(e.message, 'error'); } finally { setCreating(false); }
   };
 
   const joinByCode = async () => {
     const code = joinCode.trim(); if (!code) return;
-    try {
-      const all = JSON.parse(localStorage.getItem('crux_meetings') || '[]');
-      const found = all.find(m => m.id === code || m.roomId === code);
-      if (!found) { alert('Aucune réunion trouvée avec ce code.'); return; }
-      await MeetingService.joinMeeting(found.id, user.uid);
-      onJoin({ ...found, createdAt: new Date(found.createdAt) });
-      setJoinCode(''); setShowJoinCode(false);
-    } catch (e) { alert(e.message); }
+    onJoinByCode(code);
+    setJoinCode(''); setShowJoinCode(false);
   };
 
   const xpLevel = Math.floor(stats.xp / 100) + 1;
@@ -1118,6 +1223,16 @@ function WaitingRoom({ meeting, user, T, prefs, onEnter, onLeave }) {
   return (
     <div className="crux-fullscreen crux-scroll" style={{ fontFamily: 'Poppins, sans-serif', background: 'linear-gradient(160deg, #FFF5F5 0%, #FCEEFF 50%, #F0F8FF 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, position: 'relative', overflow: 'hidden' }}>
       <SmokeBlobs />
+      {/* Back to dashboard — top left */}
+      <button onClick={onLeave} style={{
+        position: 'absolute', top: 20, left: 20, zIndex: 10,
+        display: 'flex', alignItems: 'center', gap: 8,
+        padding: '10px 18px', background: 'rgba(255,255,255,0.88)', backdropFilter: 'blur(12px)',
+        border: `1.5px solid ${C.border}`, borderRadius: 12,
+        color: C.textPrimary, fontWeight: 700, fontSize: 13,
+        cursor: 'pointer', fontFamily: 'Poppins, sans-serif',
+        boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+      }}>← {T.back}</button>
       <div style={{ background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(20px)', borderRadius: 28, padding: '48px 40px', maxWidth: 520, width: '100%', boxShadow: '0 32px 80px rgba(0,0,0,0.10)', border: '1px solid rgba(255,255,255,0.8)', position: 'relative', zIndex: 1, textAlign: 'center' }}>
         <div style={{ width: 100, height: 100, borderRadius: '50%', margin: '0 auto 24px', background: C.primaryGradient, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 44, transform: `scale(${pulseSize})`, transition: 'transform 1.2s ease-in-out', boxShadow: `0 0 0 12px ${C.fireGlow}, 0 0 0 24px ${C.smokeWarm}` }}>⏳</div>
         <h2 style={{ fontSize: 24, fontWeight: 800, color: C.textPrimary, margin: '0 0 6px' }}>{T.waitingRoom}</h2>
@@ -1171,14 +1286,24 @@ function WaitingRoom({ meeting, user, T, prefs, onEnter, onLeave }) {
           ))}
         </div>
 
-        {/* Meeting code */}
-        <div style={{ background: C.lightBg, borderRadius: 12, padding: '12px 16px', marginBottom: 24, border: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ textAlign: 'left' }}>
-            <p style={{ fontSize: 11, color: C.textTertiary, margin: 0 }}>Code de réunion</p>
-            <p style={{ fontSize: 13, fontWeight: 700, color: C.textPrimary, margin: 0, fontFamily: 'monospace' }}>{meeting.id}</p>
+        {/* Meeting code + invite link */}
+        <div style={{ background: C.lightBg, borderRadius: 12, padding: '14px 16px', marginBottom: 24, border: `1px solid ${C.border}` }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <div style={{ textAlign: 'left' }}>
+              <p style={{ fontSize: 11, color: C.textTertiary, margin: 0 }}>Code de réunion</p>
+              <p style={{ fontSize: 18, fontWeight: 800, color: C.textPrimary, margin: 0, fontFamily: 'monospace', letterSpacing: 2 }}>{meeting.id}</p>
+            </div>
+            <button onClick={copyCode} style={{ padding: '8px 14px', background: copied ? `${C.success}20` : C.primaryGradient, border: 'none', borderRadius: 10, fontSize: 12, cursor: 'pointer', color: copied ? C.success : 'white', fontFamily: 'Poppins, sans-serif', fontWeight: 700, transition: 'all 0.2s' }}>
+              {copied ? '✓ Copié' : '📋 Code'}
+            </button>
           </div>
-          <button onClick={copyCode} style={{ padding: '6px 12px', background: copied ? `${C.success}20` : C.mediumBg, border: `1px solid ${copied ? C.success : C.border}`, borderRadius: 8, fontSize: 12, cursor: 'pointer', color: copied ? C.success : C.textSecondary, fontFamily: 'Poppins, sans-serif', transition: 'all 0.2s' }}>
-            {copied ? '✓ Copié' : '📋 Copier'}
+          <button onClick={() => {
+            const link = `${window.location.origin}${window.location.pathname}?join=${meeting.id}`;
+            navigator.clipboard?.writeText(link).catch(() => {});
+            setCopied(true); setTimeout(() => setCopied(false), 2000);
+            showToast('🔗 Lien d\'invitation copié !', 'success');
+          }} style={{ width: '100%', padding: '10px', background: `${C.violet}12`, border: `1.5px solid ${C.violetLight}`, borderRadius: 10, fontSize: 13, cursor: 'pointer', color: C.violet, fontFamily: 'Poppins, sans-serif', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            🔗 Copier le lien d'invitation
           </button>
         </div>
 
@@ -1267,6 +1392,9 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
   const [reactions, setReactions] = useState([]);
   const [privacyMode, setPrivacyMode] = useState(false);
   const [showHostControls, setShowHostControls] = useState(false);
+  const [showChat, setShowChat] = useState(false);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState('');
   const reactIdRef = useRef(0);
   const isHost = meeting.creatorId === user.uid;
 
@@ -1302,6 +1430,24 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
   useEffect(() => {
     localStorage.setItem(`crux_notes_${meeting.id}`, notes);
   }, [notes, meeting.id]);
+
+  useEffect(() => {
+    const loadChat = async () => {
+      const msgs = await MeetingService.getChatMessages(meeting.id);
+      setChatMessages(msgs);
+    };
+    loadChat();
+    const interval = setInterval(loadChat, 3000);
+    return () => clearInterval(interval);
+  }, [meeting.id]);
+
+  const sendChatMessage = async () => {
+    if (!chatInput.trim()) return;
+    await MeetingService.saveChatMessage(meeting.id, user.uid, user.name, chatInput.trim());
+    setChatInput('');
+    const msgs = await MeetingService.getChatMessages(meeting.id);
+    setChatMessages(msgs);
+  };
 
   const handleExit = async () => {
     try { await MeetingService.endMeeting(meeting.id, meeting.type); } catch { }
@@ -1360,6 +1506,13 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
           <span style={{ color: 'white', fontWeight: 700, fontSize: 14, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {meeting.title}
           </span>
+          <button onClick={() => {
+            const link = `${window.location.origin}${window.location.pathname}?join=${meeting.id}`;
+            navigator.clipboard?.writeText(link).catch(() => {});
+            showToast('🔗 Lien copié !', 'success');
+          }} style={{ height: 28, padding: '0 10px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.12)', color: 'white', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'Poppins, sans-serif', display: 'flex', alignItems: 'center', gap: 4, backdropFilter: 'blur(8px)' }}>
+            🔗 Inviter
+          </button>
           <span style={{ background: C.flamePrimary, color: 'white', fontSize: 10, fontWeight: 800, padding: '2px 7px', borderRadius: 5, letterSpacing: 1, animation: 'recPulse 2s infinite' }}>⏺ REC</span>
           {handRaised && (
             <span style={{ background: C.accentOrange, color: 'white', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 5, animation: 'recPulse 1s infinite' }}>✋</span>
@@ -1400,13 +1553,18 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
             ✋ {T.raiseHand}
           </button>
 
+          {/* Chat */}
+          <button onClick={() => { setShowChat(v => !v); setShowNotes(false); setShowPoll(false); }} style={toolBtn(showChat, C.success)}>
+            💬 {T.chat}
+          </button>
+
           {/* Notes */}
-          <button onClick={() => { setShowNotes(v => !v); setShowPoll(false); }} style={toolBtn(showNotes, C.iceBlue)}>
+          <button onClick={() => { setShowNotes(v => !v); setShowPoll(false); setShowChat(false); }} style={toolBtn(showNotes, C.iceBlue)}>
             📝 {T.notes}
           </button>
 
           {/* Polls */}
-          <button onClick={() => { setShowPoll(v => !v); setShowNotes(false); }} style={toolBtn(showPoll, C.violet)}>
+          <button onClick={() => { setShowPoll(v => !v); setShowNotes(false); setShowChat(false); }} style={toolBtn(showPoll, C.violet)}>
             📊 {T.polls}
           </button>
 
@@ -1464,6 +1622,52 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
           </div>
           <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder={T.notesPlaceholder}
             style={{ flex: 1, padding: '14px', border: 'none', resize: 'none', fontFamily: 'Poppins, sans-serif', fontSize: 13, color: C.textPrimary, background: 'transparent', outline: 'none', lineHeight: 1.7 }} />
+        </div>
+      )}
+
+      {/* ── CHAT PANEL — right side ── */}
+      {showChat && (
+        <div style={{
+          position: 'absolute', right: 0, top: 0, bottom: 0, width: 320, zIndex: 250,
+          background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(16px)',
+          boxShadow: '-8px 0 32px rgba(0,0,0,0.3)',
+          display: 'flex', flexDirection: 'column',
+        }}>
+          <div style={{ padding: '60px 16px 12px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontWeight: 700, fontSize: 14, color: C.textPrimary }}>💬 {T.chat}</span>
+            <button onClick={() => setShowChat(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: C.textTertiary, lineHeight: 1 }}>×</button>
+          </div>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {chatMessages.length === 0 ? (
+              <div style={{ textAlign: 'center', paddingTop: 40, color: C.textTertiary, fontSize: 13 }}>
+                <div style={{ fontSize: 36, marginBottom: 8 }}>💬</div>
+                {T.noMessages}
+              </div>
+            ) : chatMessages.map(m => (
+              <div key={m.id} style={{ display: 'flex', flexDirection: 'column', alignItems: m.userId === user.uid ? 'flex-end' : 'flex-start' }}>
+                <span style={{ fontSize: 10, color: C.textTertiary, marginBottom: 3, fontWeight: 600 }}>{m.userId === user.uid ? 'Vous' : m.userName}</span>
+                <div style={{
+                  maxWidth: '85%', padding: '8px 12px', borderRadius: m.userId === user.uid ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
+                  background: m.userId === user.uid ? C.primaryGradient : C.lightBg,
+                  color: m.userId === user.uid ? 'white' : C.textPrimary,
+                  fontSize: 13, lineHeight: 1.5,
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                }}>{m.message}</div>
+                <span style={{ fontSize: 10, color: C.textTertiary, marginTop: 2 }}>
+                  {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div style={{ padding: '12px 16px', borderTop: `1px solid ${C.border}`, display: 'flex', gap: 8 }}>
+            <input value={chatInput} onChange={e => setChatInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && sendChatMessage()}
+              placeholder={T.chatPlaceholder}
+              style={{ ...fieldStyle, flex: 1, fontSize: 13, padding: '10px 14px' }} />
+            <button onClick={sendChatMessage} style={{ padding: '10px 14px', background: C.primaryGradient, color: 'white', border: 'none', borderRadius: 10, cursor: 'pointer', fontWeight: 700, fontSize: 13, flexShrink: 0 }}>
+              ➤
+            </button>
+          </div>
         </div>
       )}
 
