@@ -1,53 +1,58 @@
 import { AuthService, MeetingService } from './services/LocalStorageService';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { ZegoUIKitPrebuilt } from '@zegocloud/zego-uikit-prebuilt';
 
 // ============================================================
-// LOGO COMPONENT (matches uploaded brand icon)
+// LOGO — caméra vidéo dans carré arrondi (identique crux_new_final)
 // ============================================================
-function CruxLogo({ size = 36 }) {
-  const r = size * 0.22;
+function CruxLogo({ size = 36, dark = false }) {
+  const id = `clg${size}`;
   return (
-    <svg width={size} height={size} viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-      <rect width="200" height="200" rx="44" fill="url(#lg)"/>
+    <svg width={size} height={size} viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
       <defs>
-        <linearGradient id="lg" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#E74C3C"/>
-          <stop offset="100%" stopColor="#8E44AD"/>
+        <linearGradient id={id} x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#FF4081"/>
+          <stop offset="100%" stopColor="#AA00FF"/>
         </linearGradient>
       </defs>
-      {/* left top bar */}
-      <rect x="56" y="34" width="20" height="54" rx="7" fill="white"/>
-      {/* left bottom bar */}
-      <rect x="56" y="106" width="20" height="54" rx="7" fill="white"/>
-      {/* play triangle */}
-      <polygon points="78,38 154,100 78,162" fill="white"/>
-      {/* horizontal cut to separate bars from triangle (creates the cross gap) */}
-      <rect x="78" y="92" width="76" height="16" fill="url(#lg)"/>
-      {/* horizontal white connector bar */}
-      <rect x="56" y="92" width="80" height="16" fill="white"/>
+      <rect width="100" height="100" rx="22" fill={dark ? 'rgba(255,255,255,0.12)' : `url(#${id})`}/>
+      {/* Corps caméra */}
+      <rect x="10" y="30" width="55" height="40" rx="8" fill="white"/>
+      {/* Objectif */}
+      <circle cx="37" cy="50" r="13" fill={`url(#${id})`}/>
+      <circle cx="37" cy="50" r="7" fill="white"/>
+      {/* Triangle viewfinder */}
+      <polygon points="65,36 90,24 90,76 65,64" fill="white"/>
     </svg>
   );
 }
 
 // ============================================================
-// COULEURS
+// COULEURS (light + dark, identiques à crux_new_final)
 // ============================================================
 const C = {
+  // Primaire
   flamePrimary:  '#FF4F38',
   flameLight:    '#FF6B52',
   flameDark:     '#E63D28',
   primary:       '#E74C3C',
   primaryDark:   '#C0392B',
   primaryLight:  '#F8706E',
+  // Violet/Purple
   violet:        '#8E44AD',
   violetDark:    '#6C3483',
   violetLight:   '#BB8FCE',
   accentViolet:  '#9B59B6',
+  // Pink/Purple (crux_new_final splash)
+  pink:          '#FF4081',
+  pinkDark:      '#C51162',
+  purpleBright:  '#AA00FF',
+  purpleMid:     '#6200EA',
+  // Accent
   accentOrange:  '#FF9800',
   accentGolden:  '#FFB74D',
   iceBlue:       '#1E88E5',
   iceLight:      '#42A5F5',
+  // Light theme
   white:         '#FFFFFF',
   snowWhite:     '#FAFAFA',
   lightBg:       '#F8F9FA',
@@ -58,18 +63,33 @@ const C = {
   textPrimary:   '#1A1A1A',
   textSecondary: '#555555',
   textTertiary:  '#999999',
+  // Dark theme (crux_new_final)
+  darkBg:        '#0D0020',
+  darkBg2:       '#1A0035',
+  darkBg3:       '#4A0050',
+  darkSurface:   '#1E0040',
+  darkBorder:    'rgba(255,255,255,0.12)',
+  darkText:      '#FFFFFF',
+  darkTextSub:   'rgba(255,255,255,0.7)',
+  darkTextMuted: 'rgba(255,255,255,0.4)',
+  // Status
   success:       '#27AE60',
   error:         '#E74C3C',
   warning:       '#F39C12',
   info:          '#3498DB',
-  fireGradient:   'linear-gradient(135deg, #FF4F38, #FF6B4A, #FF9800)',
-  primaryGradient:'linear-gradient(135deg, #E74C3C, #8E44AD)',
-  luxeGradient:   'linear-gradient(135deg, #FF4F38, #FF9800, #1E88E5)',
-  premiumGradient:'linear-gradient(135deg, #F8706E, #BB8FCE, #FFFFFF)',
-  fireGlow:  'rgba(255,79,56,0.18)',
-  iceGlow:   'rgba(30,136,229,0.15)',
-  violetGlow:'rgba(142,68,173,0.15)',
-  smokeWarm: 'rgba(255,79,56,0.08)',
+  // Gradients
+  fireGradient:    'linear-gradient(135deg, #FF4F38, #FF6B4A, #FF9800)',
+  primaryGradient: 'linear-gradient(135deg, #E74C3C, #8E44AD)',
+  pinkPurple:      'linear-gradient(135deg, #FF4081, #AA00FF)',
+  darkSplash:      'linear-gradient(160deg, #0D0020 0%, #4A0050 50%, #220040 100%)',
+  luxeGradient:    'linear-gradient(135deg, #FF4F38, #FF9800, #1E88E5)',
+  // Glow
+  fireGlow:    'rgba(255,79,56,0.18)',
+  pinkGlow:    'rgba(255,64,129,0.25)',
+  purpleGlow:  'rgba(170,0,255,0.2)',
+  iceGlow:     'rgba(30,136,229,0.15)',
+  violetGlow:  'rgba(142,68,173,0.15)',
+  smokeWarm:   'rgba(255,79,56,0.08)',
 };
 
 // ============================================================
@@ -664,62 +684,121 @@ function BadgeToast({ badge, T, onClose }) {
 }
 
 // ============================================================
-// SPLASH SCREEN
+// SPLASH SCREEN — dark purple + particles (crux_new_final style)
 // ============================================================
 function SplashScreen({ T }) {
-  const [scale, setScale] = useState(0.3);
-  const [opacity, setOpacity] = useState(0);
-  useEffect(() => { const t = setTimeout(() => { setScale(1); setOpacity(1); }, 100); return () => clearTimeout(t); }, []);
+  const [phase, setPhase] = useState(0); // 0=hidden 1=logo 2=text
+  useEffect(() => {
+    const t1 = setTimeout(() => setPhase(1), 100);
+    const t2 = setTimeout(() => setPhase(2), 700);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, []);
+
+  const particles = Array.from({ length: 18 }, (_, i) => ({
+    x: Math.random() * 100, y: Math.random() * 100,
+    size: 3 + Math.random() * 8, dur: 4 + Math.random() * 6,
+    delay: Math.random() * 4, opacity: 0.15 + Math.random() * 0.35,
+  }));
+
   return (
     <div style={{
-      minHeight: '100vh', display: 'flex', flexDirection: 'column',
+      minHeight: '100vh', height: '100vh', display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center',
-      background: 'linear-gradient(160deg, #FFF5F5 0%, #FCEEFF 50%, #F0F8FF 100%)',
+      background: C.darkSplash,
       fontFamily: 'Poppins, sans-serif', overflow: 'hidden', position: 'relative',
     }}>
-      <SmokeBlobs />
-      <div style={{ transform: `scale(${scale})`, opacity, transition: 'all 0.8s cubic-bezier(0.34,1.56,0.64,1)', textAlign: 'center', zIndex: 10 }}>
-        <div style={{ margin: '0 auto 28px', display: 'flex', justifyContent: 'center' }}>
-          <CruxLogo size={140} />
+      {/* Ripple rings */}
+      {[1, 2, 3].map(i => (
+        <div key={i} style={{
+          position: 'absolute', borderRadius: '50%',
+          border: '1px solid rgba(255,64,129,0.25)',
+          width: i * 160, height: i * 160,
+          animation: `rippleGrow ${2.4 + i * 0.4}s ease-out infinite`,
+          animationDelay: `${i * 0.6}s`,
+          pointerEvents: 'none',
+        }} />
+      ))}
+      {/* Floating particles */}
+      {particles.map((p, i) => (
+        <div key={i} style={{
+          position: 'absolute', left: `${p.x}%`, top: `${p.y}%`,
+          width: p.size, height: p.size, borderRadius: '50%',
+          background: i % 2 === 0 ? C.pink : C.purpleBright,
+          opacity: p.opacity, pointerEvents: 'none',
+          animation: `particleFloat ${p.dur}s ease-in-out infinite`,
+          animationDelay: `${p.delay}s`,
+        }} />
+      ))}
+      {/* Logo */}
+      <div style={{
+        transform: phase >= 1 ? 'scale(1)' : 'scale(0.3)',
+        opacity: phase >= 1 ? 1 : 0,
+        transition: 'all 0.9s cubic-bezier(0.34,1.56,0.64,1)',
+        textAlign: 'center', zIndex: 10,
+      }}>
+        <div style={{
+          width: 110, height: 110, borderRadius: 28, margin: '0 auto 28px',
+          background: C.pinkPurple, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: `0 0 0 12px ${C.pinkGlow}, 0 0 0 28px rgba(255,64,129,0.08), 0 20px 60px ${C.pinkGlow}`,
+          animation: 'pulse 2.5s ease-in-out infinite',
+        }}>
+          <svg width="60" height="60" viewBox="0 0 100 100">
+            <rect x="10" y="28" width="55" height="44" rx="10" fill="white"/>
+            <circle cx="37" cy="50" r="14" fill={C.pinkPurple}/>
+            <circle cx="37" cy="50" r="7" fill="white"/>
+            <polygon points="65,34 90,22 90,78 65,66" fill="white"/>
+          </svg>
         </div>
         <h1 style={{
-          fontSize: 56, fontWeight: 900, letterSpacing: 3, margin: '0 0 8px',
-          background: C.primaryGradient, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+          fontSize: 72, fontWeight: 900, letterSpacing: 8, margin: '0 0 8px', color: 'white',
+          textShadow: `0 0 40px ${C.pinkGlow}`,
+          opacity: phase >= 2 ? 1 : 0, transform: phase >= 2 ? 'translateY(0)' : 'translateY(20px)',
+          transition: 'all 0.7s cubic-bezier(0.34,1.56,0.64,1) 0.2s',
         }}>CRUX</h1>
-        <p style={{ fontSize: 16, fontWeight: 500, color: C.textSecondary, margin: '0 0 48px' }}>{T.appTagline}</p>
-        <div style={{ width: 200, height: 4, background: C.mediumBg, borderRadius: 2, margin: '0 auto 16px', overflow: 'hidden' }}>
-          <div style={{ height: '100%', borderRadius: 2, background: C.primaryGradient, animation: 'loadBar 2s ease-in-out forwards' }} />
+        <p style={{
+          fontSize: 15, fontWeight: 400, color: C.darkTextSub, margin: '0 0 48px',
+          opacity: phase >= 2 ? 1 : 0, transform: phase >= 2 ? 'translateY(0)' : 'translateY(16px)',
+          transition: 'all 0.7s cubic-bezier(0.34,1.56,0.64,1) 0.35s',
+        }}>{T.appTagline}</p>
+        <div style={{
+          width: 200, height: 3, background: 'rgba(255,255,255,0.1)', borderRadius: 2, margin: '0 auto 16px', overflow: 'hidden',
+          opacity: phase >= 2 ? 1 : 0, transition: 'opacity 0.5s 0.5s',
+        }}>
+          <div style={{ height: '100%', borderRadius: 2, background: C.pinkPurple, animation: 'loadBar 2.2s ease-in-out forwards' }} />
         </div>
-        <p style={{ fontSize: 14, color: C.textTertiary }}>{T.loading}</p>
+        <p style={{ fontSize: 13, color: C.darkTextMuted, opacity: phase >= 2 ? 1 : 0, transition: 'opacity 0.5s 0.6s' }}>{T.loading}</p>
       </div>
     </div>
   );
 }
 
 // ============================================================
-// SMOKE BLOBS
+// ANIMATED CIRCLES (crux_new_final auth background)
 // ============================================================
-function SmokeBlobs() {
-  const blobs = [
-    { w: 500, h: 500, top: '-150px', left: '-150px', color: C.flamePrimary, op: 0.08, dur: '12s' },
-    { w: 400, h: 400, bottom: '-100px', right: '-100px', color: C.violet, op: 0.07, dur: '15s', delay: '3s' },
-    { w: 300, h: 300, top: '30%', right: '15%', color: C.accentOrange, op: 0.06, dur: '18s', delay: '6s' },
-    { w: 250, h: 250, bottom: '20%', left: '10%', color: C.violetLight, op: 0.08, dur: '10s', delay: '2s' },
+function AnimatedCircles() {
+  const circles = [
+    { size: 320, top: '-80px', left: '-80px', color: C.pink, op: 0.12, dur: '8s' },
+    { size: 260, bottom: '-60px', right: '-60px', color: C.purpleBright, op: 0.10, dur: '11s', delay: '2s' },
+    { size: 180, top: '40%', right: '8%', color: C.primary, op: 0.09, dur: '14s', delay: '4s' },
+    { size: 140, bottom: '25%', left: '6%', color: C.violetLight, op: 0.12, dur: '9s', delay: '1s' },
+    { size: 90, top: '20%', left: '50%', color: C.pink, op: 0.08, dur: '16s', delay: '5s' },
   ];
   return (
     <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 0 }}>
-      {blobs.map((b, i) => (
+      {circles.map((b, i) => (
         <div key={i} style={{
-          position: 'absolute', width: b.w, height: b.h, borderRadius: '50%',
+          position: 'absolute', width: b.size, height: b.size, borderRadius: '50%',
           background: `radial-gradient(circle, ${b.color} 0%, transparent 70%)`,
           opacity: b.op, top: b.top, bottom: b.bottom, left: b.left, right: b.right,
-          filter: 'blur(40px)',
+          filter: 'blur(50px)',
           animation: `blobFloat ${b.dur} ease-in-out infinite ${b.delay || ''}`,
         }} />
       ))}
     </div>
   );
 }
+
+function SmokeBlobs() { return <AnimatedCircles />; }
 
 // ============================================================
 // NAVBAR
@@ -849,71 +928,109 @@ function AuthPage({ T, onSuccess }) {
     finally { setLoading(false); }
   };
 
+  const [angle, setAngle] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setAngle(a => (a + 0.3) % 360), 40);
+    return () => clearInterval(t);
+  }, []);
+
   return (
     <div style={{
       minHeight: '100vh', display: 'flex', fontFamily: 'Poppins, sans-serif',
-      background: 'linear-gradient(160deg, #FFF5F5 0%, #FCEEFF 50%, #F0F8FF 100%)',
+      background: C.darkSplash,
       position: 'relative', overflow: 'hidden',
     }}>
-      <SmokeBlobs />
+      {/* Rotating gradient overlay */}
+      <div style={{
+        position: 'absolute', inset: 0, zIndex: 0,
+        background: `conic-gradient(from ${angle}deg at 50% 50%, ${C.primary}22, ${C.pink}18, ${C.purpleBright}15, ${C.violet}20, ${C.primary}22)`,
+        transition: 'none',
+      }} />
+      <AnimatedCircles />
       {showForgot && <ForgotPasswordModal T={T} onClose={() => setShowForgot(false)} />}
       <div style={{ width: '100%', maxWidth: 480, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', position: 'relative', zIndex: 1 }}>
-        <div style={{ background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(20px)', borderRadius: 24, padding: '48px 40px', width: '100%', boxShadow: '0 32px 80px rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.04)' }}>
+        <div style={{
+          background: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(24px)',
+          border: '1px solid rgba(255,255,255,0.15)',
+          borderRadius: 28, padding: '44px 38px', width: '100%',
+          boxShadow: `0 32px 80px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.06)`,
+        }}>
           <div style={{ textAlign: 'center', marginBottom: 32 }}>
-            <div style={{ margin: '0 auto 16px', display: 'flex', justifyContent: 'center' }}><CruxLogo size={72} /></div>
-            <h1 style={{ fontSize: 28, fontWeight: 900, margin: '0 0 4px', background: C.primaryGradient, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>CRUX</h1>
-            <p style={{ fontSize: 13, color: C.textSecondary, margin: 0 }}>{T.appTagline}</p>
+            <div style={{
+              width: 80, height: 80, borderRadius: 22, margin: '0 auto 18px',
+              background: C.pinkPurple, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: `0 8px 30px ${C.pinkGlow}`,
+            }}>
+              <svg width="44" height="44" viewBox="0 0 100 100">
+                <rect x="10" y="28" width="55" height="44" rx="10" fill="white"/>
+                <circle cx="37" cy="50" r="14" fill={C.pinkPurple}/>
+                <circle cx="37" cy="50" r="7" fill="white"/>
+                <polygon points="65,34 90,22 90,78 65,66" fill="white"/>
+              </svg>
+            </div>
+            <h1 style={{ fontSize: 32, fontWeight: 900, margin: '0 0 4px', color: 'white', letterSpacing: 3 }}>CRUX</h1>
+            <p style={{ fontSize: 13, color: C.darkTextSub, margin: 0 }}>{T.appTagline}</p>
           </div>
-          <div style={{ display: 'flex', background: C.mediumBg, borderRadius: 12, padding: 4, marginBottom: 28 }}>
+          {/* Tab switcher */}
+          <div style={{ display: 'flex', background: 'rgba(255,255,255,0.08)', borderRadius: 14, padding: 4, marginBottom: 24, border: '1px solid rgba(255,255,255,0.1)' }}>
             {['signIn', 'signUp'].map(m => (
               <button key={m} onClick={() => { setMode(m); setError(''); setConfirmPass(''); }} style={{
-                flex: 1, padding: '10px 0', border: 'none', borderRadius: 10, cursor: 'pointer',
-                fontWeight: 700, fontSize: 14, fontFamily: 'Poppins, sans-serif', transition: 'all 0.2s',
-                background: mode === m ? C.primaryGradient : 'transparent',
-                color: mode === m ? 'white' : C.textSecondary,
-                boxShadow: mode === m ? `0 4px 14px ${C.fireGlow}` : 'none',
+                flex: 1, padding: '10px 0', border: 'none', borderRadius: 11, cursor: 'pointer',
+                fontWeight: 700, fontSize: 14, fontFamily: 'Poppins, sans-serif', transition: 'all 0.25s',
+                background: mode === m ? C.pinkPurple : 'transparent',
+                color: 'white',
+                boxShadow: mode === m ? `0 4px 18px ${C.pinkGlow}` : 'none',
               }}>{m === 'signIn' ? T.signIn : T.signUp}</button>
             ))}
           </div>
-          <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {mode === 'signUp' && <Field icon="👤" placeholder={T.fullName} value={name} onChange={setName} />}
-            <Field icon="✉️" type="email" placeholder={T.email} value={email} onChange={setEmail} />
+          <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {mode === 'signUp' && <DarkField icon="👤" placeholder={T.fullName} value={name} onChange={setName} />}
+            <DarkField icon="✉️" type="email" placeholder={T.email} value={email} onChange={setEmail} />
             <div style={{ position: 'relative' }}>
-              <Field icon="🔒" type={showPass ? 'text' : 'password'} placeholder={T.password} value={pass} onChange={setPass} paddingRight={80} />
-              <button type="button" onClick={() => setShowPass(v => !v)} style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: C.violet, fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>{showPass ? T.hide : T.show}</button>
+              <DarkField icon="🔒" type={showPass ? 'text' : 'password'} placeholder={T.password} value={pass} onChange={setPass} paddingRight={80} />
+              <button type="button" onClick={() => setShowPass(v => !v)} style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: C.violetLight, fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>{showPass ? T.hide : T.show}</button>
             </div>
             {mode === 'signUp' && (
-              <Field icon="🔒" type={showPass ? 'text' : 'password'} placeholder={T.confirmPassword} value={confirmPass} onChange={setConfirmPass} />
+              <DarkField icon="🔒" type={showPass ? 'text' : 'password'} placeholder={T.confirmPassword} value={confirmPass} onChange={setConfirmPass} />
             )}
             {mode === 'signIn' && (
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: C.textSecondary }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: C.darkTextSub }}>
                   <input type="checkbox" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)}
-                    style={{ width: 16, height: 16, accentColor: C.violet, cursor: 'pointer' }} />
+                    style={{ width: 16, height: 16, accentColor: C.pink, cursor: 'pointer' }} />
                   {T.rememberMe}
                 </label>
-                <button type="button" onClick={() => setShowForgot(true)} style={{ background: 'none', border: 'none', color: C.violet, fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'Poppins, sans-serif', padding: 0 }}>
+                <button type="button" onClick={() => setShowForgot(true)} style={{ background: 'none', border: 'none', color: C.violetLight, fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'Poppins, sans-serif', padding: 0 }}>
                   {T.forgotPassword}
                 </button>
               </div>
             )}
-            {error && <div style={{ background: '#FEF2F2', border: `1px solid ${C.error}30`, color: C.error, borderRadius: 10, padding: '10px 14px', fontSize: 13, fontWeight: 500 }}>⚠️ {error}</div>}
-            <button type="submit" disabled={loading} style={{ padding: 14, background: loading ? C.border : C.primaryGradient, color: 'white', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', fontFamily: 'Poppins, sans-serif', marginTop: 4, boxShadow: loading ? 'none' : `0 8px 24px ${C.fireGlow}`, transition: 'all 0.2s' }}>
+            {error && <div style={{ background: 'rgba(231,76,60,0.15)', border: `1px solid rgba(231,76,60,0.4)`, color: '#FF8A80', borderRadius: 10, padding: '10px 14px', fontSize: 13, fontWeight: 500 }}>⚠️ {error}</div>}
+            <button type="submit" disabled={loading} style={{ padding: '15px 0', background: loading ? 'rgba(255,255,255,0.1)' : C.pinkPurple, color: 'white', border: 'none', borderRadius: 14, fontSize: 15, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', fontFamily: 'Poppins, sans-serif', marginTop: 4, boxShadow: loading ? 'none' : `0 8px 28px ${C.pinkGlow}`, transition: 'all 0.2s' }}>
               {loading ? '...' : (mode === 'signIn' ? T.signIn : T.signUp)}
             </button>
           </form>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '20px 0' }}>
-            <div style={{ flex: 1, height: 1, background: C.border }} />
-            <span style={{ fontSize: 12, color: C.textTertiary }}>{T.orContinue}</span>
-            <div style={{ flex: 1, height: 1, background: C.border }} />
-          </div>
-          <button onClick={() => setError('Google Sign-In : configurez Firebase pour activer cette fonctionnalité')} style={{ width: '100%', padding: '12px 0', background: C.white, border: `1.5px solid ${C.border}`, borderRadius: 12, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'Poppins, sans-serif', color: C.textPrimary, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, transition: 'all 0.2s', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-            <span style={{ fontSize: 20, fontWeight: 900, background: 'linear-gradient(135deg,#EA4335,#4285F4)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>G</span>
-            {T.googleBtn}
-          </button>
-          <p style={{ fontSize: 11, color: C.textTertiary, textAlign: 'center', marginTop: 20, lineHeight: 1.6 }}>{T.termsNote}</p>
+          <p style={{ fontSize: 11, color: C.darkTextMuted, textAlign: 'center', marginTop: 20, lineHeight: 1.6 }}>{T.termsNote}</p>
         </div>
       </div>
+    </div>
+  );
+}
+
+// Dark-themed input field for auth
+function DarkField({ icon, type = 'text', placeholder, value, onChange, paddingRight, autoFocus }) {
+  return (
+    <div style={{ position: 'relative' }}>
+      {icon && <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 16, pointerEvents: 'none', opacity: 0.7 }}>{icon}</span>}
+      <input type={type} placeholder={placeholder} value={value} onChange={e => onChange(e.target.value)} autoFocus={autoFocus}
+        style={{
+          width: '100%', padding: '13px 14px', boxSizing: 'border-box',
+          paddingLeft: icon ? 44 : 14, paddingRight: paddingRight || 14,
+          background: 'rgba(255,255,255,0.08)', border: '1.5px solid rgba(255,255,255,0.15)',
+          borderRadius: 12, color: 'white', fontSize: 14,
+          outline: 'none', fontFamily: 'Poppins, sans-serif', transition: 'border-color 0.2s, box-shadow 0.2s',
+        }}
+      />
     </div>
   );
 }
@@ -1406,7 +1523,7 @@ class MeetingErrorBoundary extends React.Component {
 // ============================================================
 function MeetingRoom({ meeting, user, T, prefs, onExit }) {
   const containerRef = useRef(null);
-  const zpRef = useRef(null);
+  const apiRef = useRef(null);
   const [elapsed, setElapsed] = useState(0);
   const [count, setCount] = useState(1);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -1423,8 +1540,8 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
   const [chatInput, setChatInput] = useState('');
   const reactIdRef = useRef(0);
   const isHost = meeting.creatorId === user.uid;
-  const [zegoReady, setZegoReady] = useState(false);
-  const [zegoError, setZegoError] = useState('');
+  const [jitsiReady, setJitsiReady] = useState(false);
+  const [jitsiError, setJitsiError] = useState('');
 
   const EMOJI_REACTIONS = ['👍', '❤️', '😂', '🎉', '👏', '🔥', '😮', '🙌'];
 
@@ -1435,37 +1552,64 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
 
   useEffect(() => {
     if (!containerRef.current) return;
-    const appID = parseInt(process.env.REACT_APP_ZEGO_APP_ID || '0');
-    const secret = process.env.REACT_APP_ZEGO_SERVER_SECRET || '';
-    if (!appID || !secret) {
-      setZegoError('Clés API vidéo manquantes. Vérifiez les variables REACT_APP_ZEGO_APP_ID et REACT_APP_ZEGO_SERVER_SECRET.');
-      return;
-    }
     let destroyed = false;
-    try {
-      const roomId = meeting.roomId || meeting.id;
-      const token = ZegoUIKitPrebuilt.generateKitTokenForTest(appID, secret, roomId, user.uid, user.name);
-      const zp = ZegoUIKitPrebuilt.create(token);
-      zpRef.current = zp;
-      zp.joinRoom({
-        container: containerRef.current,
-        scenario: { mode: ZegoUIKitPrebuilt.VideoConference },
-        showScreenSharingButton: true,
-        showPreJoinView: false,
-        turnOnCameraWhenJoining: prefs.defaultCam,
-        turnOnMicrophoneWhenJoining: prefs.defaultMic,
-        onUserCountOrListChanged: list => { if (!destroyed) setCount((list?.length || 0) + 1); },
-        onJoinRoom: () => { if (!destroyed) setZegoReady(true); },
-        onLeaveRoom: handleExit,
-      });
-      // Fallback: show video after 4s even if onJoinRoom never fires
-      setTimeout(() => { if (!destroyed) setZegoReady(true); }, 4000);
-    } catch (err) {
-      setZegoError(err.message || 'Erreur de connexion vidéo');
+
+    const loadJitsi = () => {
+      const roomName = `crux-${(meeting.roomId || meeting.id).replace(/[^a-zA-Z0-9]/g, '')}`;
+      try {
+        const api = new window.JitsiMeetExternalAPI('meet.jit.si', {
+          roomName,
+          parentNode: containerRef.current,
+          width: '100%',
+          height: '100%',
+          userInfo: { displayName: user.name, email: user.email || '' },
+          configOverwrite: {
+            startWithAudioMuted: !prefs.defaultMic,
+            startWithVideoMuted: !prefs.defaultCam,
+            disableDeepLinking: true,
+            prejoinPageEnabled: false,
+            enableWelcomePage: false,
+            defaultLanguage: 'fr',
+            toolbarButtons: ['microphone', 'camera', 'closedcaptions', 'desktop', 'fullscreen', 'fodeviceselection', 'hangup', 'chat', 'recording', 'livestreaming', 'etherpad', 'sharedvideo', 'settings', 'raisehand', 'videoquality', 'filmstrip', 'feedback', 'stats', 'shortcuts', 'tileview', 'select-background', 'download', 'security'],
+          },
+          interfaceConfigOverwrite: {
+            SHOW_JITSI_WATERMARK: false,
+            SHOW_WATERMARK_FOR_GUESTS: false,
+            SHOW_BRAND_WATERMARK: false,
+            BRAND_WATERMARK_LINK: '',
+            SHOW_POWERED_BY: false,
+            APP_NAME: 'CRUX',
+            NATIVE_APP_NAME: 'CRUX',
+            DEFAULT_BACKGROUND: '#0D0020',
+            DEFAULT_LOCAL_DISPLAY_NAME: user.name,
+          },
+        });
+        apiRef.current = api;
+        api.addEventListener('videoConferenceJoined', () => { if (!destroyed) setJitsiReady(true); });
+        api.addEventListener('videoConferenceLeft', handleExit);
+        api.addEventListener('participantJoined', () => { if (!destroyed) setCount(c => c + 1); });
+        api.addEventListener('participantLeft', () => { if (!destroyed) setCount(c => Math.max(1, c - 1)); });
+        api.addEventListener('errorOccurred', (err) => { if (!destroyed && err?.error?.isFatal) setJitsiError(err.error.message || 'Erreur Jitsi'); });
+        setTimeout(() => { if (!destroyed) setJitsiReady(true); }, 5000);
+      } catch (err) {
+        if (!destroyed) setJitsiError(err.message || 'Impossible de lancer la vidéoconférence');
+      }
+    };
+
+    if (window.JitsiMeetExternalAPI) {
+      loadJitsi();
+    } else {
+      const script = document.createElement('script');
+      script.src = 'https://meet.jit.si/external_api.js';
+      script.async = true;
+      script.onload = () => { if (!destroyed) loadJitsi(); };
+      script.onerror = () => { if (!destroyed) setJitsiError('Impossible de charger le module vidéo. Vérifiez votre connexion.'); };
+      document.head.appendChild(script);
     }
+
     return () => {
       destroyed = true;
-      if (zpRef.current) { try { zpRef.current.destroy(); } catch { } zpRef.current = null; }
+      if (apiRef.current) { try { apiRef.current.dispose(); } catch { } apiRef.current = null; }
     };
     // eslint-disable-next-line
   }, [meeting.roomId, meeting.id, user.uid]);
@@ -1524,14 +1668,14 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
     whiteSpace: 'nowrap',
   });
 
-  if (zegoError) {
+  if (jitsiError) {
     return (
-      <div style={{ minHeight: '100vh', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0A0A0A', fontFamily: 'Poppins, sans-serif' }}>
+      <div style={{ minHeight: '100vh', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0D0020', fontFamily: 'Poppins, sans-serif' }}>
         <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 20, padding: '40px 36px', maxWidth: 400, textAlign: 'center', border: '1px solid rgba(255,255,255,0.1)' }}>
           <div style={{ fontSize: 52, marginBottom: 16 }}>⚠️</div>
           <h3 style={{ color: 'white', fontWeight: 800, margin: '0 0 10px' }}>Connexion impossible</h3>
-          <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, marginBottom: 24 }}>{zegoError}</p>
-          <button onClick={onExit} style={{ padding: '12px 28px', background: 'linear-gradient(135deg,#E74C3C,#8E44AD)', color: 'white', border: 'none', borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>
+          <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, marginBottom: 24 }}>{jitsiError}</p>
+          <button onClick={onExit} style={{ padding: '12px 28px', background: 'linear-gradient(135deg,#FF4081,#AA00FF)', color: 'white', border: 'none', borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>
             ← Retour
           </button>
         </div>
@@ -1542,8 +1686,8 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
   return (
     <div className="crux-fullscreen" style={{ width: '100vw', height: '100vh', minHeight: '100vh', background: '#0A0A0A', position: 'relative', fontFamily: 'Poppins, sans-serif', overflow: 'hidden' }}>
 
-      {/* ── Connecting overlay — hides Zego white flash ── */}
-      {!zegoReady && (
+      {/* ── Connecting overlay — hides Jitsi loading ── */}
+      {!jitsiReady && (
         <div style={{ position: 'absolute', inset: 0, zIndex: 500, background: '#0A0A0A', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
           <CruxLogo size={72} />
           <div>
@@ -1664,7 +1808,7 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
         </div>
       </div>
 
-      {/* ── ZEGO VIDEO CONTAINER — full screen, unobstructed bottom ── */}
+      {/* ── JITSI VIDEO CONTAINER — full screen ── */}
       <div ref={containerRef} style={{
         position: 'absolute', inset: 0,
         background: '#0A0A0A',
@@ -2229,6 +2373,23 @@ const GLOBAL_CSS = `
   @keyframes slideInRight {
     from { transform: translateX(120%); opacity: 0; }
     to   { transform: translateX(0); opacity: 1; }
+  }
+  @keyframes rippleGrow {
+    0%   { transform: translate(-50%,-50%) scale(0.2); opacity: 0.7; }
+    100% { transform: translate(-50%,-50%) scale(2.8); opacity: 0; }
+  }
+  @keyframes particleFloat {
+    0%   { transform: translateY(0) scale(1); opacity: 0.8; }
+    50%  { transform: translateY(-40px) scale(1.15); opacity: 1; }
+    100% { transform: translateY(0) scale(1); opacity: 0.8; }
+  }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 20px rgba(255,64,129,0.25); }
+    50%       { box-shadow: 0 0 48px rgba(255,64,129,0.6), 0 0 80px rgba(170,0,255,0.3); }
+  }
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
   }
 
   input:focus, select:focus, textarea:focus {
