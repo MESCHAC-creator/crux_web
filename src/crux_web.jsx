@@ -1496,7 +1496,7 @@ function HostCtrlBtn({ icon, label, color, onClick, active }) {
 // ============================================================
 // CINETPAY PAYMENT WALL
 // ============================================================
-const FREE_MINUTES = 30;
+const FREE_MINUTES = 2;
 const CINETPAY_SITE_ID = process.env.REACT_APP_CINETPAY_SITE_ID || '';
 const CINETPAY_API_KEY = process.env.REACT_APP_CINETPAY_API_KEY || '';
 const RETURN_URL = window.location.origin + window.location.pathname;
