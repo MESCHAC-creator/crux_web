@@ -1688,15 +1688,15 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
   const EMOJI_REACTIONS = ['👍', '❤️', '😂', '🎉', '👏', '🔥', '😮', '🙌'];
 
   useEffect(() => {
-    const t = setInterval(() => {
-      setElapsed(e => {
-        const next = e + 1;
-        if (next >= FREE_MINUTES * 60 && !paid) setShowPaywall(true);
-        return next;
-      });
-    }, 1000);
+    const t = setInterval(() => setElapsed(e => e + 1), 1000);
     return () => clearInterval(t);
-  }, [paid]);
+  }, []);
+
+  useEffect(() => {
+    if (elapsed >= FREE_MINUTES * 60 && !paid) {
+      setShowPaywall(true);
+    }
+  }, [elapsed, paid]);
 
   // Iframe src — plain iframe avoids the 5-min External API restriction
   const jitsiSrc = React.useMemo(() => {
