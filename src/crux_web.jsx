@@ -1494,6 +1494,146 @@ function HostCtrlBtn({ icon, label, color, onClick, active }) {
 }
 
 // ============================================================
+// CINETPAY PAYMENT WALL
+// ============================================================
+const FREE_MINUTES = 30;
+const CINETPAY_SITE_ID = process.env.REACT_APP_CINETPAY_SITE_ID || '';
+const CINETPAY_API_KEY = process.env.REACT_APP_CINETPAY_API_KEY || '';
+const RETURN_URL = window.location.origin + window.location.pathname;
+
+function PaymentWall({ user, meeting, onPaid, onExit }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  // Check if user already paid for this meeting session
+  const paidKey = `crux_paid_${meeting.id}_${user.uid}`;
+  if (localStorage.getItem(paidKey) === 'yes') { onPaid(); return null; }
+
+  // Check return from CinetPay
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const txId = params.get('cpm_trans_id');
+    const status = params.get('cpm_result');
+    if (txId && status === '00') {
+      localStorage.setItem(paidKey, 'yes');
+      // Clean URL
+      window.history.replaceState({}, '', window.location.pathname);
+      onPaid();
+    }
+  }, []); // eslint-disable-line
+
+  const initPayment = async (plan) => {
+    setLoading(true);
+    setError('');
+    const transId = `CRUX-${Date.now()}-${user.uid.slice(0,6)}`;
+    const amount = plan === 'sub' ? 6500 : 1300; // FCFA
+    const desc = plan === 'sub' ? 'CRUX Pro — Abonnement mensuel' : 'CRUX — Réunion prolongée';
+    const returnUrl = `${RETURN_URL}?join=${meeting.id}`;
+
+    try {
+      const res = await fetch('https://api-checkout.cinetpay.com/v2/payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          apikey: CINETPAY_API_KEY,
+          site_id: CINETPAY_SITE_ID,
+          transaction_id: transId,
+          amount,
+          currency: 'XOF',
+          description: desc,
+          return_url: returnUrl,
+          notify_url: returnUrl,
+          channels: 'ALL',
+          lang: 'fr',
+          metadata: JSON.stringify({ userId: user.uid, meetingId: meeting.id, plan }),
+          customer_name: user.name || 'Utilisateur',
+          customer_email: user.email || 'noreply@crux.app',
+        }),
+      });
+      const data = await res.json();
+      if (data.code === '201' && data.data?.payment_url) {
+        // Save transaction so we can verify on return
+        localStorage.setItem(`crux_tx_${transId}`, meeting.id);
+        window.location.href = data.data.payment_url;
+      } else {
+        setError(data.message || 'Erreur de paiement. Réessayez.');
+        setLoading(false);
+      }
+    } catch {
+      setError('Impossible de contacter le service de paiement. Vérifiez votre connexion.');
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 9999,
+      background: 'rgba(13,0,32,0.96)', backdropFilter: 'blur(20px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontFamily: 'Poppins, sans-serif', padding: 20,
+    }}>
+      <div style={{
+        background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)',
+        borderRadius: 24, padding: '40px 32px', maxWidth: 420, width: '100%', textAlign: 'center',
+      }}>
+        <div style={{ fontSize: 52, marginBottom: 12 }}>⏱️</div>
+        <h2 style={{ color: 'white', fontWeight: 800, fontSize: 22, margin: '0 0 8px' }}>
+          30 minutes écoulées
+        </h2>
+        <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, margin: '0 0 32px', lineHeight: 1.6 }}>
+          La période gratuite est terminée. Choisissez un plan pour continuer votre réunion <strong style={{ color: 'white' }}>{meeting.title}</strong>.
+        </p>
+
+        {/* Plans */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
+          {/* Abonnement */}
+          <button onClick={() => initPayment('sub')} disabled={loading} style={{
+            padding: '18px 24px', borderRadius: 16,
+            background: 'linear-gradient(135deg,#FF4081,#AA00FF)',
+            border: 'none', color: 'white', cursor: loading ? 'not-allowed' : 'pointer',
+            textAlign: 'left', opacity: loading ? 0.7 : 1,
+          }}>
+            <div style={{ fontWeight: 800, fontSize: 16 }}>💎 Pro — Abonnement mensuel</div>
+            <div style={{ fontSize: 13, opacity: 0.85, marginTop: 4 }}>Réunions illimitées · 6 500 FCFA / mois</div>
+          </button>
+
+          {/* À la réunion */}
+          <button onClick={() => initPayment('single')} disabled={loading} style={{
+            padding: '18px 24px', borderRadius: 16,
+            background: 'rgba(255,255,255,0.1)', border: '1.5px solid rgba(255,255,255,0.2)',
+            color: 'white', cursor: loading ? 'not-allowed' : 'pointer',
+            textAlign: 'left', opacity: loading ? 0.7 : 1,
+          }}>
+            <div style={{ fontWeight: 800, fontSize: 16 }}>🎟️ Paiement à la réunion</div>
+            <div style={{ fontSize: 13, opacity: 0.85, marginTop: 4 }}>Cette réunion uniquement · 1 300 FCFA</div>
+          </button>
+        </div>
+
+        {/* Moyens de paiement */}
+        <div style={{ marginBottom: 20 }}>
+          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginBottom: 8 }}>MOYENS DE PAIEMENT ACCEPTÉS</p>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap' }}>
+            {['🟠 Orange Money', '💛 MTN Mobile Money', '🔵 Wave', '💳 Carte bancaire'].map(m => (
+              <span key={m} style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 20, padding: '4px 12px', fontSize: 11, color: 'rgba(255,255,255,0.7)' }}>{m}</span>
+            ))}
+          </div>
+        </div>
+
+        {loading && <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>⏳ Connexion au paiement...</p>}
+        {error && <p style={{ color: '#FF4081', fontSize: 13, marginBottom: 12 }}>⚠️ {error}</p>}
+
+        <button onClick={onExit} style={{
+          background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)',
+          fontSize: 13, cursor: 'pointer', marginTop: 8,
+        }}>
+          Quitter la réunion
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
 // ERROR BOUNDARY
 // ============================================================
 class MeetingErrorBoundary extends React.Component {
@@ -1542,13 +1682,21 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
   const isHost = meeting.creatorId === user.uid;
   const [jitsiReady, setJitsiReady] = useState(false);
   const [jitsiError, setJitsiError] = useState('');
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [paid, setPaid] = useState(() => !!localStorage.getItem(`crux_paid_${meeting.id}_${user?.uid}`));
 
   const EMOJI_REACTIONS = ['👍', '❤️', '😂', '🎉', '👏', '🔥', '😮', '🙌'];
 
   useEffect(() => {
-    const t = setInterval(() => setElapsed(e => e + 1), 1000);
+    const t = setInterval(() => {
+      setElapsed(e => {
+        const next = e + 1;
+        if (next === FREE_MINUTES * 60 && !paid) setShowPaywall(true);
+        return next;
+      });
+    }, 1000);
     return () => clearInterval(t);
-  }, []);
+  }, [paid]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -1667,6 +1815,10 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
     boxShadow: active ? `0 2px 10px ${activeColor}80` : 'none',
     whiteSpace: 'nowrap',
   });
+
+  if (showPaywall && !paid) {
+    return <PaymentWall user={user} meeting={meeting} onPaid={() => { setPaid(true); setShowPaywall(false); }} onExit={handleExit} />;
+  }
 
   if (jitsiError) {
     return (
@@ -1802,6 +1954,17 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
           <span style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12, fontWeight: 500 }}>👥 {count}</span>
           <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>🕐 {fmt(elapsed)}</span>
+          {!paid && elapsed < FREE_MINUTES * 60 && (
+            <span style={{
+              fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
+              background: elapsed > (FREE_MINUTES - 5) * 60 ? 'rgba(255,64,129,0.3)' : 'rgba(255,255,255,0.1)',
+              color: elapsed > (FREE_MINUTES - 5) * 60 ? '#FF4081' : 'rgba(255,255,255,0.5)',
+              border: elapsed > (FREE_MINUTES - 5) * 60 ? '1px solid #FF4081' : 'none',
+            }}>
+              🆓 {fmt(FREE_MINUTES * 60 - elapsed)} restant
+            </span>
+          )}
+          {paid && <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: 'rgba(0,200,100,0.2)', color: '#00C864' }}>✅ Pro</span>}
           <button onClick={() => setShowConfirm(true)} style={{ padding: '7px 14px', background: C.error, color: 'white', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'Poppins, sans-serif', boxShadow: `0 3px 12px rgba(231,76,60,0.45)` }}>
             📞 {T.endMeeting}
           </button>
