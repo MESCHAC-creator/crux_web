@@ -1691,76 +1691,32 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
     const t = setInterval(() => {
       setElapsed(e => {
         const next = e + 1;
-        if (next === FREE_MINUTES * 60 && !paid) setShowPaywall(true);
+        if (next >= FREE_MINUTES * 60 && !paid) setShowPaywall(true);
         return next;
       });
     }, 1000);
     return () => clearInterval(t);
   }, [paid]);
 
+  // Iframe src — plain iframe avoids the 5-min External API restriction
+  const jitsiSrc = React.useMemo(() => {
+    const roomName = `crux${(meeting.roomId || meeting.id).replace(/[^a-zA-Z0-9]/g, '')}`;
+    const params = new URLSearchParams({
+      'config.prejoinPageEnabled': 'false',
+      'config.startWithAudioMuted': String(!prefs.defaultMic),
+      'config.startWithVideoMuted': String(!prefs.defaultCam),
+      'config.disableDeepLinking': 'true',
+      'config.enableWelcomePage': 'false',
+      'config.defaultLanguage': 'fr',
+      'userInfo.displayName': user.name || 'Utilisateur',
+    });
+    return `https://meet.jit.si/${roomName}#${params.toString()}`;
+  }, [meeting.roomId, meeting.id, user.name, prefs.defaultMic, prefs.defaultCam]);
+
   useEffect(() => {
-    if (!containerRef.current) return;
-    let destroyed = false;
-
-    const loadJitsi = () => {
-      const roomName = `crux-${(meeting.roomId || meeting.id).replace(/[^a-zA-Z0-9]/g, '')}`;
-      try {
-        const api = new window.JitsiMeetExternalAPI('meet.jit.si', {
-          roomName,
-          parentNode: containerRef.current,
-          width: '100%',
-          height: '100%',
-          userInfo: { displayName: user.name, email: user.email || '' },
-          configOverwrite: {
-            startWithAudioMuted: !prefs.defaultMic,
-            startWithVideoMuted: !prefs.defaultCam,
-            disableDeepLinking: true,
-            prejoinPageEnabled: false,
-            enableWelcomePage: false,
-            defaultLanguage: 'fr',
-            toolbarButtons: ['microphone', 'camera', 'closedcaptions', 'desktop', 'fullscreen', 'fodeviceselection', 'hangup', 'chat', 'recording', 'livestreaming', 'etherpad', 'sharedvideo', 'settings', 'raisehand', 'videoquality', 'filmstrip', 'feedback', 'stats', 'shortcuts', 'tileview', 'select-background', 'download', 'security'],
-          },
-          interfaceConfigOverwrite: {
-            SHOW_JITSI_WATERMARK: false,
-            SHOW_WATERMARK_FOR_GUESTS: false,
-            SHOW_BRAND_WATERMARK: false,
-            BRAND_WATERMARK_LINK: '',
-            SHOW_POWERED_BY: false,
-            APP_NAME: 'CRUX',
-            NATIVE_APP_NAME: 'CRUX',
-            DEFAULT_BACKGROUND: '#0D0020',
-            DEFAULT_LOCAL_DISPLAY_NAME: user.name,
-          },
-        });
-        apiRef.current = api;
-        api.addEventListener('videoConferenceJoined', () => { if (!destroyed) setJitsiReady(true); });
-        api.addEventListener('videoConferenceLeft', handleExit);
-        api.addEventListener('participantJoined', () => { if (!destroyed) setCount(c => c + 1); });
-        api.addEventListener('participantLeft', () => { if (!destroyed) setCount(c => Math.max(1, c - 1)); });
-        api.addEventListener('errorOccurred', (err) => { if (!destroyed && err?.error?.isFatal) setJitsiError(err.error.message || 'Erreur Jitsi'); });
-        setTimeout(() => { if (!destroyed) setJitsiReady(true); }, 5000);
-      } catch (err) {
-        if (!destroyed) setJitsiError(err.message || 'Impossible de lancer la vidéoconférence');
-      }
-    };
-
-    if (window.JitsiMeetExternalAPI) {
-      loadJitsi();
-    } else {
-      const script = document.createElement('script');
-      script.src = 'https://meet.jit.si/external_api.js';
-      script.async = true;
-      script.onload = () => { if (!destroyed) loadJitsi(); };
-      script.onerror = () => { if (!destroyed) setJitsiError('Impossible de charger le module vidéo. Vérifiez votre connexion.'); };
-      document.head.appendChild(script);
-    }
-
-    return () => {
-      destroyed = true;
-      if (apiRef.current) { try { apiRef.current.dispose(); } catch { } apiRef.current = null; }
-    };
-    // eslint-disable-next-line
-  }, [meeting.roomId, meeting.id, user.uid]);
+    const t = setTimeout(() => setJitsiReady(true), 4000);
+    return () => clearTimeout(t);
+  }, []);
 
   useEffect(() => {
     localStorage.setItem(`crux_notes_${meeting.id}`, notes);
@@ -1971,14 +1927,19 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
         </div>
       </div>
 
-      {/* ── JITSI VIDEO CONTAINER — full screen ── */}
-      <div ref={containerRef} style={{
-        position: 'absolute', inset: 0,
-        background: '#0A0A0A',
-        filter: privacyMode ? 'blur(10px)' : 'none',
-        transition: 'filter 0.4s',
-        zIndex: 1,
-      }} />
+      {/* ── JITSI IFRAME — plain iframe, no 5-min restriction ── */}
+      <iframe
+        src={jitsiSrc}
+        allow="camera; microphone; fullscreen; display-capture; autoplay; clipboard-write"
+        allowFullScreen
+        title="CRUX Meeting"
+        style={{
+          position: 'absolute', inset: 0, width: '100%', height: '100%',
+          border: 'none', background: '#0D0020', zIndex: 1,
+          filter: privacyMode ? 'blur(10px)' : 'none',
+          transition: 'filter 0.4s',
+        }}
+      />
 
       {/* Privacy reveal hint */}
       {privacyMode && (
