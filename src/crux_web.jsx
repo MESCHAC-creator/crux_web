@@ -687,86 +687,120 @@ function BadgeToast({ badge, T, onClose }) {
 // SPLASH SCREEN — dark purple + particles (crux_new_final style)
 // ============================================================
 function SplashScreen({ T }) {
-  const [phase, setPhase] = useState(0); // 0=hidden 1=logo 2=text
+  const [phase, setPhase] = useState(0);
+  const [angle, setAngle] = useState(0);
+
   useEffect(() => {
-    const t1 = setTimeout(() => setPhase(1), 100);
-    const t2 = setTimeout(() => setPhase(2), 700);
+    const iv = setInterval(() => setAngle(a => (a + 0.5) % 360), 40);
+    return () => clearInterval(iv);
+  }, []);
+
+  useEffect(() => {
+    const t1 = setTimeout(() => setPhase(1), 200);
+    const t2 = setTimeout(() => setPhase(2), 900);
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, []);
 
-  const particles = Array.from({ length: 18 }, (_, i) => ({
-    x: Math.random() * 100, y: Math.random() * 100,
-    size: 3 + Math.random() * 8, dur: 4 + Math.random() * 6,
-    delay: Math.random() * 4, opacity: 0.15 + Math.random() * 0.35,
-  }));
+  // 8 particles like Flutter _SplashParticle
+  const particles = Array.from({ length: 8 }, (_, i) => {
+    const rng = (seed) => { let x = Math.sin(seed) * 10000; return x - Math.floor(x); };
+    return {
+      x: rng(i * 17 + 3) * 100,
+      y: rng(i * 17 + 7) * 100,
+      size: 12 + rng(i * 17 + 11) * 50,
+      phase: rng(i * 17 + 13),
+      pink: i % 2 === 0,
+    };
+  });
+
+  const rad = (angle * Math.PI) / 180;
+  const bgStyle = {
+    background: `linear-gradient(${angle}deg, #0D0020 0%, #4A0050 30%, #AA003B 70%, #220040 100%)`,
+  };
 
   return (
     <div style={{
       minHeight: '100vh', height: '100vh', display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center',
-      background: C.darkSplash,
-      fontFamily: 'Poppins, sans-serif', overflow: 'hidden', position: 'relative',
+      alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative',
+      fontFamily: 'Poppins, sans-serif', transition: 'background 0.1s', ...bgStyle,
     }}>
-      {/* Ripple rings */}
-      {[1, 2, 3].map(i => (
+      {/* 3 ripple rings */}
+      {[0, 1, 2].map(i => (
         <div key={i} style={{
-          position: 'absolute', borderRadius: '50%',
-          border: '1px solid rgba(255,64,129,0.25)',
-          width: i * 160, height: i * 160,
-          animation: `rippleGrow ${2.4 + i * 0.4}s ease-out infinite`,
+          position: 'absolute', top: '50%', left: '50%',
+          borderRadius: '50%', border: `2px solid rgba(255,64,129,${0.3 - i * 0.08})`,
+          animation: `rippleGrow ${2.4 + i * 0.8}s ease-out infinite`,
           animationDelay: `${i * 0.6}s`,
+          width: 120, height: 120,
+          transform: 'translate(-50%,-50%)',
           pointerEvents: 'none',
         }} />
       ))}
-      {/* Floating particles */}
+      {/* 8 floating particles */}
       {particles.map((p, i) => (
         <div key={i} style={{
           position: 'absolute', left: `${p.x}%`, top: `${p.y}%`,
           width: p.size, height: p.size, borderRadius: '50%',
-          background: i % 2 === 0 ? C.pink : C.purpleBright,
-          opacity: p.opacity, pointerEvents: 'none',
-          animation: `particleFloat ${p.dur}s ease-in-out infinite`,
-          animationDelay: `${p.delay}s`,
+          background: p.pink ? '#FF4081' : '#AA00FF',
+          opacity: 0.04 + (p.phase * 0.07),
+          animation: `particleFloat ${5 + p.phase * 3}s ease-in-out infinite`,
+          animationDelay: `${p.phase * 3}s`,
+          pointerEvents: 'none',
         }} />
       ))}
       {/* Logo */}
       <div style={{
-        transform: phase >= 1 ? 'scale(1)' : 'scale(0.3)',
+        transform: phase >= 1 ? 'scale(1) rotate(0deg)' : 'scale(0) rotate(-8deg)',
         opacity: phase >= 1 ? 1 : 0,
         transition: 'all 0.9s cubic-bezier(0.34,1.56,0.64,1)',
-        textAlign: 'center', zIndex: 10,
+        textAlign: 'center', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center',
       }}>
         <div style={{
-          width: 110, height: 110, borderRadius: 28, margin: '0 auto 28px',
-          background: C.pinkPurple, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: `0 0 0 12px ${C.pinkGlow}, 0 0 0 28px rgba(255,64,129,0.08), 0 20px 60px ${C.pinkGlow}`,
+          width: 150, height: 150, borderRadius: 42, marginBottom: 44,
+          background: 'linear-gradient(135deg,#FF4081,#AA00FF)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 0 40px rgba(255,64,129,0.6), 0 0 60px rgba(170,0,255,0.4)',
           animation: 'pulse 2.5s ease-in-out infinite',
         }}>
-          <svg width="60" height="60" viewBox="0 0 100 100">
-            <rect x="10" y="28" width="55" height="44" rx="10" fill="white"/>
-            <circle cx="37" cy="50" r="14" fill={C.pinkPurple}/>
-            <circle cx="37" cy="50" r="7" fill="white"/>
-            <polygon points="65,34 90,22 90,78 65,66" fill="white"/>
+          <svg width="76" height="76" viewBox="0 0 100 100">
+            <rect x="8" y="28" width="55" height="44" rx="10" fill="white"/>
+            <circle cx="35" cy="50" r="14" fill="url(#sg)"/>
+            <circle cx="35" cy="50" r="7" fill="white"/>
+            <polygon points="63,34 90,20 90,80 63,66" fill="white"/>
+            <defs><linearGradient id="sg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#FF4081"/><stop offset="100%" stopColor="#AA00FF"/></linearGradient></defs>
           </svg>
         </div>
-        <h1 style={{
-          fontSize: 72, fontWeight: 900, letterSpacing: 8, margin: '0 0 8px', color: 'white',
-          textShadow: `0 0 40px ${C.pinkGlow}`,
-          opacity: phase >= 2 ? 1 : 0, transform: phase >= 2 ? 'translateY(0)' : 'translateY(20px)',
-          transition: 'all 0.7s cubic-bezier(0.34,1.56,0.64,1) 0.2s',
-        }}>CRUX</h1>
-        <p style={{
-          fontSize: 15, fontWeight: 400, color: C.darkTextSub, margin: '0 0 48px',
-          opacity: phase >= 2 ? 1 : 0, transform: phase >= 2 ? 'translateY(0)' : 'translateY(16px)',
-          transition: 'all 0.7s cubic-bezier(0.34,1.56,0.64,1) 0.35s',
-        }}>{T.appTagline}</p>
+        {/* CRUX with gradient shimmer */}
         <div style={{
-          width: 200, height: 3, background: 'rgba(255,255,255,0.1)', borderRadius: 2, margin: '0 auto 16px', overflow: 'hidden',
+          fontSize: 72, fontWeight: 900, letterSpacing: 8, lineHeight: 1, margin: '0 0 10px',
+          background: 'linear-gradient(90deg,#FF4081,#ffffff,#AA00FF)',
+          WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+          opacity: phase >= 2 ? 1 : 0,
+          transform: phase >= 2 ? 'translateY(0)' : 'translateY(20px)',
+          transition: 'all 0.7s cubic-bezier(0.34,1.56,0.64,1) 0.1s',
+        }}>CRUX</div>
+        <p style={{
+          fontSize: 15, fontWeight: 400, color: 'rgba(255,255,255,0.6)',
+          letterSpacing: 2, margin: '0 0 60px',
+          opacity: phase >= 2 ? 1 : 0,
+          transform: phase >= 2 ? 'translateY(0)' : 'translateY(16px)',
+          transition: 'all 0.7s cubic-bezier(0.34,1.56,0.64,1) 0.25s',
+        }}>{T.appTagline}</p>
+        {/* Spinner like Flutter CircularProgressIndicator */}
+        <div style={{
           opacity: phase >= 2 ? 1 : 0, transition: 'opacity 0.5s 0.5s',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16,
         }}>
-          <div style={{ height: '100%', borderRadius: 2, background: C.pinkPurple, animation: 'loadBar 2.2s ease-in-out forwards' }} />
+          <div style={{
+            width: 40, height: 40, borderRadius: '50%',
+            border: '3px solid rgba(255,255,255,0.1)',
+            borderTopColor: '#FF4081',
+            animation: 'spin 0.9s linear infinite',
+          }} />
+          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.38)', letterSpacing: 1.5, margin: 0 }}>
+            {T.loading}
+          </p>
         </div>
-        <p style={{ fontSize: 13, color: C.darkTextMuted, opacity: phase >= 2 ? 1 : 0, transition: 'opacity 0.5s 0.6s' }}>{T.loading}</p>
       </div>
     </div>
   );
@@ -891,8 +925,44 @@ function ForgotPasswordModal({ T, onClose }) {
 }
 
 // ============================================================
-// AUTH PAGE
+// AUTH PAGE — réplique exacte Flutter (login_screen + signup_screen)
 // ============================================================
+function GlassTextField({ icon, type = 'text', placeholder, label, value, onChange, suffix, autoFocus }) {
+  return (
+    <div style={{ position: 'relative', marginBottom: 0 }}>
+      {icon && <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 15, opacity: 0.7, pointerEvents: 'none', zIndex: 1 }}>{icon}</span>}
+      <input
+        type={type} placeholder={placeholder || label} value={value}
+        onChange={e => onChange(e.target.value)} autoFocus={autoFocus}
+        style={{
+          width: '100%', boxSizing: 'border-box',
+          padding: '15px 14px', paddingLeft: icon ? 44 : 14, paddingRight: suffix ? 52 : 14,
+          background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.25)',
+          borderRadius: 14, color: 'white', fontSize: 15,
+          outline: 'none', fontFamily: 'Poppins, sans-serif',
+        }}
+        onFocus={e => { e.target.style.border = '1.5px solid #FF4081'; }}
+        onBlur={e => { e.target.style.border = '1px solid rgba(255,255,255,0.25)'; }}
+      />
+      {suffix && <span style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', zIndex: 1 }}>{suffix}</span>}
+    </div>
+  );
+}
+
+// Floating circle for auth background (Flutter _FloatingCircle)
+function FloatingAuthCircle({ size, top, left, right, bottom, color, dur, delay }) {
+  return (
+    <div style={{
+      position: 'absolute', width: size, height: size, borderRadius: '50%',
+      background: color, opacity: 0.08, filter: 'blur(40px)',
+      top, left, right, bottom,
+      animation: `blobFloat ${dur} ease-in-out infinite`,
+      animationDelay: delay || '0s',
+      pointerEvents: 'none',
+    }} />
+  );
+}
+
 function AuthPage({ T, onSuccess }) {
   const [mode, setMode] = useState('signIn');
   const [name, setName] = useState('');
@@ -900,10 +970,19 @@ function AuthPage({ T, onSuccess }) {
   const [pass, setPass] = useState('');
   const [confirmPass, setConfirmPass] = useState('');
   const [showPass, setShowPass] = useState(false);
+  const [showConfirmPass, setShowConfirmPass] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showForgot, setShowForgot] = useState(false);
+  const [angle, setAngle] = useState(0);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setTimeout(() => setMounted(true), 80);
+    const t = setInterval(() => setAngle(a => (a + 0.4) % 360), 40);
+    return () => clearInterval(t);
+  }, []);
 
   const submit = async (e) => {
     e.preventDefault(); setError('');
@@ -917,138 +996,178 @@ function AuthPage({ T, onSuccess }) {
     }
     setLoading(true);
     try {
-      let u;
-      if (mode === 'signUp') {
-        u = await AuthService.register(email, pass, name);
-      } else {
-        u = await AuthService.login(email, pass, rememberMe);
-      }
+      const u = mode === 'signUp'
+        ? await AuthService.register(email, pass, name)
+        : await AuthService.login(email, pass, rememberMe);
       onSuccess(u);
     } catch (err) { setError(err.message || 'Erreur'); }
     finally { setLoading(false); }
   };
 
-  const [angle, setAngle] = useState(0);
-  useEffect(() => {
-    const t = setInterval(() => setAngle(a => (a + 0.3) % 360), 40);
-    return () => clearInterval(t);
-  }, []);
+  const switchMode = (m) => { setMode(m); setError(''); setName(''); setPass(''); setConfirmPass(''); };
+
+  const bgGrad = `linear-gradient(${angle}deg, #1A0030, #6B003B, #CC0033, #3D0070)`;
+  const isLogin = mode === 'signIn';
 
   return (
-    <div style={{
-      minHeight: '100vh', display: 'flex', fontFamily: 'Poppins, sans-serif',
-      background: C.darkSplash,
-      position: 'relative', overflow: 'hidden',
-    }}>
-      {/* Rotating gradient overlay */}
-      <div style={{
-        position: 'absolute', inset: 0, zIndex: 0,
-        background: `conic-gradient(from ${angle}deg at 50% 50%, ${C.primary}22, ${C.pink}18, ${C.purpleBright}15, ${C.violet}20, ${C.primary}22)`,
-        transition: 'none',
-      }} />
-      <AnimatedCircles />
+    <div style={{ minHeight: '100vh', display: 'flex', fontFamily: 'Poppins, sans-serif', background: bgGrad, position: 'relative', overflow: 'hidden' }}>
+      {/* Floating circles — Flutter _FloatingCircle */}
+      <FloatingAuthCircle size={300} top="-80px" left="-80px" color="#FF4081" dur="8s" />
+      <FloatingAuthCircle size={250} bottom="-60px" right="-60px" color="#AA00FF" dur="11s" delay="2s" />
+      <FloatingAuthCircle size={180} top="40%" right="5%" color="#E74C3C" dur="14s" delay="4s" />
+      <FloatingAuthCircle size={140} bottom="25%" left="5%" color="#BB8FCE" dur="9s" delay="1s" />
+      <FloatingAuthCircle size={90} top="20%" left="48%" color="#FF4081" dur="16s" delay="5s" />
+
       {showForgot && <ForgotPasswordModal T={T} onClose={() => setShowForgot(false)} />}
-      <div style={{ width: '100%', maxWidth: 480, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', position: 'relative', zIndex: 1 }}>
+
+      <div style={{
+        width: '100%', maxWidth: 480, margin: '0 auto',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '24px 20px', position: 'relative', zIndex: 1,
+        minHeight: '100vh',
+      }}>
         <div style={{
-          background: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(24px)',
-          border: '1px solid rgba(255,255,255,0.15)',
-          borderRadius: 28, padding: '44px 38px', width: '100%',
-          boxShadow: `0 32px 80px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.06)`,
+          background: 'rgba(255,255,255,0.10)', backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(255,255,255,0.25)', borderRadius: 28, padding: '36px 28px',
+          width: '100%', boxShadow: '0 30px 80px rgba(0,0,0,0.3)',
+          transform: mounted ? 'scale(1) translateY(0)' : 'scale(0.92) translateY(20px)',
+          opacity: mounted ? 1 : 0, transition: 'all 0.5s cubic-bezier(0.34,1.56,0.64,1)',
         }}>
-          <div style={{ textAlign: 'center', marginBottom: 32 }}>
+          {/* Header */}
+          <div style={{ textAlign: 'center', marginBottom: 28 }}>
             <div style={{
-              width: 80, height: 80, borderRadius: 22, margin: '0 auto 18px',
-              background: C.pinkPurple, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: `0 8px 30px ${C.pinkGlow}`,
+              width: 80, height: 80, borderRadius: 22, margin: '0 auto 16px',
+              background: 'linear-gradient(135deg,#FF4081,#AA00FF)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 8px 30px rgba(255,64,129,0.5), 0 0 0 4px rgba(255,64,129,0.15)',
+              animation: 'pulse 2s ease-in-out infinite',
             }}>
-              <svg width="44" height="44" viewBox="0 0 100 100">
-                <rect x="10" y="28" width="55" height="44" rx="10" fill="white"/>
-                <circle cx="37" cy="50" r="14" fill={C.pinkPurple}/>
-                <circle cx="37" cy="50" r="7" fill="white"/>
-                <polygon points="65,34 90,22 90,78 65,66" fill="white"/>
-              </svg>
+              {isLogin
+                ? <svg width="40" height="40" viewBox="0 0 100 100"><rect x="10" y="28" width="55" height="44" rx="10" fill="white"/><circle cx="37" cy="50" r="14" fill="url(#ag)"/><circle cx="37" cy="50" r="7" fill="white"/><polygon points="65,34 90,22 90,78 65,66" fill="white"/><defs><linearGradient id="ag" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#FF4081"/><stop offset="100%" stopColor="#AA00FF"/></linearGradient></defs></svg>
+                : <span style={{ fontSize: 40 }}>🪪</span>
+              }
             </div>
-            <h1 style={{ fontSize: 32, fontWeight: 900, margin: '0 0 4px', color: 'white', letterSpacing: 3 }}>CRUX</h1>
-            <p style={{ fontSize: 13, color: C.darkTextSub, margin: 0 }}>{T.appTagline}</p>
+            <h1 style={{ fontSize: 28, fontWeight: 800, margin: '0 0 4px', color: 'white', letterSpacing: 0.5 }}>
+              {isLogin ? 'Connexion' : 'Créer un compte'}
+            </h1>
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', margin: 0 }}>
+              {isLogin ? 'Bienvenue sur CRUX' : 'Rejoignez CRUX dès maintenant'}
+            </p>
           </div>
-          {/* Tab switcher */}
-          <div style={{ display: 'flex', background: 'rgba(255,255,255,0.08)', borderRadius: 14, padding: 4, marginBottom: 24, border: '1px solid rgba(255,255,255,0.1)' }}>
-            {['signIn', 'signUp'].map(m => (
-              <button key={m} onClick={() => { setMode(m); setError(''); setConfirmPass(''); }} style={{
-                flex: 1, padding: '10px 0', border: 'none', borderRadius: 11, cursor: 'pointer',
-                fontWeight: 700, fontSize: 14, fontFamily: 'Poppins, sans-serif', transition: 'all 0.25s',
-                background: mode === m ? C.pinkPurple : 'transparent',
-                color: 'white',
-                boxShadow: mode === m ? `0 4px 18px ${C.pinkGlow}` : 'none',
-              }}>{m === 'signIn' ? T.signIn : T.signUp}</button>
-            ))}
-          </div>
-          <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {mode === 'signUp' && <DarkField icon="👤" placeholder={T.fullName} value={name} onChange={setName} />}
-            <DarkField icon="✉️" type="email" placeholder={T.email} value={email} onChange={setEmail} />
-            <div style={{ position: 'relative' }}>
-              <DarkField icon="🔒" type={showPass ? 'text' : 'password'} placeholder={T.password} value={pass} onChange={setPass} paddingRight={80} />
-              <button type="button" onClick={() => setShowPass(v => !v)} style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: C.violetLight, fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>{showPass ? T.hide : T.show}</button>
-            </div>
-            {mode === 'signUp' && (
-              <DarkField icon="🔒" type={showPass ? 'text' : 'password'} placeholder={T.confirmPassword} value={confirmPass} onChange={setConfirmPass} />
+
+          {/* Form */}
+          <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {!isLogin && (
+              <div style={{ opacity: mounted ? 1 : 0, transform: mounted ? 'translateX(0)' : 'translateX(-30px)', transition: 'all 0.5s 0.1s' }}>
+                <GlassTextField icon="👤" placeholder="Nom complet" label={T.fullName} value={name} onChange={setName} />
+              </div>
             )}
-            {mode === 'signIn' && (
+            <div style={{ opacity: mounted ? 1 : 0, transform: mounted ? 'translateX(0)' : `translateX(${isLogin ? '-' : ''}30px)`, transition: 'all 0.5s 0.15s' }}>
+              <GlassTextField icon="✉️" type="email" placeholder="email@exemple.com" label={T.email} value={email} onChange={setEmail} />
+            </div>
+            <div style={{ opacity: mounted ? 1 : 0, transform: mounted ? 'translateX(0)' : 'translateX(-30px)', transition: 'all 0.5s 0.2s' }}>
+              <GlassTextField icon="🔒" type={showPass ? 'text' : 'password'} placeholder="••••••••" label={T.password} value={pass} onChange={setPass}
+                suffix={<button type="button" onClick={() => setShowPass(v => !v)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', fontSize: 18, cursor: 'pointer', lineHeight: 1 }}>{showPass ? '🙈' : '👁'}</button>}
+              />
+            </div>
+            {!isLogin && (
+              <div style={{ opacity: mounted ? 1 : 0, transform: mounted ? 'translateX(0)' : 'translateX(30px)', transition: 'all 0.5s 0.25s' }}>
+                <GlassTextField icon="🔒" type={showConfirmPass ? 'text' : 'password'} placeholder="••••••••" label={T.confirmPassword} value={confirmPass} onChange={setConfirmPass}
+                  suffix={<button type="button" onClick={() => setShowConfirmPass(v => !v)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', fontSize: 18, cursor: 'pointer', lineHeight: 1 }}>{showConfirmPass ? '🙈' : '👁'}</button>}
+                />
+              </div>
+            )}
+            {isLogin && (
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: C.darkTextSub }}>
-                  <input type="checkbox" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)}
-                    style={{ width: 16, height: 16, accentColor: C.pink, cursor: 'pointer' }} />
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: 'rgba(255,255,255,0.7)' }}>
+                  <input type="checkbox" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)} style={{ accentColor: '#FF4081' }} />
                   {T.rememberMe}
                 </label>
-                <button type="button" onClick={() => setShowForgot(true)} style={{ background: 'none', border: 'none', color: C.violetLight, fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'Poppins, sans-serif', padding: 0 }}>
+                <button type="button" onClick={() => setShowForgot(true)} style={{ background: 'none', border: 'none', color: '#FF4081', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'Poppins, sans-serif', textDecoration: 'underline' }}>
                   {T.forgotPassword}
                 </button>
               </div>
             )}
-            {error && <div style={{ background: 'rgba(231,76,60,0.15)', border: `1px solid rgba(231,76,60,0.4)`, color: '#FF8A80', borderRadius: 10, padding: '10px 14px', fontSize: 13, fontWeight: 500 }}>⚠️ {error}</div>}
-            <button type="submit" disabled={loading} style={{ padding: '15px 0', background: loading ? 'rgba(255,255,255,0.1)' : C.pinkPurple, color: 'white', border: 'none', borderRadius: 14, fontSize: 15, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', fontFamily: 'Poppins, sans-serif', marginTop: 4, boxShadow: loading ? 'none' : `0 8px 28px ${C.pinkGlow}`, transition: 'all 0.2s' }}>
-              {loading ? '...' : (mode === 'signIn' ? T.signIn : T.signUp)}
-            </button>
+            {error && (
+              <div style={{ background: 'rgba(231,76,60,0.15)', border: '1px solid rgba(231,76,60,0.4)', color: '#FF8A80', borderRadius: 10, padding: '10px 14px', fontSize: 13 }}>⚠️ {error}</div>
+            )}
+            {/* Main button */}
+            <div style={{ opacity: mounted ? 1 : 0, transform: mounted ? 'translateY(0)' : 'translateY(20px)', transition: 'all 0.5s 0.3s' }}>
+              <button type="submit" disabled={loading} style={{
+                width: '100%', height: 56, border: 'none', borderRadius: 16,
+                background: loading ? 'rgba(255,255,255,0.1)' : 'linear-gradient(135deg,#FF4081,#AA00FF)',
+                color: 'white', fontSize: 17, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer',
+                fontFamily: 'Poppins, sans-serif', letterSpacing: 0.5,
+                boxShadow: loading ? 'none' : '0 8px 28px rgba(255,64,129,0.5)',
+                transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              }}>
+                {loading
+                  ? <div style={{ width: 24, height: 24, borderRadius: '50%', border: '2.5px solid rgba(255,255,255,0.3)', borderTopColor: 'white', animation: 'spin 0.9s linear infinite' }} />
+                  : (isLogin ? T.signIn : T.signUp)
+                }
+              </button>
+            </div>
           </form>
-          <p style={{ fontSize: 11, color: C.darkTextMuted, textAlign: 'center', marginTop: 20, lineHeight: 1.6 }}>{T.termsNote}</p>
+
+          {/* Footer link */}
+          <div style={{ textAlign: 'center', marginTop: 20, opacity: mounted ? 1 : 0, transition: 'opacity 0.5s 0.4s' }}>
+            <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)' }}>
+              {isLogin ? "Pas encore de compte ? " : "Déjà un compte ? "}
+            </span>
+            <button onClick={() => switchMode(isLogin ? 'signUp' : 'signIn')} style={{
+              background: 'none', border: 'none', color: '#FF4081', fontWeight: 700,
+              fontSize: 14, cursor: 'pointer', fontFamily: 'Poppins, sans-serif',
+              textDecoration: 'underline', textDecorationColor: '#FF4081',
+            }}>
+              {isLogin ? T.signUp : T.signIn}
+            </button>
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-// Dark-themed input field for auth
+// Legacy alias
 function DarkField({ icon, type = 'text', placeholder, value, onChange, paddingRight, autoFocus }) {
+  return <GlassTextField icon={icon} type={type} placeholder={placeholder} value={value} onChange={onChange} autoFocus={autoFocus} />;
+}
+
+// ============================================================
+// DASHBOARD — réplique exacte Flutter home_screen.dart
+// ============================================================
+function ActionCard({ icon, title, subtitle, gradient, onTap }) {
   return (
-    <div style={{ position: 'relative' }}>
-      {icon && <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 16, pointerEvents: 'none', opacity: 0.7 }}>{icon}</span>}
-      <input type={type} placeholder={placeholder} value={value} onChange={e => onChange(e.target.value)} autoFocus={autoFocus}
-        style={{
-          width: '100%', padding: '13px 14px', boxSizing: 'border-box',
-          paddingLeft: icon ? 44 : 14, paddingRight: paddingRight || 14,
-          background: 'rgba(255,255,255,0.08)', border: '1.5px solid rgba(255,255,255,0.15)',
-          borderRadius: 12, color: 'white', fontSize: 14,
-          outline: 'none', fontFamily: 'Poppins, sans-serif', transition: 'border-color 0.2s, box-shadow 0.2s',
-        }}
-      />
+    <div onClick={onTap} style={{
+      background: 'white', borderRadius: 18, padding: '14px 14px',
+      border: '1px solid rgba(0,0,0,0.06)',
+      boxShadow: '0 4px 10px rgba(0,0,0,0.06)',
+      cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12,
+      transition: 'transform 0.15s, box-shadow 0.15s',
+    }}
+      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.12)'; }}
+      onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 4px 10px rgba(0,0,0,0.06)'; }}
+    >
+      <div style={{ width: 44, height: 44, borderRadius: 12, background: gradient, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>{icon}</div>
+      <div>
+        <div style={{ fontWeight: 700, fontSize: 14, color: '#1A1A1A' }}>{title}</div>
+        <div style={{ fontSize: 11, color: '#999' }}>{subtitle}</div>
+      </div>
     </div>
   );
 }
 
-// ============================================================
-// DASHBOARD
-// ============================================================
 function Dashboard({ user, T, onJoin, onJoinByCode }) {
   const [meetings, setMeetings] = useState([]);
   const [loadingMeetings, setLoadingMeetings] = useState(false);
-  const [showSchedule, setShowSchedule] = useState(false);
-  const [showJoinCode, setShowJoinCode] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [meetingName, setMeetingName] = useState('');
+  const [showJoinDialog, setShowJoinDialog] = useState(false);
+  const [joinCode, setJoinCode] = useState('');
+  const [showSchedule, setShowSchedule] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [newType, setNewType] = useState('temporary');
-  const [joinCode, setJoinCode] = useState('');
-  const stats = GamService.getStats(user.uid);
 
   useEffect(() => { loadMeetings(); }, [user.uid]); // eslint-disable-line
 
@@ -1058,12 +1177,17 @@ function Dashboard({ user, T, onJoin, onJoinByCode }) {
     catch { } finally { setLoadingMeetings(false); }
   };
 
-  const startInstant = async () => {
+  const createMeeting = async () => {
+    const name = meetingName.trim() || `Réunion de ${user.name.split(' ')[0]}`;
     setCreating(true);
     try {
-      const m = await MeetingService.createMeeting(`Réunion de ${user.name}`, user.uid, user.name, 'temporary');
-      setMeetings(p => [m, ...p]); onJoin(m);
-    } catch (e) { showToast(e.message, 'error'); } finally { setCreating(false); }
+      const m = await MeetingService.createMeeting(name, user.uid, user.name, 'temporary');
+      setMeetings(p => [m, ...p]);
+      setMeetingName('');
+      showToast(T.meetingCreated, 'success');
+      onJoin(m);
+    } catch (e) { showToast(e.message, 'error'); }
+    finally { setCreating(false); }
   };
 
   const createScheduled = async () => {
@@ -1072,119 +1196,130 @@ function Dashboard({ user, T, onJoin, onJoinByCode }) {
     try {
       const m = await MeetingService.createMeeting(newTitle, user.uid, user.name, newType, newDesc);
       setMeetings(p => [m, ...p]);
-      setNewTitle(''); setNewDesc(''); setNewType('temporary'); setShowSchedule(false);
+      setNewTitle(''); setNewDesc(''); setShowSchedule(false);
       showToast(T.meetingCreated, 'success');
-    } catch (e) { showToast(e.message, 'error'); } finally { setCreating(false); }
+    } catch (e) { showToast(e.message, 'error'); }
+    finally { setCreating(false); }
   };
 
-  const joinByCode = async () => {
+  const joinByCode = () => {
     const code = joinCode.trim(); if (!code) return;
-    onJoinByCode(code);
-    setJoinCode(''); setShowJoinCode(false);
+    onJoinByCode(code); setJoinCode(''); setShowJoinDialog(false);
   };
-
-  const xpLevel = Math.floor(stats.xp / 100) + 1;
-  const xpProgress = (stats.xp % 100);
-
-  const quickActions = [
-    { icon: '⚡', label: T.instantMeeting, gradient: `linear-gradient(135deg,${C.flamePrimary},${C.flameLight})`, glow: C.fireGlow, action: startInstant },
-    { icon: '📅', label: T.schedule, gradient: `linear-gradient(135deg,${C.iceBlue},${C.iceLight})`, glow: C.iceGlow, action: () => setShowSchedule(true) },
-    { icon: '🔗', label: T.joinCode, gradient: `linear-gradient(135deg,${C.accentOrange},${C.accentGolden})`, glow: 'rgba(255,152,0,0.2)', action: () => setShowJoinCode(true) },
-    { icon: '📞', label: T.dialIn, gradient: `linear-gradient(135deg,${C.success},#2ECC71)`, glow: 'rgba(39,174,96,0.2)', action: () => alert('Dial In — Prochainement disponible') },
-  ];
 
   return (
-    <div style={{ maxWidth: 1200, margin: '0 auto', padding: '32px 24px', fontFamily: 'Poppins, sans-serif' }}>
-      <div style={{ marginBottom: 36 }}>
-        <h2 style={{ fontSize: 26, fontWeight: 800, color: C.textPrimary, margin: '0 0 4px' }}>{T.welcome}, {user.name} 👋</h2>
-        <p style={{ color: C.textSecondary, fontSize: 14, margin: 0 }}>{T.dashboard}</p>
+    <div style={{ background: '#F5F3FF', minHeight: 'calc(100vh - 64px)', fontFamily: 'Poppins, sans-serif' }}>
+      {/* Gradient Header — Flutter SliverAppBar */}
+      <div style={{
+        background: 'linear-gradient(135deg, #E74C3C, #8E44AD)',
+        padding: '24px 20px 28px',
+      }}>
+        <p style={{ fontSize: 18, fontWeight: 600, color: 'white', margin: '0 0 2px' }}>
+          {T.welcome}, {user.name.split(' ')[0]} 👋
+        </p>
+        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', margin: 0 }}>
+          Prêt pour votre prochaine réunion ?
+        </p>
       </div>
 
-      {/* Stats / Gamification strip */}
-      <div style={{
-        background: C.primaryGradient, borderRadius: 20, padding: '20px 28px',
-        marginBottom: 32, color: 'white', display: 'flex', alignItems: 'center',
-        gap: 32, flexWrap: 'wrap', boxShadow: `0 12px 40px ${C.fireGlow}`,
-        position: 'relative', overflow: 'hidden',
-      }}>
-        <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}><SmokeBlobs /></div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, zIndex: 1 }}>
-          <div style={{
-            width: 56, height: 56, borderRadius: '50%', background: 'rgba(255,255,255,0.2)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28,
-            border: '2px solid rgba(255,255,255,0.4)',
+      <div style={{ padding: '20px 16px', maxWidth: 600, margin: '0 auto' }}>
+        {/* Create Meeting Card */}
+        <div style={{
+          background: 'linear-gradient(135deg, #E74C3C, #9B59B6, #8E44AD)',
+          borderRadius: 24, padding: 22, marginBottom: 28,
+          boxShadow: '0 8px 20px rgba(231,76,60,0.35)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>📹</div>
+            <span style={{ fontSize: 18, fontWeight: 700, color: 'white' }}>Nouvelle réunion</span>
+          </div>
+          <input
+            value={meetingName}
+            onChange={e => setMeetingName(e.target.value)}
+            placeholder="Nom de la réunion..."
+            onKeyDown={e => e.key === 'Enter' && createMeeting()}
+            style={{
+              width: '100%', boxSizing: 'border-box', padding: '13px 16px',
+              background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)',
+              borderRadius: 14, color: 'white', fontSize: 15,
+              outline: 'none', fontFamily: 'Poppins, sans-serif', marginBottom: 14,
+            }}
+          />
+          <button onClick={createMeeting} disabled={creating} style={{
+            width: '100%', height: 50, background: 'white', border: 'none', borderRadius: 14,
+            color: '#E74C3C', fontWeight: 700, fontSize: 15, cursor: 'pointer',
+            fontFamily: 'Poppins, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
           }}>
-            {stats.badges.length > 0 ? (GamService.BADGES[stats.badges[stats.badges.length - 1]]?.icon || '🏅') : '🌟'}
-          </div>
-          <div>
-            <p style={{ fontSize: 12, margin: 0, opacity: 0.8 }}>Niveau {xpLevel}</p>
-            <p style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>{stats.xp} {T.xpPoints}</p>
-            <div style={{ width: 160, height: 6, background: 'rgba(255,255,255,0.25)', borderRadius: 3, marginTop: 4 }}>
-              <div style={{ width: `${xpProgress}%`, height: '100%', background: 'white', borderRadius: 3, transition: 'width 0.5s' }} />
-            </div>
-          </div>
+            {creating
+              ? <div style={{ width: 22, height: 22, borderRadius: '50%', border: '2.5px solid #E74C3C30', borderTopColor: '#E74C3C', animation: 'spin 0.9s linear infinite' }} />
+              : <><span>🚀</span> Démarrer la réunion</>
+            }
+          </button>
         </div>
-        <div style={{ display: 'flex', gap: 20, zIndex: 1, flexWrap: 'wrap' }}>
-          <StatChip icon="🎯" value={stats.meetings} label={T.meetingsHeld} />
-          <StatChip icon="🎉" value={stats.reactions || 0} label={T.reactions} />
-          <StatChip icon="🏅" value={stats.badges.length} label={T.badges} />
+
+        {/* Actions rapides */}
+        <p style={{ fontSize: 17, fontWeight: 800, color: '#1A1A1A', margin: '0 0 14px' }}>Actions rapides</p>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 28 }}>
+          <ActionCard icon="👥" title="Rejoindre" subtitle="Via un ID" gradient="linear-gradient(135deg,#8E44AD,#6C3483)" onTap={() => setShowJoinDialog(true)} />
+          <ActionCard icon="📅" title="Planifier" subtitle="Créer" gradient="linear-gradient(135deg,#3498DB,#2980B9)" onTap={() => setShowSchedule(true)} />
+          <ActionCard icon="📤" title="Partager" subtitle="Inviter" gradient="linear-gradient(135deg,#27AE60,#1E8449)" onTap={() => { navigator.share?.({ title: 'CRUX', text: 'Rejoignez CRUX — Visioconférence Premium!' }).catch(() => {}); showToast('📱 Partagez CRUX !', 'success'); }} />
+          <ActionCard icon="❓" title="Aide" subtitle="Support" gradient="linear-gradient(135deg,#F39C12,#D68910)" onTap={() => showToast('📧 support@crux.app', 'info')} />
         </div>
-        {stats.badges.length > 0 && (
-          <div style={{ display: 'flex', gap: 8, zIndex: 1, flexWrap: 'wrap' }}>
-            {stats.badges.map(b => (
-              <span key={b} title={GamService.BADGES[b]?.label} style={{
-                width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.2)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, cursor: 'default',
-              }}>{GamService.BADGES[b]?.icon || '🏅'}</span>
-            ))}
+
+        {/* Meetings list */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <p style={{ fontSize: 17, fontWeight: 800, color: '#1A1A1A', margin: 0 }}>
+            {T.recentMeetings} {!loadingMeetings && `(${meetings.length})`}
+          </p>
+          <button onClick={() => setShowSchedule(true)} style={{
+            padding: '8px 16px', background: 'linear-gradient(135deg,#E74C3C,#8E44AD)',
+            color: 'white', border: 'none', borderRadius: 10, fontWeight: 700,
+            fontSize: 12, cursor: 'pointer', fontFamily: 'Poppins, sans-serif',
+          }}>+ {T.newMeeting}</button>
+        </div>
+
+        {loadingMeetings ? (
+          <div style={{ textAlign: 'center', padding: 40, color: '#999' }}>⏳ {T.loading}</div>
+        ) : meetings.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '48px 24px', background: 'white', borderRadius: 20, border: '2px dashed #DDD' }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>📅</div>
+            <p style={{ fontWeight: 700, color: '#1A1A1A', margin: '0 0 6px' }}>{T.noMeetings}</p>
+            <p style={{ color: '#999', fontSize: 13 }}>{T.noMeetingsHint}</p>
+            <button onClick={createMeeting} style={{ marginTop: 18, padding: '11px 24px', background: 'linear-gradient(135deg,#E74C3C,#8E44AD)', color: 'white', border: 'none', borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>
+              🚀 Démarrer maintenant
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {meetings.map(m => <MeetingCard key={m.id} meeting={m} T={T} onJoin={() => onJoin(m)} />)}
           </div>
         )}
-      </div>
 
-      {/* Quick actions */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 48 }}>
-        {quickActions.map((a, i) => (
-          <button key={i} onClick={a.action} disabled={creating} style={{
-            background: C.white, border: `1.5px solid ${C.border}`, borderRadius: 16,
-            padding: '28px 20px', cursor: 'pointer', textAlign: 'center',
-            transition: 'all 0.22s', boxShadow: '0 2px 12px rgba(0,0,0,0.05)', fontFamily: 'Poppins, sans-serif',
-          }}
-            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = `0 12px 32px ${a.glow}`; }}
-            onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.05)'; }}
-          >
-            <div style={{ width: 56, height: 56, borderRadius: 16, margin: '0 auto 14px', background: a.gradient, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, boxShadow: `0 8px 20px ${a.glow}` }}>{a.icon}</div>
-            <span style={{ fontWeight: 700, fontSize: 14, color: C.textPrimary }}>{a.label}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* Meetings list */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <h3 style={{ fontSize: 18, fontWeight: 700, color: C.textPrimary, margin: 0 }}>
-          {T.recentMeetings} {!loadingMeetings && `(${meetings.length})`}
-        </h3>
-        <button onClick={() => setShowSchedule(true)} style={{
-          padding: '10px 20px', background: C.primaryGradient, color: 'white',
-          border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 13,
-          cursor: 'pointer', fontFamily: 'Poppins, sans-serif', boxShadow: `0 4px 14px ${C.fireGlow}`,
-        }}>+ {T.newMeeting}</button>
-      </div>
-
-      {loadingMeetings ? (
-        <div style={{ textAlign: 'center', padding: '48px', color: C.textTertiary }}><div style={{ fontSize: 36, marginBottom: 12 }}>⏳</div><p>{T.loading}</p></div>
-      ) : meetings.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '64px 24px', background: C.white, borderRadius: 20, border: `2px dashed ${C.border}` }}>
-          <div style={{ fontSize: 56, marginBottom: 16 }}>📅</div>
-          <h4 style={{ color: C.textPrimary, fontWeight: 700, marginBottom: 8 }}>{T.noMeetings}</h4>
-          <p style={{ color: C.textTertiary, fontSize: 14 }}>{T.noMeetingsHint}</p>
-          <button onClick={() => setShowSchedule(true)} style={{ marginTop: 20, padding: '12px 28px', background: C.primaryGradient, color: 'white', border: 'none', borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>+ {T.newMeeting}</button>
+        {/* Info banner */}
+        <div style={{
+          background: 'rgba(142,68,173,0.08)', border: '1px solid rgba(142,68,173,0.25)',
+          borderRadius: 16, padding: '14px 16px', marginTop: 24,
+          display: 'flex', alignItems: 'flex-start', gap: 12,
+        }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(142,68,173,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>ℹ️</div>
+          <p style={{ fontSize: 12, color: '#555', margin: 0, lineHeight: 1.5 }}>
+            Les réunions s'ouvrent directement dans CRUX via Jitsi Meet — gratuit et sécurisé.
+          </p>
         </div>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
-          {meetings.map(m => <MeetingCard key={m.id} meeting={m} T={T} onJoin={() => onJoin(m)} />)}
-        </div>
+      </div>
+
+      {/* Dialogs */}
+      {showJoinDialog && (
+        <CruxModal onClose={() => setShowJoinDialog(false)}>
+          <ModalHeader icon="🔗" title="Rejoindre" />
+          <p style={{ color: C.textSecondary, fontSize: 13, margin: '0 0 14px' }}>Entrez l'ID de la réunion partagé par l'hôte</p>
+          <Field placeholder={T.enterCode} value={joinCode} onChange={setJoinCode} autoFocus onKeyDown={e => e.key === 'Enter' && joinByCode()} />
+          <ModalActions>
+            <PrimaryBtn onClick={joinByCode} disabled={!joinCode.trim()}>Rejoindre</PrimaryBtn>
+            <SecondaryBtn onClick={() => setShowJoinDialog(false)}>{T.cancel}</SecondaryBtn>
+          </ModalActions>
+        </CruxModal>
       )}
-
       {showSchedule && (
         <CruxModal onClose={() => setShowSchedule(false)}>
           <ModalHeader icon="📅" title={T.schedule} />
@@ -1194,16 +1329,6 @@ function Dashboard({ user, T, onJoin, onJoinByCode }) {
           <ModalActions>
             <PrimaryBtn onClick={createScheduled} disabled={creating || !newTitle.trim()}>{creating ? '...' : T.create}</PrimaryBtn>
             <SecondaryBtn onClick={() => setShowSchedule(false)}>{T.cancel}</SecondaryBtn>
-          </ModalActions>
-        </CruxModal>
-      )}
-      {showJoinCode && (
-        <CruxModal onClose={() => setShowJoinCode(false)}>
-          <ModalHeader icon="🔗" title={T.joinCode} />
-          <Field placeholder={T.enterCode} value={joinCode} onChange={setJoinCode} autoFocus onKeyDown={e => e.key === 'Enter' && joinByCode()} />
-          <ModalActions>
-            <PrimaryBtn onClick={joinByCode} disabled={!joinCode.trim()}>{T.join}</PrimaryBtn>
-            <SecondaryBtn onClick={() => setShowJoinCode(false)}>{T.cancel}</SecondaryBtn>
           </ModalActions>
         </CruxModal>
       )}
@@ -1275,159 +1400,144 @@ function MeetingCard({ meeting, T, onJoin }) {
 // WAITING ROOM
 // ============================================================
 function WaitingRoom({ meeting, user, T, prefs, onEnter, onLeave }) {
-  const [micOn, setMicOn] = useState(prefs.defaultMic);
-  const [camOn, setCamOn] = useState(prefs.defaultCam);
-  const [bgBlur, setBgBlur] = useState(false);
-  const [pulseSize, setPulseSize] = useState(1);
-  const [camStream, setCamStream] = useState(null);
-  const [audioLevel, setAudioLevel] = useState(0);
   const [copied, setCopied] = useState(false);
-  const videoRef = useRef(null);
-  const audioCtxRef = useRef(null);
-  const analyserRef = useRef(null);
-  const rafRef = useRef(null);
+  const [glowPulse, setGlowPulse] = useState(false);
 
   useEffect(() => {
-    const t = setInterval(() => setPulseSize(p => p === 1 ? 1.07 : 1), 1200);
+    const t = setInterval(() => setGlowPulse(p => !p), 1800);
     return () => clearInterval(t);
   }, []);
 
-  // Camera
-  useEffect(() => {
-    if (camOn) {
-      getMediaStream(true, false)
-        .then(stream => { setCamStream(stream); if (videoRef.current) videoRef.current.srcObject = stream; })
-        .catch(() => setCamOn(false));
-    } else {
-      if (camStream) { camStream.getTracks().forEach(t => t.stop()); setCamStream(null); }
-      if (videoRef.current) videoRef.current.srcObject = null;
-    }
-    return () => { if (camStream) camStream.getTracks().forEach(t => t.stop()); }; // eslint-disable-line
-  }, [camOn]); // eslint-disable-line
-
-  // Mic level meter
-  useEffect(() => {
-    if (!micOn) { setAudioLevel(0); return; }
-    let active = true;
-    getMediaStream(false, true)
-      .then(stream => {
-        if (!active) { stream.getTracks().forEach(t => t.stop()); return; }
-        audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
-        analyserRef.current = audioCtxRef.current.createAnalyser();
-        analyserRef.current.fftSize = 256;
-        const src = audioCtxRef.current.createMediaStreamSource(stream);
-        src.connect(analyserRef.current);
-        const data = new Uint8Array(analyserRef.current.frequencyBinCount);
-        const tick = () => {
-          analyserRef.current.getByteFrequencyData(data);
-          const avg = data.reduce((a, b) => a + b, 0) / data.length;
-          setAudioLevel(Math.min(100, avg * 2.5));
-          rafRef.current = requestAnimationFrame(tick);
-        };
-        tick();
-      }).catch(() => {});
-    return () => {
-      active = false;
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      if (audioCtxRef.current) audioCtxRef.current.close().catch(() => {});
-    };
-  }, [micOn]);
+  const isHost = meeting.hostId === user.id || meeting.host === user.name;
 
   const copyCode = () => {
-    navigator.clipboard?.writeText(meeting.id);
-    setCopied(true); setTimeout(() => setCopied(false), 2000);
+    navigator.clipboard?.writeText(meeting.id).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
-    <div className="crux-fullscreen crux-scroll" style={{ fontFamily: 'Poppins, sans-serif', background: 'linear-gradient(160deg, #FFF5F5 0%, #FCEEFF 50%, #F0F8FF 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, position: 'relative', overflow: 'hidden' }}>
-      <SmokeBlobs />
-      {/* Back to dashboard — top left */}
+    <div className="crux-fullscreen" style={{
+      fontFamily: 'Poppins, sans-serif',
+      background: 'linear-gradient(160deg, #1A1A2E 0%, #16213E 50%, #0F3460 100%)',
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      justifyContent: 'center', padding: '24px 20px', position: 'relative', overflow: 'hidden',
+    }}>
+      {/* Back button */}
       <button onClick={onLeave} style={{
         position: 'absolute', top: 20, left: 20, zIndex: 10,
         display: 'flex', alignItems: 'center', gap: 8,
-        padding: '10px 18px', background: 'rgba(255,255,255,0.88)', backdropFilter: 'blur(12px)',
-        border: `1.5px solid ${C.border}`, borderRadius: 12,
-        color: C.textPrimary, fontWeight: 700, fontSize: 13,
+        padding: '10px 16px', background: 'rgba(255,255,255,0.10)',
+        backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.20)',
+        borderRadius: 12, color: 'white', fontWeight: 600, fontSize: 13,
         cursor: 'pointer', fontFamily: 'Poppins, sans-serif',
-        boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
-      }}>← {T.back}</button>
-      <div style={{ background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(20px)', borderRadius: 28, padding: '48px 40px', maxWidth: 520, width: '100%', boxShadow: '0 32px 80px rgba(0,0,0,0.10)', border: '1px solid rgba(255,255,255,0.8)', position: 'relative', zIndex: 1, textAlign: 'center' }}>
-        <div style={{ width: 100, height: 100, borderRadius: '50%', margin: '0 auto 24px', background: C.primaryGradient, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 44, transform: `scale(${pulseSize})`, transition: 'transform 1.2s ease-in-out', boxShadow: `0 0 0 12px ${C.fireGlow}, 0 0 0 24px ${C.smokeWarm}` }}>⏳</div>
-        <h2 style={{ fontSize: 24, fontWeight: 800, color: C.textPrimary, margin: '0 0 6px' }}>{T.waitingRoom}</h2>
-        <p style={{ fontSize: 16, fontWeight: 600, color: C.flamePrimary, margin: '0 0 8px' }}>{meeting.title}</p>
-        <div style={{ background: `${C.iceBlue}12`, border: `1px solid ${C.iceBlue}30`, borderRadius: 12, padding: '12px 16px', margin: '0 0 24px' }}>
-          <p style={{ fontSize: 13, color: C.textSecondary, margin: 0 }}>ℹ️ {T.waitingFor}</p>
+      }}>← Retour</button>
+
+      {/* Host badge */}
+      {isHost && (
+        <div style={{
+          position: 'absolute', top: 20, right: 20, zIndex: 10,
+          background: 'linear-gradient(135deg, #E74C3C, #8E44AD)',
+          borderRadius: 20, padding: '6px 14px',
+          color: 'white', fontWeight: 700, fontSize: 12, letterSpacing: 0.5,
+        }}>HÔTE</div>
+      )}
+
+      {/* Meeting name title */}
+      <p style={{
+        color: 'rgba(255,255,255,0.60)', fontSize: 13, fontWeight: 500,
+        marginBottom: 8, marginTop: 0, letterSpacing: 0.3,
+      }}>{meeting.title}</p>
+
+      {/* Center card */}
+      <div style={{
+        background: 'rgba(255,255,255,0.05)',
+        border: '1px solid rgba(255,255,255,0.10)',
+        borderRadius: 24, padding: '40px 32px',
+        maxWidth: 400, width: '100%', textAlign: 'center',
+        boxShadow: '0 24px 60px rgba(0,0,0,0.40)',
+      }}>
+        {/* Gradient video icon circle with glow */}
+        <div style={{
+          width: 90, height: 90, borderRadius: '50%',
+          background: 'linear-gradient(135deg, #E74C3C, #8E44AD)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          margin: '0 auto 24px',
+          boxShadow: glowPulse
+            ? '0 0 0 16px rgba(231,76,60,0.12), 0 0 40px rgba(142,68,173,0.35)'
+            : '0 0 0 8px rgba(231,76,60,0.08), 0 0 20px rgba(142,68,173,0.20)',
+          transition: 'box-shadow 1.8s ease-in-out',
+        }}>
+          <svg width="38" height="38" viewBox="0 0 24 24" fill="white">
+            <path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4z"/>
+          </svg>
         </div>
 
-        {/* Camera preview */}
-        <div style={{ width: '100%', aspectRatio: '16/9', borderRadius: 16, overflow: 'hidden', background: camOn ? '#000' : C.mediumBg, marginBottom: 20, position: 'relative', border: `2px solid ${camOn ? C.flamePrimary : C.border}` }}>
-          <video ref={videoRef} autoPlay muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: camOn ? 'block' : 'none', filter: bgBlur ? 'blur(12px)' : 'none', transition: 'filter 0.3s' }} />
-          {!camOn && (
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ fontSize: 48, marginBottom: 8 }}>🚫</span>
-              <p style={{ color: C.textTertiary, fontSize: 13 }}>Caméra désactivée</p>
-            </div>
-          )}
-          <div style={{ position: 'absolute', bottom: 10, left: 10, background: 'rgba(0,0,0,0.6)', color: 'white', padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>{user.name}</div>
-          {bgBlur && camOn && (
-            <div style={{ position: 'absolute', top: 10, right: 10, background: C.violet, color: 'white', padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700 }}>🌫 {T.bgBlur}</div>
-          )}
-        </div>
+        <h2 style={{ fontSize: 22, fontWeight: 700, color: 'white', margin: '0 0 6px' }}>Réunion prête</h2>
+        <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.55)', margin: '0 0 28px' }}>
+          Rejoignez dès maintenant
+        </p>
 
-        {/* Audio level meter */}
-        {micOn && (
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center' }}>
-              <span style={{ fontSize: 13, color: C.textSecondary }}>🎤 {T.audioLevel}</span>
-              <div style={{ flex: 1, maxWidth: 200, height: 6, background: C.mediumBg, borderRadius: 3, overflow: 'hidden' }}>
-                <div style={{ width: `${audioLevel}%`, height: '100%', background: audioLevel > 70 ? C.error : audioLevel > 40 ? C.warning : C.success, borderRadius: 3, transition: 'width 0.1s' }} />
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Meeting ID chip */}
+        <button onClick={copyCode} style={{
+          display: 'inline-flex', alignItems: 'center', gap: 10,
+          background: copied ? 'rgba(39,174,96,0.15)' : 'rgba(255,255,255,0.08)',
+          border: copied ? '1px solid rgba(39,174,96,0.40)' : '1px solid rgba(255,255,255,0.15)',
+          borderRadius: 12, padding: '12px 20px',
+          color: copied ? '#27AE60' : 'rgba(255,255,255,0.85)',
+          fontSize: 15, fontWeight: 700, fontFamily: 'monospace',
+          letterSpacing: 2, cursor: 'pointer', marginBottom: 28,
+          transition: 'all 0.25s',
+        }}>
+          <span>{meeting.id}</span>
+          <span style={{ fontSize: 14, fontFamily: 'Poppins, sans-serif', fontWeight: 600, color: copied ? '#27AE60' : 'rgba(255,255,255,0.45)', letterSpacing: 0 }}>
+            {copied ? '✓ Copié' : '📋'}
+          </span>
+        </button>
 
-        {/* Device controls */}
-        <div style={{ background: C.lightBg, borderRadius: 16, padding: '16px 20px', marginBottom: 20, border: `1px solid ${C.border}` }}>
-          <p style={{ fontWeight: 700, color: C.textPrimary, fontSize: 13, margin: '0 0 14px', textAlign: 'left' }}>{T.prepareDevices}</p>
-          {[
-            { icon: '📹', label: T.camera, state: camOn, set: setCamOn },
-            { icon: '🎤', label: T.mic, state: micOn, set: setMicOn },
-            { icon: '🌫', label: T.bgBlur, state: bgBlur, set: setBgBlur },
-          ].map((d, i) => (
-            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderTop: i > 0 ? `1px solid ${C.border}` : 'none' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 10, background: d.state ? `${C.success}15` : C.mediumBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>{d.icon}</div>
-                <span style={{ fontSize: 14, fontWeight: 500, color: C.textPrimary }}>{d.label}</span>
-              </div>
-              <ToggleSwitch on={d.state} onChange={d.set} colorOn={C.success} />
-            </div>
-          ))}
-        </div>
+        {/* Join button */}
+        <button onClick={onEnter} style={{
+          width: '100%', height: 56,
+          background: '#E74C3C',
+          border: 'none', borderRadius: 16,
+          color: 'white', fontSize: 16, fontWeight: 700,
+          cursor: 'pointer', fontFamily: 'Poppins, sans-serif',
+          boxShadow: '0 8px 24px rgba(231,76,60,0.40)',
+          marginBottom: 14, transition: 'transform 0.15s, box-shadow 0.15s',
+        }}
+          onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 12px 32px rgba(231,76,60,0.50)'; }}
+          onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(231,76,60,0.40)'; }}
+        >
+          Rejoindre la réunion
+        </button>
 
-        {/* Meeting code + invite link */}
-        <div style={{ background: C.lightBg, borderRadius: 12, padding: '14px 16px', marginBottom: 24, border: `1px solid ${C.border}` }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-            <div style={{ textAlign: 'left' }}>
-              <p style={{ fontSize: 11, color: C.textTertiary, margin: 0 }}>Code de réunion</p>
-              <p style={{ fontSize: 18, fontWeight: 800, color: C.textPrimary, margin: 0, fontFamily: 'monospace', letterSpacing: 2 }}>{meeting.id}</p>
-            </div>
-            <button onClick={copyCode} style={{ padding: '8px 14px', background: copied ? `${C.success}20` : C.primaryGradient, border: 'none', borderRadius: 10, fontSize: 12, cursor: 'pointer', color: copied ? C.success : 'white', fontFamily: 'Poppins, sans-serif', fontWeight: 700, transition: 'all 0.2s' }}>
-              {copied ? '✓ Copié' : '📋 Code'}
-            </button>
-          </div>
-          <button onClick={() => {
-            const link = `${window.location.origin}${window.location.pathname}?join=${meeting.id}`;
-            navigator.clipboard?.writeText(link).catch(() => {});
-            setCopied(true); setTimeout(() => setCopied(false), 2000);
-            showToast('🔗 Lien d\'invitation copié !', 'success');
-          }} style={{ width: '100%', padding: '10px', background: `${C.violet}12`, border: `1.5px solid ${C.violetLight}`, borderRadius: 10, fontSize: 13, cursor: 'pointer', color: C.violet, fontFamily: 'Poppins, sans-serif', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-            🔗 Copier le lien d'invitation
-          </button>
-        </div>
-
-        <button onClick={onEnter} style={{ width: '100%', padding: 14, background: C.primaryGradient, color: 'white', border: 'none', borderRadius: 14, fontSize: 15, fontWeight: 700, cursor: 'pointer', marginBottom: 12, fontFamily: 'Poppins, sans-serif', boxShadow: `0 8px 24px ${C.fireGlow}` }}>{T.joinMeeting} →</button>
-        <button onClick={onLeave} style={{ width: '100%', padding: 12, background: 'transparent', color: C.error, border: `1.5px solid ${C.error}40`, borderRadius: 14, fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>{T.leaveWaiting}</button>
+        {/* Quit text button */}
+        <button onClick={onLeave} style={{
+          background: 'none', border: 'none',
+          color: 'rgba(255,255,255,0.45)', fontSize: 14,
+          fontFamily: 'Poppins, sans-serif', cursor: 'pointer',
+          textDecoration: 'underline', padding: '4px 0',
+        }}>
+          Quitter sans rejoindre
+        </button>
       </div>
+
+      {/* Copy invite link */}
+      <button onClick={() => {
+        const link = `${window.location.origin}${window.location.pathname}?join=${meeting.id}`;
+        navigator.clipboard?.writeText(link).catch(() => {});
+        showToast('🔗 Lien d\'invitation copié !', 'success');
+      }} style={{
+        marginTop: 20,
+        background: 'rgba(255,255,255,0.07)',
+        border: '1px solid rgba(255,255,255,0.15)',
+        borderRadius: 12, padding: '12px 24px',
+        color: 'rgba(255,255,255,0.70)', fontSize: 13,
+        fontFamily: 'Poppins, sans-serif', fontWeight: 600,
+        cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
+      }}>
+        🔗 Copier le lien d'invitation
+      </button>
     </div>
   );
 }
@@ -2221,51 +2331,180 @@ function TermsPage({ T, onBack }) {
 // SETTINGS PAGE
 // ============================================================
 function SettingsPage({ T, prefs, onUpdatePref, onBack, onPrivacy, onTerms }) {
-  const qualities = ['low', 'medium', 'high', 'veryHigh'];
   const langs = [{ code: 'fr', label: '🇫🇷 Français' }, { code: 'en', label: '🇬🇧 English' }, { code: 'es', label: '🇪🇸 Español' }, { code: 'de', label: '🇩🇪 Deutsch' }];
-  const [pwChanged, setPwChanged] = useState(false);
+  const qualities = ['low', 'medium', 'high', 'veryHigh'];
+  const qualityLabels = { low: 'Faible', medium: 'Moyen', high: 'Élevé', veryHigh: 'Très élevé' };
+  const [showLang, setShowLang] = useState(false);
+  const [showQuality, setShowQuality] = useState(false);
+
+  const sectionTitle = (label) => (
+    <p style={{ color: '#8E44AD', fontSize: 11, fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase', margin: '0 0 4px', paddingLeft: 4 }}>{label}</p>
+  );
+
+  const settCard = { background: 'white', borderRadius: 16, overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,0.06)', marginBottom: 8 };
+
+  const tileRow = (icon, title, right, onClick, showDivider = true) => (
+    <div onClick={onClick} style={{
+      display: 'flex', alignItems: 'center', padding: '14px 16px',
+      borderTop: showDivider ? '1px solid #F0F0F0' : 'none',
+      cursor: onClick ? 'pointer' : 'default', gap: 14,
+      transition: 'background 0.15s',
+    }}
+      onMouseEnter={e => onClick && (e.currentTarget.style.background = '#F8F3FF')}
+      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+    >
+      <span style={{ fontSize: 20, width: 28, textAlign: 'center' }}>{icon}</span>
+      <span style={{ flex: 1, fontSize: 14, fontWeight: 500, color: '#1A1A1A' }}>{title}</span>
+      {right}
+    </div>
+  );
+
   return (
-    <div style={{ maxWidth: 720, margin: '0 auto', padding: '32px 24px', fontFamily: 'Poppins, sans-serif' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 36 }}>
-        <button onClick={onBack} style={{ padding: '8px 16px', background: C.white, border: `1.5px solid ${C.border}`, borderRadius: 10, color: C.textPrimary, fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>{T.back}</button>
-        <h2 style={{ fontSize: 22, fontWeight: 800, color: C.textPrimary, margin: 0 }}>⚙️ {T.settings}</h2>
+    <div className="crux-scroll" style={{ minHeight: '100vh', fontFamily: 'Poppins, sans-serif', background: '#F5F3FF' }}>
+      {/* Gradient AppBar */}
+      <div style={{
+        background: 'linear-gradient(135deg, #E74C3C, #8E44AD)',
+        padding: '20px 20px 24px',
+        display: 'flex', alignItems: 'center', gap: 16,
+        boxShadow: '0 4px 20px rgba(231,76,60,0.30)',
+      }}>
+        <button onClick={onBack} style={{
+          background: 'rgba(255,255,255,0.20)', border: '1px solid rgba(255,255,255,0.30)',
+          borderRadius: 12, padding: '8px 14px', color: 'white', fontWeight: 700, fontSize: 13,
+          cursor: 'pointer', fontFamily: 'Poppins, sans-serif',
+        }}>←</button>
+        <h2 style={{ fontSize: 20, fontWeight: 700, color: 'white', margin: 0 }}>Paramètres</h2>
       </div>
-      <SettSection title={`🎥 ${T.meetingSettings}`}>
-        <SettSelect label={T.videoQuality} value={prefs.videoQuality} options={qualities.map(q => ({ v: q, l: T[q] }))} onChange={v => onUpdatePref('videoQuality', v)} />
-        <SettToggle label={T.defaultMic} value={prefs.defaultMic} onChange={v => onUpdatePref('defaultMic', v)} />
-        <SettToggle label={T.defaultCam} value={prefs.defaultCam} onChange={v => onUpdatePref('defaultCam', v)} />
-      </SettSection>
-      <SettSection title={`🌐 ${T.generalSettings}`}>
-        <SettSelect label={T.language} value={prefs.language} options={langs.map(l => ({ v: l.code, l: l.label }))} onChange={v => onUpdatePref('language', v)} />
-        <SettToggle label={T.notifToggle} value={prefs.notifications} onChange={v => onUpdatePref('notifications', v)} />
-      </SettSection>
-      <SettSection title={`🔒 ${T.securitySection}`}>
-        <SettRow label={T.changePassword}>
-          <button onClick={() => { setPwChanged(true); setTimeout(() => setPwChanged(false), 3000); }} style={{ padding: '7px 16px', background: C.primaryGradient, color: 'white', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>
-            {pwChanged ? '✓ Envoyé' : T.changePassword}
-          </button>
-        </SettRow>
-      </SettSection>
-      <SettSection title={`⚖️ ${T.legal}`}>
-        <SettRow label={T.privacyPolicy}>
-          <button onClick={onPrivacy} style={{ padding: '7px 16px', background: C.lightBg, color: C.violet, border: `1.5px solid ${C.violetLight}`, borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>
-            Lire →
-          </button>
-        </SettRow>
-        <SettRow label={T.termsOfService}>
-          <button onClick={onTerms} style={{ padding: '7px 16px', background: C.lightBg, color: C.violet, border: `1.5px solid ${C.violetLight}`, borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>
-            Lire →
-          </button>
-        </SettRow>
-      </SettSection>
-      <SettSection title={`ℹ️ ${T.about}`}>
-        <SettRow label={T.version}><span style={{ color: C.textSecondary, fontSize: 14 }}>2.0.0 (build 3)</span></SettRow>
-        <SettRow label={T.team}><span style={{ color: C.textSecondary, fontSize: 14 }}>CRUX Team</span></SettRow>
-      </SettSection>
-      <SettSection title={`💬 ${T.support}`}>
-        <button onClick={() => alert('📧 support@crux.app')} style={{ ...primBtn, marginBottom: 10 }}>📧 {T.contactSupport}</button>
-        <button onClick={() => navigator.share?.({ title: 'CRUX', text: T.shareMsg }).catch(() => alert(T.shareMsg))} style={secBtn}>🔗 {T.share}</button>
-      </SettSection>
+
+      <div style={{ padding: '20px 16px', maxWidth: 600, margin: '0 auto' }}>
+
+        {/* RÉUNION */}
+        <div style={{ marginBottom: 20 }}>
+          {sectionTitle('Réunion')}
+          <div style={settCard}>
+            {tileRow('📹', 'Caméra par défaut',
+              <ToggleSwitch on={prefs.defaultCam} onChange={v => onUpdatePref('defaultCam', v)} colorOn="#8E44AD" />,
+              null, false)}
+            {tileRow('🎤', 'Micro par défaut',
+              <ToggleSwitch on={prefs.defaultMic} onChange={v => onUpdatePref('defaultMic', v)} colorOn="#8E44AD" />)}
+            {tileRow('🎬', 'Qualité vidéo',
+              <button onClick={() => setShowQuality(true)} style={{
+                background: '#F5F3FF', border: '1px solid #D0B0FF', borderRadius: 8,
+                padding: '6px 12px', fontSize: 13, color: '#8E44AD', fontWeight: 600,
+                cursor: 'pointer', fontFamily: 'Poppins, sans-serif',
+              }}>{qualityLabels[prefs.videoQuality] || 'Élevé'} ›</button>,
+              () => setShowQuality(true))}
+          </div>
+        </div>
+
+        {/* APPARENCE */}
+        <div style={{ marginBottom: 20 }}>
+          {sectionTitle('Apparence')}
+          <div style={settCard}>
+            {tileRow('🌐', 'Langue',
+              <button onClick={() => setShowLang(true)} style={{
+                background: '#F5F3FF', border: '1px solid #D0B0FF', borderRadius: 8,
+                padding: '6px 12px', fontSize: 13, color: '#8E44AD', fontWeight: 600,
+                cursor: 'pointer', fontFamily: 'Poppins, sans-serif',
+              }}>{langs.find(l => l.code === prefs.language)?.label || '🇫🇷 Français'} ›</button>,
+              () => setShowLang(true), false)}
+          </div>
+        </div>
+
+        {/* NOTIFICATIONS */}
+        <div style={{ marginBottom: 20 }}>
+          {sectionTitle('Notifications')}
+          <div style={settCard}>
+            {tileRow('🔔', 'Activer les notifications',
+              <ToggleSwitch on={prefs.notifications} onChange={v => onUpdatePref('notifications', v)} colorOn="#8E44AD" />,
+              null, false)}
+          </div>
+        </div>
+
+        {/* À PROPOS */}
+        <div style={{ marginBottom: 20 }}>
+          {sectionTitle('À Propos')}
+          <div style={settCard}>
+            {tileRow('📱', 'Version', <span style={{ fontSize: 13, color: '#999' }}>2.0.0</span>, null, false)}
+            {tileRow('👥', 'Équipe', <span style={{ fontSize: 13, color: '#999' }}>CRUX Team</span>)}
+          </div>
+        </div>
+
+        {/* LÉGAL */}
+        <div style={{ marginBottom: 20 }}>
+          {sectionTitle('Légal')}
+          <div style={settCard}>
+            {tileRow('🔐', 'Politique de confidentialité', <span style={{ color: '#8E44AD', fontSize: 16 }}>›</span>, onPrivacy, false)}
+            {tileRow('📄', 'Conditions d\'utilisation', <span style={{ color: '#8E44AD', fontSize: 16 }}>›</span>, onTerms)}
+          </div>
+        </div>
+
+        {/* Action buttons */}
+        <button onClick={() => alert('📧 support@crux.app')} style={{
+          width: '100%', padding: '16px', marginBottom: 12,
+          background: 'linear-gradient(135deg, #E74C3C, #8E44AD)',
+          border: 'none', borderRadius: 16, color: 'white',
+          fontSize: 15, fontWeight: 700, cursor: 'pointer',
+          fontFamily: 'Poppins, sans-serif',
+          boxShadow: '0 8px 24px rgba(231,76,60,0.30)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+        }}>
+          📧 Assistance
+        </button>
+        <button onClick={() => navigator.share?.({ title: 'CRUX', text: 'Rejoignez-moi sur CRUX !' }).catch(() => {})} style={{
+          width: '100%', padding: '16px',
+          background: 'linear-gradient(135deg, #3498DB, #8E44AD)',
+          border: 'none', borderRadius: 16, color: 'white',
+          fontSize: 15, fontWeight: 700, cursor: 'pointer',
+          fontFamily: 'Poppins, sans-serif',
+          boxShadow: '0 8px 24px rgba(52,152,219,0.25)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+        }}>
+          🔗 Partager l'application
+        </button>
+      </div>
+
+      {/* Language dialog */}
+      {showLang && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }} onClick={() => setShowLang(false)}>
+          <div style={{ background: 'white', borderRadius: 20, padding: '28px 24px', width: '100%', maxWidth: 340 }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1A1A1A', margin: '0 0 16px' }}>Choisir la langue</h3>
+            {langs.map(l => (
+              <div key={l.code} onClick={() => { onUpdatePref('language', l.code); setShowLang(false); }} style={{
+                padding: '14px 16px', borderRadius: 12, cursor: 'pointer', marginBottom: 4,
+                background: prefs.language === l.code ? '#F5F3FF' : 'transparent',
+                border: prefs.language === l.code ? '1.5px solid #8E44AD' : '1.5px solid transparent',
+                fontSize: 14, fontWeight: 500, color: '#1A1A1A',
+                display: 'flex', justifyContent: 'space-between',
+              }}>
+                {l.label}
+                {prefs.language === l.code && <span style={{ color: '#8E44AD', fontWeight: 700 }}>✓</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Quality dialog */}
+      {showQuality && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }} onClick={() => setShowQuality(false)}>
+          <div style={{ background: 'white', borderRadius: 20, padding: '28px 24px', width: '100%', maxWidth: 340 }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1A1A1A', margin: '0 0 16px' }}>Qualité vidéo</h3>
+            {qualities.map(q => (
+              <div key={q} onClick={() => { onUpdatePref('videoQuality', q); setShowQuality(false); }} style={{
+                padding: '14px 16px', borderRadius: 12, cursor: 'pointer', marginBottom: 4,
+                background: prefs.videoQuality === q ? '#F5F3FF' : 'transparent',
+                border: prefs.videoQuality === q ? '1.5px solid #8E44AD' : '1.5px solid transparent',
+                fontSize: 14, fontWeight: 500, color: '#1A1A1A',
+                display: 'flex', justifyContent: 'space-between',
+              }}>
+                {qualityLabels[q]}
+                {prefs.videoQuality === q && <span style={{ color: '#8E44AD', fontWeight: 700 }}>✓</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
