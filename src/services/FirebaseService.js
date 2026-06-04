@@ -23,6 +23,8 @@ import {
     deleteDoc,
     orderBy,
     setDoc,
+    onSnapshot,
+    serverTimestamp,
 } from 'firebase/firestore';
 
 const firebaseConfig = {
@@ -265,4 +267,75 @@ export const MeetingService = {
     },
 };
 
-export default { AuthService, MeetingService };
+// ============================================================
+// PAYMENT SERVICE — Firestore-based payment requests
+// ============================================================
+const genCode = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const rand = Array.from({ length: 8 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    return `CRUX-${rand}`;
+};
+
+export const PaymentService = {
+    // Utilisateur soumet une demande de paiement
+    async submitRequest({ userId, userName, userEmail, txRef, plan, meetingId }) {
+        const ref = await addDoc(collection(db, 'payment_requests'), {
+            userId,
+            userName: userName || 'Utilisateur',
+            userEmail: userEmail || '',
+            txRef,
+            plan,
+            meetingId,
+            status: 'pending',
+            code: null,
+            createdAt: serverTimestamp(),
+        });
+        return ref.id;
+    },
+
+    // Admin : approuver une demande → génère et sauvegarde le code
+    async approveRequest(requestId) {
+        const code = genCode();
+        await updateDoc(doc(db, 'payment_requests', requestId), {
+            status: 'approved',
+            code,
+            approvedAt: serverTimestamp(),
+        });
+        return code;
+    },
+
+    // Admin : rejeter une demande
+    async rejectRequest(requestId) {
+        await updateDoc(doc(db, 'payment_requests', requestId), {
+            status: 'rejected',
+            rejectedAt: serverTimestamp(),
+        });
+    },
+
+    // Écoute en temps réel toutes les demandes (admin)
+    listenAllRequests(callback) {
+        const q = query(collection(db, 'payment_requests'), orderBy('createdAt', 'desc'));
+        return onSnapshot(q, snap => {
+            const requests = snap.docs.map(d => ({ id: d.id, ...d.data(), createdAt: d.data().createdAt?.toDate?.() || new Date() }));
+            callback(requests);
+        });
+    },
+
+    // Écoute en temps réel les demandes d'un utilisateur (inbox)
+    listenUserRequests(userId, callback) {
+        const q = query(collection(db, 'payment_requests'), where('userId', '==', userId), orderBy('createdAt', 'desc'));
+        return onSnapshot(q, snap => {
+            const requests = snap.docs.map(d => ({ id: d.id, ...d.data(), createdAt: d.data().createdAt?.toDate?.() || new Date() }));
+            callback(requests);
+        }, () => {
+            // Fallback sans orderBy si index manquant
+            const q2 = query(collection(db, 'payment_requests'), where('userId', '==', userId));
+            return onSnapshot(q2, snap2 => {
+                const requests = snap2.docs.map(d => ({ id: d.id, ...d.data(), createdAt: d.data().createdAt?.toDate?.() || new Date() }));
+                callback(requests.sort((a, b) => b.createdAt - a.createdAt));
+            });
+        });
+    },
+};
+
+export default { AuthService, MeetingService, PaymentService };

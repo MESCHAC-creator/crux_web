@@ -1,4 +1,5 @@
 import { AuthService, MeetingService } from './services/LocalStorageService';
+import { PaymentService } from './services/FirebaseService';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 // ============================================================
@@ -527,129 +528,121 @@ function ToastContainer() {
 }
 
 // ============================================================
-// ============================================================
-// ADMIN PANEL — génération de codes d'activation
+// ADMIN PANEL — Firestore temps réel
 // Accès : ?admin=crux2024
 // ============================================================
 function AdminPanel() {
-  const [codes, setCodes] = useState(() => VCodeService.list());
-  const [newCode, setNewCode] = useState('');
-  const [plan, setPlan] = useState('sub');
-  const [copied, setCopied] = useState('');
+  const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [approving, setApproving] = useState('');
+  const [copiedCode, setCopiedCode] = useState('');
 
-  const generate = () => {
-    const code = VCodeService.addCode(plan);
-    setNewCode(code);
-    setCodes(VCodeService.list());
+  useEffect(() => {
+    const unsub = PaymentService.listenAllRequests(reqs => {
+      setRequests(reqs);
+      setLoading(false);
+    });
+    return () => unsub?.();
+  }, []);
+
+  const handleApprove = async (req) => {
+    setApproving(req.id);
+    try {
+      await PaymentService.approveRequest(req.id);
+    } catch { alert('Erreur lors de l\'approbation.'); }
+    setApproving('');
+  };
+
+  const handleReject = async (req) => {
+    if (!window.confirm(`Rejeter la demande de ${req.userName} ?`)) return;
+    await PaymentService.rejectRequest(req.id);
   };
 
   const copyCode = (code) => {
     navigator.clipboard?.writeText(code).catch(() => {});
-    setCopied(code);
-    setTimeout(() => setCopied(''), 2000);
+    setCopiedCode(code);
+    setTimeout(() => setCopiedCode(''), 2000);
   };
 
-  const deleteCode = (code) => {
-    try {
-      const pool = VCodeService.list().filter(c => c.code !== code);
-      localStorage.setItem('crux_vcodes', JSON.stringify(pool));
-      setCodes(VCodeService.list());
-    } catch {}
+  const pending = requests.filter(r => r.status === 'pending');
+  const done = requests.filter(r => r.status !== 'pending');
+
+  const statusBadge = (status) => ({
+    pending: { bg: 'rgba(255,152,0,0.20)', color: '#FFB74D', label: '⏳ En attente' },
+    approved: { bg: 'rgba(39,174,96,0.20)', color: '#27AE60', label: '✅ Approuvé' },
+    rejected: { bg: 'rgba(231,76,60,0.20)', color: '#E74C3C', label: '❌ Rejeté' },
+  }[status] || { bg: 'rgba(255,255,255,0.08)', color: 'white', label: status });
+
+  const ReqCard = ({ req }) => {
+    const s = statusBadge(req.status);
+    return (
+      <div style={{ background: 'rgba(255,255,255,0.05)', border: req.status === 'pending' ? '1px solid rgba(255,152,0,0.30)' : '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: '18px 20px', marginBottom: 12 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+          <div>
+            <p style={{ color: 'white', fontWeight: 700, fontSize: 14, margin: 0 }}>{req.userName}</p>
+            <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12, margin: '2px 0 0' }}>{req.userEmail || '—'}</p>
+          </div>
+          <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20, background: s.bg, color: s.color }}>{s.label}</span>
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: req.status === 'pending' ? 14 : 0 }}>
+          <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 20, background: req.plan === 'sub' ? 'rgba(255,64,129,0.20)' : 'rgba(255,152,0,0.15)', color: req.plan === 'sub' ? '#FF4081' : '#FFB74D' }}>{req.plan === 'sub' ? '💎 Mensuel' : '🎟️ Réunion unique'}</span>
+          <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 20, background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.60)', fontFamily: 'monospace' }}>Réf: {req.txRef}</span>
+          <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 20, background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.40)' }}>{req.createdAt?.toLocaleString?.('fr-FR') || '—'}</span>
+        </div>
+        {req.status === 'approved' && req.code && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
+            <span style={{ fontFamily: 'monospace', fontSize: 14, fontWeight: 700, color: '#27AE60', flex: 1 }}>{req.code}</span>
+            <button onClick={() => copyCode(req.code)} style={{ padding: '5px 12px', borderRadius: 8, border: 'none', background: copiedCode === req.code ? '#27AE60' : 'rgba(39,174,96,0.20)', color: 'white', fontSize: 12, cursor: 'pointer' }}>{copiedCode === req.code ? '✓' : '📋'}</button>
+          </div>
+        )}
+        {req.status === 'pending' && (
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={() => handleApprove(req)} disabled={approving === req.id} style={{ flex: 1, padding: '11px', borderRadius: 12, background: approving === req.id ? 'rgba(39,174,96,0.4)' : 'linear-gradient(135deg,#27AE60,#2ECC71)', border: 'none', color: 'white', fontWeight: 700, fontSize: 13, cursor: approving === req.id ? 'not-allowed' : 'pointer' }}>
+              {approving === req.id ? '⏳ Traitement...' : '✅ Approuver & envoyer le code'}
+            </button>
+            <button onClick={() => handleReject(req)} style={{ padding: '11px 16px', borderRadius: 12, background: 'rgba(231,76,60,0.15)', border: '1px solid rgba(231,76,60,0.30)', color: '#E74C3C', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>✗</button>
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0D0020', fontFamily: 'Poppins, sans-serif', padding: '32px 24px' }}>
-      <div style={{ maxWidth: 600, margin: '0 auto' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 32 }}>
+    <div style={{ minHeight: '100vh', background: '#0D0020', fontFamily: 'Poppins, sans-serif', padding: '28px 20px' }}>
+      <div style={{ maxWidth: 640, margin: '0 auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
           <div style={{ width: 44, height: 44, borderRadius: 12, background: 'linear-gradient(135deg,#FF4081,#AA00FF)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>💎</div>
           <div>
             <h1 style={{ color: 'white', fontWeight: 800, fontSize: 20, margin: 0 }}>CRUX Admin</h1>
-            <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12, margin: 0 }}>Gestion des codes d'activation</p>
+            <p style={{ color: 'rgba(255,255,255,0.40)', fontSize: 12, margin: 0 }}>Paiements en temps réel — {pending.length} en attente</p>
           </div>
+          {pending.length > 0 && <div style={{ marginLeft: 'auto', width: 24, height: 24, borderRadius: '50%', background: '#FF4081', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 800, fontSize: 13 }}>{pending.length}</div>}
         </div>
 
-        {/* Génération */}
-        <div style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 20, padding: '24px', marginBottom: 24 }}>
-          <h3 style={{ color: 'white', fontWeight: 700, fontSize: 15, margin: '0 0 16px' }}>Générer un nouveau code</h3>
-          <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
-            {[
-              { v: 'sub', label: '💎 Abonnement mensuel (6 500 FCFA)' },
-              { v: 'single', label: '🎟️ Réunion unique (1 300 FCFA)' },
-            ].map(p => (
-              <button key={p.v} onClick={() => setPlan(p.v)} style={{
-                padding: '10px 16px', borderRadius: 10, cursor: 'pointer',
-                background: plan === p.v ? 'linear-gradient(135deg,#FF4081,#AA00FF)' : 'rgba(255,255,255,0.08)',
-                border: plan === p.v ? 'none' : '1px solid rgba(255,255,255,0.15)',
-                color: 'white', fontSize: 13, fontWeight: 600,
-              }}>{p.label}</button>
-            ))}
+        {loading && <p style={{ color: 'rgba(255,255,255,0.40)', textAlign: 'center', padding: '40px 0' }}>⏳ Connexion à Firestore...</p>}
+
+        {!loading && pending.length > 0 && (
+          <div style={{ marginBottom: 28 }}>
+            <p style={{ color: '#FFB74D', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>⚡ En attente de validation</p>
+            {pending.map(r => <ReqCard key={r.id} req={r} />)}
           </div>
-          <button onClick={generate} style={{
-            width: '100%', padding: '14px', borderRadius: 14,
-            background: 'linear-gradient(135deg,#FF4081,#AA00FF)',
-            border: 'none', color: 'white', fontSize: 15, fontWeight: 700, cursor: 'pointer',
-          }}>
-            ✨ Générer un code
-          </button>
-          {newCode && (
-            <div style={{ marginTop: 16, background: 'rgba(255,64,129,0.12)', border: '1px solid rgba(255,64,129,0.30)', borderRadius: 12, padding: '16px', textAlign: 'center' }}>
-              <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 11, margin: '0 0 8px', textTransform: 'uppercase' }}>Nouveau code généré</p>
-              <p style={{ color: 'white', fontFamily: 'monospace', fontSize: 22, fontWeight: 800, margin: '0 0 12px', letterSpacing: 2 }}>{newCode}</p>
-              <button onClick={() => copyCode(newCode)} style={{
-                padding: '10px 24px', borderRadius: 10, border: 'none',
-                background: copied === newCode ? '#27AE60' : 'rgba(255,255,255,0.15)',
-                color: 'white', fontWeight: 700, fontSize: 13, cursor: 'pointer',
-              }}>{copied === newCode ? '✓ Copié !' : '📋 Copier le code'}</button>
-            </div>
-          )}
-        </div>
+        )}
 
-        {/* Liste des codes */}
-        <div style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 20, padding: '24px' }}>
-          <h3 style={{ color: 'white', fontWeight: 700, fontSize: 15, margin: '0 0 16px' }}>
-            Codes existants ({codes.filter(c => !c.used).length} disponibles / {codes.length} total)
-          </h3>
-          {codes.length === 0 && (
-            <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>Aucun code généré</p>
-          )}
-          {[...codes].reverse().map(c => (
-            <div key={c.code} style={{
-              display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0',
-              borderBottom: '1px solid rgba(255,255,255,0.07)',
-            }}>
-              <span style={{
-                fontFamily: 'monospace', fontSize: 14, fontWeight: 700,
-                color: c.used ? 'rgba(255,255,255,0.25)' : 'white',
-                textDecoration: c.used ? 'line-through' : 'none', flex: 1,
-              }}>{c.code}</span>
-              <span style={{
-                fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20,
-                background: c.plan === 'sub' ? 'rgba(255,64,129,0.20)' : 'rgba(255,152,0,0.20)',
-                color: c.plan === 'sub' ? '#FF4081' : '#FFB74D',
-              }}>{c.plan === 'sub' ? 'Mensuel' : 'Unique'}</span>
-              <span style={{
-                fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20,
-                background: c.used ? 'rgba(255,255,255,0.05)' : 'rgba(39,174,96,0.20)',
-                color: c.used ? 'rgba(255,255,255,0.25)' : '#27AE60',
-              }}>{c.used ? 'Utilisé' : 'Disponible'}</span>
-              {!c.used && (
-                <button onClick={() => copyCode(c.code)} style={{
-                  padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.15)',
-                  background: copied === c.code ? '#27AE60' : 'transparent',
-                  color: 'white', fontSize: 12, cursor: 'pointer',
-                }}>{copied === c.code ? '✓' : '📋'}</button>
-              )}
-              <button onClick={() => deleteCode(c.code)} style={{
-                padding: '6px 10px', borderRadius: 8, border: '1px solid rgba(231,76,60,0.30)',
-                background: 'transparent', color: '#E74C3C', fontSize: 12, cursor: 'pointer',
-              }}>🗑</button>
-            </div>
-          ))}
-        </div>
+        {!loading && pending.length === 0 && (
+          <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: '32px', textAlign: 'center', marginBottom: 24 }}>
+            <p style={{ fontSize: 32, margin: '0 0 8px' }}>✅</p>
+            <p style={{ color: 'rgba(255,255,255,0.40)', fontSize: 13 }}>Aucune demande en attente</p>
+          </div>
+        )}
 
-        <p style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11, textAlign: 'center', marginTop: 24 }}>
-          Accès admin — ne partagez pas cette URL
-        </p>
+        {done.length > 0 && (
+          <div>
+            <p style={{ color: 'rgba(255,255,255,0.30)', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>Historique</p>
+            {done.map(r => <ReqCard key={r.id} req={r} />)}
+          </div>
+        )}
+
+        <p style={{ color: 'rgba(255,255,255,0.20)', fontSize: 11, textAlign: 'center', marginTop: 24 }}>Accès admin privé — ne partagez pas cette URL</p>
       </div>
     </div>
   );
@@ -1737,12 +1730,11 @@ function HostCtrlBtn({ icon, label, color, onClick, active }) {
 }
 
 // ============================================================
-// PAYMENT WALL (Djamo)
+// PAYMENT WALL — Firestore-backed, real-time code delivery
 // ============================================================
 const FREE_MINUTES = 2;
 const DJAMO_PAYMENT_URL = 'https://pay.djamo.com/qxmvj';
 
-// ── Pro status helpers ───────────────────────────────────────
 const ProService = {
   getStatus(userId) {
     try { return JSON.parse(localStorage.getItem(`crux_pro_${userId}`) || 'null'); } catch { return null; }
@@ -1762,142 +1754,90 @@ const ProService = {
   },
 };
 
-// ── Validation code service (codes générés par l'admin) ──────
-// L'admin génère un code depuis /admin#CRUX-XXXXX et l'envoie à l'acheteur
-// Le code est stocké dans localStorage côté admin sous crux_vcodes
-const VCodeService = {
-  // Vérifie si un code est valide et non utilisé
-  validate(code) {
-    const normalized = code.trim().toUpperCase();
-    if (!normalized) return { ok: false, reason: 'empty' };
-    // Format : CRUX-XXXXXX (10 chars après CRUX-)
-    if (!/^CRUX-[A-Z0-9]{6,12}$/.test(normalized)) return { ok: false, reason: 'format' };
-    // Vérifie dans le pool de codes valides stockés par l'admin
-    try {
-      const pool = JSON.parse(localStorage.getItem('crux_vcodes') || '[]');
-      const entry = pool.find(c => c.code === normalized && !c.used);
-      if (!entry) return { ok: false, reason: 'not_found' };
-      return { ok: true, plan: entry.plan || 'sub', entry };
-    } catch { return { ok: false, reason: 'error' }; }
-  },
-  // Marque un code comme utilisé
-  markUsed(code, userId) {
-    try {
-      const pool = JSON.parse(localStorage.getItem('crux_vcodes') || '[]');
-      const idx = pool.findIndex(c => c.code === code.trim().toUpperCase());
-      if (idx !== -1) { pool[idx].used = true; pool[idx].usedBy = userId; pool[idx].usedAt = Date.now(); }
-      localStorage.setItem('crux_vcodes', JSON.stringify(pool));
-    } catch {}
-  },
-  // Admin : ajouter un code
-  addCode(plan = 'sub') {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    const rand = Array.from({ length: 8 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-    const code = `CRUX-${rand}`;
-    try {
-      const pool = JSON.parse(localStorage.getItem('crux_vcodes') || '[]');
-      pool.push({ code, plan, used: false, createdAt: Date.now() });
-      localStorage.setItem('crux_vcodes', JSON.stringify(pool));
-    } catch {}
-    return code;
-  },
-  list() {
-    try { return JSON.parse(localStorage.getItem('crux_vcodes') || '[]'); } catch { return []; }
-  },
-};
-
-// ── Payment steps: 'plans' | 'paying' | 'verify' | 'success' ─
+// steps: 'plans' | 'submitted' | 'waiting' | 'success'
 function PaymentWall({ user, meeting, onPaid, onExit }) {
   const [step, setStep] = useState(() =>
     ProService.isActive(user.uid, meeting.id) ? 'success' : 'plans'
   );
   const [selectedPlan, setSelectedPlan] = useState(null);
-  const [verifying, setVerifying] = useState(false);
-  const [verifyError, setVerifyError] = useState('');
   const [txRef, setTxRef] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+  const [requestId, setRequestId] = useState(null);
+  const [approvedCode, setApprovedCode] = useState(null);
+  const [copied, setCopied] = useState(false);
 
   // Auto-unlock if already pro
   useEffect(() => {
-    if (ProService.isActive(user.uid, meeting.id)) { onPaid(); }
+    if (ProService.isActive(user.uid, meeting.id)) onPaid();
   }, []); // eslint-disable-line
+
+  // Écoute temps réel : dès que l'admin approuve → code apparaît automatiquement
+  useEffect(() => {
+    if (!requestId) return;
+    const unsub = PaymentService.listenUserRequests(user.uid, (reqs) => {
+      const req = reqs.find(r => r.id === requestId);
+      if (req?.status === 'approved' && req.code) {
+        setApprovedCode(req.code);
+        setStep('success');
+      }
+    });
+    return () => unsub?.();
+  }, [requestId]); // eslint-disable-line
 
   const handlePay = (plan) => {
     setSelectedPlan(plan);
-    setStep('paying');
     window.open(DJAMO_PAYMENT_URL, '_blank');
-    // After a short delay show the verification step
-    setTimeout(() => setStep('verify'), 1500);
+    setStep('submitted');
   };
 
-  const handleVerify = () => {
-    const code = txRef.trim().toUpperCase();
-    if (!code) { setVerifyError('Entrez le code d\'activation reçu après paiement.'); return; }
-    setVerifying(true);
-    setVerifyError('');
-
-    setTimeout(() => {
-      const result = VCodeService.validate(code);
-      setVerifying(false);
-      if (result.ok) {
-        VCodeService.markUsed(code, user.uid);
-        ProService.activate(user.uid, result.plan, meeting.id);
-        setStep('success');
-      } else {
-        const msgs = {
-          format: 'Format invalide. Le code doit ressembler à CRUX-XXXXXXXX.',
-          not_found: 'Code introuvable ou déjà utilisé. Vérifiez le code envoyé par l\'administrateur.',
-          error: 'Erreur de vérification. Réessayez.',
-          empty: 'Entrez le code d\'activation.',
-        };
-        setVerifyError(msgs[result.reason] || 'Code invalide.');
-      }
-    }, 800);
+  const handleSubmitProof = async () => {
+    if (!txRef.trim()) { setSubmitError('Entrez la référence de votre transaction Djamo.'); return; }
+    setSubmitting(true);
+    setSubmitError('');
+    try {
+      const id = await PaymentService.submitRequest({
+        userId: user.uid,
+        userName: user.name || user.email || 'Utilisateur',
+        userEmail: user.email || '',
+        txRef: txRef.trim(),
+        plan: selectedPlan,
+        meetingId: meeting.id,
+      });
+      setRequestId(id);
+      setStep('waiting');
+    } catch {
+      setSubmitError('Erreur d\'envoi. Vérifiez votre connexion et réessayez.');
+    }
+    setSubmitting(false);
   };
 
-  // ── Success screen ──────────────────────────────────────────
+  // ── Écran succès ────────────────────────────────────────────
   if (step === 'success') {
+    // Activer Pro localement avec le code reçu
+    if (approvedCode) ProService.activate(user.uid, selectedPlan || 'sub', meeting.id);
     const status = ProService.getStatus(user.uid);
     const expiry = status ? new Date(status.expiresAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) : '';
     return (
-      <div style={{
-        position: 'fixed', inset: 0, zIndex: 9999,
-        background: 'rgba(13,0,32,0.97)', backdropFilter: 'blur(20px)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontFamily: 'Poppins, sans-serif', padding: 20,
-      }}>
-        <div style={{
-          background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)',
-          borderRadius: 24, padding: '40px 32px', maxWidth: 400, width: '100%', textAlign: 'center',
-        }}>
-          {/* Badge Pro animé */}
-          <div style={{
-            width: 80, height: 80, borderRadius: '50%', margin: '0 auto 20px',
-            background: 'linear-gradient(135deg,#FF4081,#AA00FF)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 38,
-            boxShadow: '0 0 0 12px rgba(255,64,129,0.15), 0 0 40px rgba(170,0,255,0.30)',
-          }}>💎</div>
-          <h2 style={{ color: 'white', fontWeight: 800, fontSize: 22, margin: '0 0 8px' }}>
-            Bienvenue dans CRUX Pro !
-          </h2>
-          <p style={{ color: 'rgba(255,255,255,0.60)', fontSize: 14, margin: '0 0 6px' }}>
-            Votre accès est actif jusqu'au
-          </p>
-          <p style={{ color: '#FF4081', fontWeight: 700, fontSize: 15, margin: '0 0 28px' }}>{expiry}</p>
-
-          {/* Avantages */}
-          <div style={{ background: 'rgba(255,64,129,0.08)', border: '1px solid rgba(255,64,129,0.20)', borderRadius: 14, padding: '16px 20px', marginBottom: 28, textAlign: 'left' }}>
+      <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(13,0,32,0.97)', backdropFilter: 'blur(20px)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Poppins, sans-serif', padding: 20 }}>
+        <div style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 24, padding: '40px 32px', maxWidth: 400, width: '100%', textAlign: 'center' }}>
+          <div style={{ width: 80, height: 80, borderRadius: '50%', margin: '0 auto 20px', background: 'linear-gradient(135deg,#FF4081,#AA00FF)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 38, boxShadow: '0 0 0 12px rgba(255,64,129,0.15), 0 0 40px rgba(170,0,255,0.30)' }}>💎</div>
+          <h2 style={{ color: 'white', fontWeight: 800, fontSize: 22, margin: '0 0 8px' }}>Bienvenue dans CRUX Pro !</h2>
+          <p style={{ color: 'rgba(255,255,255,0.60)', fontSize: 14, margin: '0 0 4px' }}>Accès actif jusqu'au</p>
+          <p style={{ color: '#FF4081', fontWeight: 700, fontSize: 15, margin: '0 0 24px' }}>{expiry}</p>
+          {approvedCode && (
+            <div style={{ background: 'rgba(39,174,96,0.12)', border: '1px solid rgba(39,174,96,0.30)', borderRadius: 12, padding: '12px 16px', marginBottom: 20 }}>
+              <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 11, margin: '0 0 6px' }}>VOTRE CODE D'ACTIVATION</p>
+              <p style={{ color: 'white', fontFamily: 'monospace', fontSize: 18, fontWeight: 800, margin: '0 0 8px', letterSpacing: 2 }}>{approvedCode}</p>
+              <button onClick={() => { navigator.clipboard?.writeText(approvedCode); setCopied(true); setTimeout(() => setCopied(false), 2000); }} style={{ background: copied ? '#27AE60' : 'rgba(255,255,255,0.12)', border: 'none', borderRadius: 8, padding: '6px 14px', color: 'white', fontSize: 12, cursor: 'pointer' }}>{copied ? '✓ Copié' : '📋 Copier'}</button>
+            </div>
+          )}
+          <div style={{ background: 'rgba(255,64,129,0.08)', border: '1px solid rgba(255,64,129,0.20)', borderRadius: 14, padding: '14px 18px', marginBottom: 24, textAlign: 'left' }}>
             {['✅ Réunions sans limite de durée', '✅ Qualité vidéo HD', '✅ Enregistrement activé', '✅ Contrôles hôte avancés'].map(f => (
               <p key={f} style={{ color: 'rgba(255,255,255,0.80)', fontSize: 13, margin: '4px 0' }}>{f}</p>
             ))}
           </div>
-
-          <button onClick={onPaid} style={{
-            width: '100%', padding: '16px', borderRadius: 16,
-            background: 'linear-gradient(135deg,#FF4081,#AA00FF)',
-            border: 'none', color: 'white', fontSize: 16, fontWeight: 700,
-            cursor: 'pointer', fontFamily: 'Poppins, sans-serif',
-            boxShadow: '0 8px 24px rgba(255,64,129,0.35)',
-          }}>
+          <button onClick={onPaid} style={{ width: '100%', padding: '16px', borderRadius: 16, background: 'linear-gradient(135deg,#FF4081,#AA00FF)', border: 'none', color: 'white', fontSize: 16, fontWeight: 700, cursor: 'pointer', fontFamily: 'Poppins, sans-serif', boxShadow: '0 8px 24px rgba(255,64,129,0.35)' }}>
             🚀 Continuer la réunion
           </button>
         </div>
@@ -1905,142 +1845,95 @@ function PaymentWall({ user, meeting, onPaid, onExit }) {
     );
   }
 
-  // ── Verify screen ───────────────────────────────────────────
-  if (step === 'verify') {
+  // ── En attente de validation admin ─────────────────────────
+  if (step === 'waiting') {
     return (
-      <div style={{
-        position: 'fixed', inset: 0, zIndex: 9999,
-        background: 'rgba(13,0,32,0.97)', backdropFilter: 'blur(20px)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontFamily: 'Poppins, sans-serif', padding: 20,
-      }}>
-        <div style={{
-          background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)',
-          borderRadius: 24, padding: '40px 32px', maxWidth: 400, width: '100%', textAlign: 'center',
-        }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>🔐</div>
-          <h2 style={{ color: 'white', fontWeight: 800, fontSize: 20, margin: '0 0 8px' }}>
-            Confirmer le paiement
-          </h2>
-          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 13, margin: '0 0 20px', lineHeight: 1.6 }}>
-            Une fois le paiement reçu, l'administrateur vous enverra un <strong style={{ color: '#FF4081' }}>code d'activation</strong> par WhatsApp ou SMS.
+      <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(13,0,32,0.97)', backdropFilter: 'blur(20px)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Poppins, sans-serif', padding: 20 }}>
+        <div style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 24, padding: '40px 32px', maxWidth: 400, width: '100%', textAlign: 'center' }}>
+          {/* Spinner animé */}
+          <div style={{ width: 64, height: 64, borderRadius: '50%', border: '4px solid rgba(255,64,129,0.15)', borderTop: '4px solid #FF4081', margin: '0 auto 24px', animation: 'cruxSpin 1s linear infinite' }} />
+          <h2 style={{ color: 'white', fontWeight: 800, fontSize: 20, margin: '0 0 10px' }}>Demande envoyée ✅</h2>
+          <p style={{ color: 'rgba(255,255,255,0.60)', fontSize: 13, margin: '0 0 20px', lineHeight: 1.7 }}>
+            L'administrateur examine votre paiement.<br/>
+            <strong style={{ color: 'white' }}>Votre code d'activation apparaîtra ici automatiquement</strong> dès validation — restez sur cette page.
           </p>
-
-          {/* Instruction */}
-          <div style={{ background: 'rgba(255,64,129,0.08)', border: '1px solid rgba(255,64,129,0.20)', borderRadius: 12, padding: '12px 16px', marginBottom: 20, textAlign: 'left' }}>
-            <p style={{ color: 'rgba(255,255,255,0.50)', fontSize: 11, margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: 0.8 }}>Comment obtenir le code ?</p>
-            <p style={{ color: 'rgba(255,255,255,0.80)', fontSize: 12, margin: 0, lineHeight: 1.7 }}>
-              1. Payez via Djamo<br/>
-              2. Envoyez une capture de preuve à l'admin<br/>
-              3. Recevez votre code (ex: <span style={{ fontFamily: 'monospace', color: '#FF4081' }}>CRUX-XXXXXXXX</span>)<br/>
-              4. Entrez le code ci-dessous
-            </p>
+          <div style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)', borderRadius: 12, padding: '12px 16px', marginBottom: 24, textAlign: 'left' }}>
+            <p style={{ color: 'rgba(255,255,255,0.40)', fontSize: 11, margin: '0 0 4px', textTransform: 'uppercase' }}>Référence soumise</p>
+            <p style={{ color: 'rgba(255,255,255,0.80)', fontFamily: 'monospace', fontSize: 14, fontWeight: 700, margin: 0 }}>{txRef}</p>
           </div>
-
-          <input
-            type="text"
-            placeholder="Ex: CRUX-AB3X7K2M"
-            value={txRef}
-            onChange={e => setTxRef(e.target.value)}
-            style={{
-              width: '100%', padding: '14px 16px', boxSizing: 'border-box',
-              background: 'rgba(255,255,255,0.10)', border: verifyError ? '1.5px solid #FF4081' : '1.5px solid rgba(255,255,255,0.20)',
-              borderRadius: 12, color: 'white', fontSize: 15, fontFamily: 'monospace',
-              outline: 'none', marginBottom: 8,
-            }}
-          />
-          {verifyError && <p style={{ color: '#FF4081', fontSize: 12, marginBottom: 12 }}>⚠️ {verifyError}</p>}
-
-          <button onClick={handleVerify} disabled={verifying} style={{
-            width: '100%', padding: '15px', borderRadius: 14, marginBottom: 12,
-            background: verifying ? 'rgba(255,64,129,0.5)' : 'linear-gradient(135deg,#FF4081,#AA00FF)',
-            border: 'none', color: 'white', fontSize: 15, fontWeight: 700,
-            cursor: verifying ? 'not-allowed' : 'pointer', fontFamily: 'Poppins, sans-serif',
-          }}>
-            {verifying ? '⏳ Vérification...' : '✅ Vérifier et activer'}
-          </button>
-
-          <button onClick={() => { window.open(DJAMO_PAYMENT_URL, '_blank'); }} style={{
-            width: '100%', padding: '12px', borderRadius: 14, marginBottom: 12,
-            background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.18)',
-            color: 'rgba(255,255,255,0.70)', fontSize: 13, fontWeight: 600,
-            cursor: 'pointer', fontFamily: 'Poppins, sans-serif',
-          }}>
-            🔄 Rouvrir Djamo
-          </button>
-
-          <button onClick={onExit} style={{
-            background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)',
-            fontSize: 12, cursor: 'pointer',
-          }}>Quitter la réunion</button>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: 'rgba(255,255,255,0.35)', fontSize: 12, marginBottom: 20 }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#FF4081', animation: 'recPulse 2s infinite' }} />
+            En attente de validation en temps réel...
+          </div>
+          <button onClick={onExit} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.30)', fontSize: 12, cursor: 'pointer' }}>Quitter la réunion</button>
         </div>
       </div>
     );
   }
 
-  // ── Plans screen (default) ──────────────────────────────────
-  return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 9999,
-      background: 'rgba(13,0,32,0.96)', backdropFilter: 'blur(20px)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontFamily: 'Poppins, sans-serif', padding: 20,
-    }}>
-      <div style={{
-        background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)',
-        borderRadius: 24, padding: '40px 32px', maxWidth: 420, width: '100%', textAlign: 'center',
-      }}>
-        <div style={{ fontSize: 52, marginBottom: 12 }}>⏱️</div>
-        <h2 style={{ color: 'white', fontWeight: 800, fontSize: 22, margin: '0 0 8px' }}>
-          30 minutes écoulées
-        </h2>
-        <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, margin: '0 0 32px', lineHeight: 1.6 }}>
-          La période gratuite est terminée. Choisissez un plan pour continuer votre réunion <strong style={{ color: 'white' }}>{meeting.title}</strong>.
-        </p>
+  // ── Étape preuve de paiement ────────────────────────────────
+  if (step === 'submitted') {
+    return (
+      <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(13,0,32,0.97)', backdropFilter: 'blur(20px)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Poppins, sans-serif', padding: 20 }}>
+        <div style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 24, padding: '40px 32px', maxWidth: 400, width: '100%', textAlign: 'center' }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>📋</div>
+          <h2 style={{ color: 'white', fontWeight: 800, fontSize: 20, margin: '0 0 8px' }}>Confirmer le paiement</h2>
+          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 13, margin: '0 0 20px', lineHeight: 1.6 }}>
+            Entrez la <strong style={{ color: 'white' }}>référence de transaction</strong> visible dans votre app Djamo après le paiement.
+          </p>
+          <div style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.10)', borderRadius: 12, padding: '12px 16px', marginBottom: 20, textAlign: 'left' }}>
+            <p style={{ color: 'rgba(255,255,255,0.40)', fontSize: 11, margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: 0.8 }}>Où trouver la référence ?</p>
+            <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12, margin: 0, lineHeight: 1.6 }}>
+              Djamo → <strong>Historique</strong> → votre transaction → copier la référence<br/>
+              <span style={{ color: '#FF4081', fontFamily: 'monospace' }}>Ex: TXN-20241204-XXXXX</span>
+            </p>
+          </div>
+          <input type="text" placeholder="Référence Djamo..." value={txRef} onChange={e => setTxRef(e.target.value)}
+            style={{ width: '100%', padding: '14px 16px', boxSizing: 'border-box', background: 'rgba(255,255,255,0.10)', border: submitError ? '1.5px solid #FF4081' : '1.5px solid rgba(255,255,255,0.20)', borderRadius: 12, color: 'white', fontSize: 14, outline: 'none', marginBottom: 8, fontFamily: 'Poppins, sans-serif' }}
+          />
+          {submitError && <p style={{ color: '#FF4081', fontSize: 12, marginBottom: 10 }}>⚠️ {submitError}</p>}
+          <button onClick={handleSubmitProof} disabled={submitting} style={{ width: '100%', padding: '15px', borderRadius: 14, marginBottom: 12, background: submitting ? 'rgba(255,64,129,0.5)' : 'linear-gradient(135deg,#FF4081,#AA00FF)', border: 'none', color: 'white', fontSize: 15, fontWeight: 700, cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: 'Poppins, sans-serif' }}>
+            {submitting ? '⏳ Envoi en cours...' : '📤 Envoyer la demande'}
+          </button>
+          <button onClick={() => window.open(DJAMO_PAYMENT_URL, '_blank')} style={{ width: '100%', padding: '12px', borderRadius: 14, marginBottom: 12, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.65)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>
+            🔄 Rouvrir Djamo
+          </button>
+          <button onClick={onExit} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.30)', fontSize: 12, cursor: 'pointer' }}>Quitter la réunion</button>
+        </div>
+      </div>
+    );
+  }
 
-        {/* Plans */}
+  // ── Choix du plan ───────────────────────────────────────────
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(13,0,32,0.96)', backdropFilter: 'blur(20px)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Poppins, sans-serif', padding: 20 }}>
+      <div style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 24, padding: '40px 32px', maxWidth: 420, width: '100%', textAlign: 'center' }}>
+        <div style={{ fontSize: 52, marginBottom: 12 }}>⏱️</div>
+        <h2 style={{ color: 'white', fontWeight: 800, fontSize: 22, margin: '0 0 8px' }}>{FREE_MINUTES} minutes écoulées</h2>
+        <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, margin: '0 0 28px', lineHeight: 1.6 }}>
+          La période gratuite est terminée. Choisissez un plan pour continuer <strong style={{ color: 'white' }}>{meeting.title}</strong>.
+        </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
-          <button onClick={() => handlePay('sub')} style={{
-            padding: '18px 24px', borderRadius: 16,
-            background: 'linear-gradient(135deg,#FF4081,#AA00FF)',
-            border: 'none', color: 'white', textAlign: 'left', cursor: 'pointer',
-          }}>
+          <button onClick={() => handlePay('sub')} style={{ padding: '18px 24px', borderRadius: 16, background: 'linear-gradient(135deg,#FF4081,#AA00FF)', border: 'none', color: 'white', textAlign: 'left', cursor: 'pointer' }}>
             <div style={{ fontWeight: 800, fontSize: 16 }}>💎 Pro — Abonnement mensuel</div>
             <div style={{ fontSize: 13, opacity: 0.85, marginTop: 4 }}>Réunions illimitées · 6 500 FCFA / mois</div>
-            <div style={{ marginTop: 10, fontSize: 12, background: 'rgba(255,255,255,0.15)', borderRadius: 8, padding: '6px 12px', display: 'inline-block' }}>
-              Payer via Djamo →
-            </div>
+            <div style={{ marginTop: 10, fontSize: 12, background: 'rgba(255,255,255,0.15)', borderRadius: 8, padding: '6px 12px', display: 'inline-block' }}>Payer via Djamo →</div>
           </button>
-
-          <button onClick={() => handlePay('single')} style={{
-            padding: '18px 24px', borderRadius: 16,
-            background: 'rgba(255,255,255,0.10)', border: '1.5px solid rgba(255,255,255,0.20)',
-            color: 'white', textAlign: 'left', cursor: 'pointer',
-          }}>
+          <button onClick={() => handlePay('single')} style={{ padding: '18px 24px', borderRadius: 16, background: 'rgba(255,255,255,0.10)', border: '1.5px solid rgba(255,255,255,0.20)', color: 'white', textAlign: 'left', cursor: 'pointer' }}>
             <div style={{ fontWeight: 800, fontSize: 16 }}>🎟️ Paiement à la réunion</div>
             <div style={{ fontSize: 13, opacity: 0.85, marginTop: 4 }}>Cette réunion uniquement · 1 300 FCFA</div>
-            <div style={{ marginTop: 10, fontSize: 12, background: 'rgba(255,255,255,0.12)', borderRadius: 8, padding: '6px 12px', display: 'inline-block' }}>
-              Payer via Djamo →
-            </div>
+            <div style={{ marginTop: 10, fontSize: 12, background: 'rgba(255,255,255,0.12)', borderRadius: 8, padding: '6px 12px', display: 'inline-block' }}>Payer via Djamo →</div>
           </button>
         </div>
-
-        {/* Moyens de paiement */}
         <div style={{ marginBottom: 20 }}>
           <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginBottom: 8 }}>MOYENS DE PAIEMENT ACCEPTÉS</p>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
             {['🟠 Orange Money', '💛 MTN MoMo', '🔵 Wave', '💳 Carte bancaire'].map(m => (
               <span key={m} style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 20, padding: '4px 12px', fontSize: 11, color: 'rgba(255,255,255,0.7)' }}>{m}</span>
             ))}
           </div>
         </div>
-
-        <button onClick={onExit} style={{
-          background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)',
-          fontSize: 13, cursor: 'pointer', marginTop: 8,
-        }}>
-          Quitter la réunion
-        </button>
+        <button onClick={onExit} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 13, cursor: 'pointer' }}>Quitter la réunion</button>
       </div>
     </div>
   );
