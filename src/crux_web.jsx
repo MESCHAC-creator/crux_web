@@ -527,6 +527,135 @@ function ToastContainer() {
 }
 
 // ============================================================
+// ============================================================
+// ADMIN PANEL — génération de codes d'activation
+// Accès : ?admin=crux2024
+// ============================================================
+function AdminPanel() {
+  const [codes, setCodes] = useState(() => VCodeService.list());
+  const [newCode, setNewCode] = useState('');
+  const [plan, setPlan] = useState('sub');
+  const [copied, setCopied] = useState('');
+
+  const generate = () => {
+    const code = VCodeService.addCode(plan);
+    setNewCode(code);
+    setCodes(VCodeService.list());
+  };
+
+  const copyCode = (code) => {
+    navigator.clipboard?.writeText(code).catch(() => {});
+    setCopied(code);
+    setTimeout(() => setCopied(''), 2000);
+  };
+
+  const deleteCode = (code) => {
+    try {
+      const pool = VCodeService.list().filter(c => c.code !== code);
+      localStorage.setItem('crux_vcodes', JSON.stringify(pool));
+      setCodes(VCodeService.list());
+    } catch {}
+  };
+
+  return (
+    <div style={{ minHeight: '100vh', background: '#0D0020', fontFamily: 'Poppins, sans-serif', padding: '32px 24px' }}>
+      <div style={{ maxWidth: 600, margin: '0 auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 32 }}>
+          <div style={{ width: 44, height: 44, borderRadius: 12, background: 'linear-gradient(135deg,#FF4081,#AA00FF)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>💎</div>
+          <div>
+            <h1 style={{ color: 'white', fontWeight: 800, fontSize: 20, margin: 0 }}>CRUX Admin</h1>
+            <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12, margin: 0 }}>Gestion des codes d'activation</p>
+          </div>
+        </div>
+
+        {/* Génération */}
+        <div style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 20, padding: '24px', marginBottom: 24 }}>
+          <h3 style={{ color: 'white', fontWeight: 700, fontSize: 15, margin: '0 0 16px' }}>Générer un nouveau code</h3>
+          <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+            {[
+              { v: 'sub', label: '💎 Abonnement mensuel (6 500 FCFA)' },
+              { v: 'single', label: '🎟️ Réunion unique (1 300 FCFA)' },
+            ].map(p => (
+              <button key={p.v} onClick={() => setPlan(p.v)} style={{
+                padding: '10px 16px', borderRadius: 10, cursor: 'pointer',
+                background: plan === p.v ? 'linear-gradient(135deg,#FF4081,#AA00FF)' : 'rgba(255,255,255,0.08)',
+                border: plan === p.v ? 'none' : '1px solid rgba(255,255,255,0.15)',
+                color: 'white', fontSize: 13, fontWeight: 600,
+              }}>{p.label}</button>
+            ))}
+          </div>
+          <button onClick={generate} style={{
+            width: '100%', padding: '14px', borderRadius: 14,
+            background: 'linear-gradient(135deg,#FF4081,#AA00FF)',
+            border: 'none', color: 'white', fontSize: 15, fontWeight: 700, cursor: 'pointer',
+          }}>
+            ✨ Générer un code
+          </button>
+          {newCode && (
+            <div style={{ marginTop: 16, background: 'rgba(255,64,129,0.12)', border: '1px solid rgba(255,64,129,0.30)', borderRadius: 12, padding: '16px', textAlign: 'center' }}>
+              <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 11, margin: '0 0 8px', textTransform: 'uppercase' }}>Nouveau code généré</p>
+              <p style={{ color: 'white', fontFamily: 'monospace', fontSize: 22, fontWeight: 800, margin: '0 0 12px', letterSpacing: 2 }}>{newCode}</p>
+              <button onClick={() => copyCode(newCode)} style={{
+                padding: '10px 24px', borderRadius: 10, border: 'none',
+                background: copied === newCode ? '#27AE60' : 'rgba(255,255,255,0.15)',
+                color: 'white', fontWeight: 700, fontSize: 13, cursor: 'pointer',
+              }}>{copied === newCode ? '✓ Copié !' : '📋 Copier le code'}</button>
+            </div>
+          )}
+        </div>
+
+        {/* Liste des codes */}
+        <div style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 20, padding: '24px' }}>
+          <h3 style={{ color: 'white', fontWeight: 700, fontSize: 15, margin: '0 0 16px' }}>
+            Codes existants ({codes.filter(c => !c.used).length} disponibles / {codes.length} total)
+          </h3>
+          {codes.length === 0 && (
+            <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>Aucun code généré</p>
+          )}
+          {[...codes].reverse().map(c => (
+            <div key={c.code} style={{
+              display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0',
+              borderBottom: '1px solid rgba(255,255,255,0.07)',
+            }}>
+              <span style={{
+                fontFamily: 'monospace', fontSize: 14, fontWeight: 700,
+                color: c.used ? 'rgba(255,255,255,0.25)' : 'white',
+                textDecoration: c.used ? 'line-through' : 'none', flex: 1,
+              }}>{c.code}</span>
+              <span style={{
+                fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20,
+                background: c.plan === 'sub' ? 'rgba(255,64,129,0.20)' : 'rgba(255,152,0,0.20)',
+                color: c.plan === 'sub' ? '#FF4081' : '#FFB74D',
+              }}>{c.plan === 'sub' ? 'Mensuel' : 'Unique'}</span>
+              <span style={{
+                fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20,
+                background: c.used ? 'rgba(255,255,255,0.05)' : 'rgba(39,174,96,0.20)',
+                color: c.used ? 'rgba(255,255,255,0.25)' : '#27AE60',
+              }}>{c.used ? 'Utilisé' : 'Disponible'}</span>
+              {!c.used && (
+                <button onClick={() => copyCode(c.code)} style={{
+                  padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.15)',
+                  background: copied === c.code ? '#27AE60' : 'transparent',
+                  color: 'white', fontSize: 12, cursor: 'pointer',
+                }}>{copied === c.code ? '✓' : '📋'}</button>
+              )}
+              <button onClick={() => deleteCode(c.code)} style={{
+                padding: '6px 10px', borderRadius: 8, border: '1px solid rgba(231,76,60,0.30)',
+                background: 'transparent', color: '#E74C3C', fontSize: 12, cursor: 'pointer',
+              }}>🗑</button>
+            </div>
+          ))}
+        </div>
+
+        <p style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11, textAlign: 'center', marginTop: 24 }}>
+          Accès admin — ne partagez pas cette URL
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
 // APP ROOT
 // ============================================================
 export default function CruxApp() {
@@ -537,6 +666,10 @@ export default function CruxApp() {
   }));
   const T = T_MAP[prefs.language] || T_MAP.fr;
   const updatePref = useCallback((k, v) => setPrefs(p => { const n = { ...p, [k]: v }; savePrefs(n); return n; }), []);
+
+  // Admin panel via ?admin=crux2024
+  const isAdminMode = new URLSearchParams(window.location.search).get('admin') === 'crux2024';
+  if (isAdminMode) return <AdminPanel />;
 
   const [page, setPage] = useState('splash');
   const [user, setUser] = useState(null);
@@ -1611,7 +1744,6 @@ const DJAMO_PAYMENT_URL = 'https://pay.djamo.com/qxmvj';
 
 // ── Pro status helpers ───────────────────────────────────────
 const ProService = {
-  // Returns: null | { plan: 'sub'|'single', meetingId, expiresAt }
   getStatus(userId) {
     try { return JSON.parse(localStorage.getItem(`crux_pro_${userId}`) || 'null'); } catch { return null; }
   },
@@ -1624,9 +1756,53 @@ const ProService = {
   },
   activate(userId, plan, meetingId) {
     const expiresAt = plan === 'sub'
-      ? Date.now() + 30 * 24 * 60 * 60 * 1000   // 30 jours
-      : Date.now() + 24 * 60 * 60 * 1000;         // 24h pour réunion unique
+      ? Date.now() + 30 * 24 * 60 * 60 * 1000
+      : Date.now() + 24 * 60 * 60 * 1000;
     localStorage.setItem(`crux_pro_${userId}`, JSON.stringify({ plan, meetingId, expiresAt }));
+  },
+};
+
+// ── Validation code service (codes générés par l'admin) ──────
+// L'admin génère un code depuis /admin#CRUX-XXXXX et l'envoie à l'acheteur
+// Le code est stocké dans localStorage côté admin sous crux_vcodes
+const VCodeService = {
+  // Vérifie si un code est valide et non utilisé
+  validate(code) {
+    const normalized = code.trim().toUpperCase();
+    if (!normalized) return { ok: false, reason: 'empty' };
+    // Format : CRUX-XXXXXX (10 chars après CRUX-)
+    if (!/^CRUX-[A-Z0-9]{6,12}$/.test(normalized)) return { ok: false, reason: 'format' };
+    // Vérifie dans le pool de codes valides stockés par l'admin
+    try {
+      const pool = JSON.parse(localStorage.getItem('crux_vcodes') || '[]');
+      const entry = pool.find(c => c.code === normalized && !c.used);
+      if (!entry) return { ok: false, reason: 'not_found' };
+      return { ok: true, plan: entry.plan || 'sub', entry };
+    } catch { return { ok: false, reason: 'error' }; }
+  },
+  // Marque un code comme utilisé
+  markUsed(code, userId) {
+    try {
+      const pool = JSON.parse(localStorage.getItem('crux_vcodes') || '[]');
+      const idx = pool.findIndex(c => c.code === code.trim().toUpperCase());
+      if (idx !== -1) { pool[idx].used = true; pool[idx].usedBy = userId; pool[idx].usedAt = Date.now(); }
+      localStorage.setItem('crux_vcodes', JSON.stringify(pool));
+    } catch {}
+  },
+  // Admin : ajouter un code
+  addCode(plan = 'sub') {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const rand = Array.from({ length: 8 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    const code = `CRUX-${rand}`;
+    try {
+      const pool = JSON.parse(localStorage.getItem('crux_vcodes') || '[]');
+      pool.push({ code, plan, used: false, createdAt: Date.now() });
+      localStorage.setItem('crux_vcodes', JSON.stringify(pool));
+    } catch {}
+    return code;
+  },
+  list() {
+    try { return JSON.parse(localStorage.getItem('crux_vcodes') || '[]'); } catch { return []; }
   },
 };
 
@@ -1654,16 +1830,28 @@ function PaymentWall({ user, meeting, onPaid, onExit }) {
   };
 
   const handleVerify = () => {
-    if (!txRef.trim()) { setVerifyError('Entrez la référence de votre transaction Djamo.'); return; }
+    const code = txRef.trim().toUpperCase();
+    if (!code) { setVerifyError('Entrez le code d\'activation reçu après paiement.'); return; }
     setVerifying(true);
     setVerifyError('');
-    // Simulate async verification (1.5s) then grant access
-    // In production you'd POST to your backend to cross-check with Djamo
+
     setTimeout(() => {
-      ProService.activate(user.uid, selectedPlan, meeting.id);
+      const result = VCodeService.validate(code);
       setVerifying(false);
-      setStep('success');
-    }, 1500);
+      if (result.ok) {
+        VCodeService.markUsed(code, user.uid);
+        ProService.activate(user.uid, result.plan, meeting.id);
+        setStep('success');
+      } else {
+        const msgs = {
+          format: 'Format invalide. Le code doit ressembler à CRUX-XXXXXXXX.',
+          not_found: 'Code introuvable ou déjà utilisé. Vérifiez le code envoyé par l\'administrateur.',
+          error: 'Erreur de vérification. Réessayez.',
+          empty: 'Entrez le code d\'activation.',
+        };
+        setVerifyError(msgs[result.reason] || 'Code invalide.');
+      }
+    }, 800);
   };
 
   // ── Success screen ──────────────────────────────────────────
@@ -1734,21 +1922,24 @@ function PaymentWall({ user, meeting, onPaid, onExit }) {
           <h2 style={{ color: 'white', fontWeight: 800, fontSize: 20, margin: '0 0 8px' }}>
             Confirmer le paiement
           </h2>
-          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 13, margin: '0 0 24px', lineHeight: 1.6 }}>
-            Une fois le paiement effectué sur Djamo, entrez votre <strong style={{ color: 'white' }}>référence de transaction</strong> pour activer CRUX Pro.
+          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 13, margin: '0 0 20px', lineHeight: 1.6 }}>
+            Une fois le paiement reçu, l'administrateur vous enverra un <strong style={{ color: '#FF4081' }}>code d'activation</strong> par WhatsApp ou SMS.
           </p>
 
-          {/* Instruction visuelle */}
-          <div style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)', borderRadius: 12, padding: '12px 16px', marginBottom: 20, textAlign: 'left' }}>
-            <p style={{ color: 'rgba(255,255,255,0.50)', fontSize: 11, margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: 0.8 }}>Comment trouver la référence ?</p>
-            <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12, margin: 0, lineHeight: 1.6 }}>
-              Ouvrez <strong>Djamo</strong> → <strong>Historique</strong> → copiez le numéro de la transaction (ex: <span style={{ fontFamily: 'monospace', color: '#FF4081' }}>TXN-XXXXXXXX</span>)
+          {/* Instruction */}
+          <div style={{ background: 'rgba(255,64,129,0.08)', border: '1px solid rgba(255,64,129,0.20)', borderRadius: 12, padding: '12px 16px', marginBottom: 20, textAlign: 'left' }}>
+            <p style={{ color: 'rgba(255,255,255,0.50)', fontSize: 11, margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: 0.8 }}>Comment obtenir le code ?</p>
+            <p style={{ color: 'rgba(255,255,255,0.80)', fontSize: 12, margin: 0, lineHeight: 1.7 }}>
+              1. Payez via Djamo<br/>
+              2. Envoyez une capture de preuve à l'admin<br/>
+              3. Recevez votre code (ex: <span style={{ fontFamily: 'monospace', color: '#FF4081' }}>CRUX-XXXXXXXX</span>)<br/>
+              4. Entrez le code ci-dessous
             </p>
           </div>
 
           <input
             type="text"
-            placeholder="Ex: TXN-12345678"
+            placeholder="Ex: CRUX-AB3X7K2M"
             value={txRef}
             onChange={e => setTxRef(e.target.value)}
             style={{
