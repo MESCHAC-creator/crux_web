@@ -1606,7 +1606,7 @@ function HostCtrlBtn({ icon, label, color, onClick, active }) {
 // ============================================================
 // PAYMENT WALL (Djamo)
 // ============================================================
-const FREE_MINUTES = 30;
+const FREE_MINUTES = 2;
 const DJAMO_PAYMENT_URL = 'https://pay.djamo.com/qxmvj';
 
 // ── Pro status helpers ───────────────────────────────────────
