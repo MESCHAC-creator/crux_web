@@ -1606,11 +1606,188 @@ function HostCtrlBtn({ icon, label, color, onClick, active }) {
 // ============================================================
 // PAYMENT WALL (Djamo)
 // ============================================================
-const FREE_MINUTES = 2;
+const FREE_MINUTES = 30;
 const DJAMO_PAYMENT_URL = 'https://pay.djamo.com/qxmvj';
 
-function PaymentWall({ user, meeting, onPaid, onExit }) {
+// ── Pro status helpers ───────────────────────────────────────
+const ProService = {
+  // Returns: null | { plan: 'sub'|'single', meetingId, expiresAt }
+  getStatus(userId) {
+    try { return JSON.parse(localStorage.getItem(`crux_pro_${userId}`) || 'null'); } catch { return null; }
+  },
+  isActive(userId, meetingId) {
+    const s = this.getStatus(userId);
+    if (!s) return false;
+    if (s.plan === 'sub' && Date.now() < s.expiresAt) return true;
+    if (s.plan === 'single' && s.meetingId === meetingId && Date.now() < s.expiresAt) return true;
+    return false;
+  },
+  activate(userId, plan, meetingId) {
+    const expiresAt = plan === 'sub'
+      ? Date.now() + 30 * 24 * 60 * 60 * 1000   // 30 jours
+      : Date.now() + 24 * 60 * 60 * 1000;         // 24h pour réunion unique
+    localStorage.setItem(`crux_pro_${userId}`, JSON.stringify({ plan, meetingId, expiresAt }));
+  },
+};
 
+// ── Payment steps: 'plans' | 'paying' | 'verify' | 'success' ─
+function PaymentWall({ user, meeting, onPaid, onExit }) {
+  const [step, setStep] = useState(() =>
+    ProService.isActive(user.uid, meeting.id) ? 'success' : 'plans'
+  );
+  const [selectedPlan, setSelectedPlan] = useState(null);
+  const [verifying, setVerifying] = useState(false);
+  const [verifyError, setVerifyError] = useState('');
+  const [txRef, setTxRef] = useState('');
+
+  // Auto-unlock if already pro
+  useEffect(() => {
+    if (ProService.isActive(user.uid, meeting.id)) { onPaid(); }
+  }, []); // eslint-disable-line
+
+  const handlePay = (plan) => {
+    setSelectedPlan(plan);
+    setStep('paying');
+    window.open(DJAMO_PAYMENT_URL, '_blank');
+    // After a short delay show the verification step
+    setTimeout(() => setStep('verify'), 1500);
+  };
+
+  const handleVerify = () => {
+    if (!txRef.trim()) { setVerifyError('Entrez la référence de votre transaction Djamo.'); return; }
+    setVerifying(true);
+    setVerifyError('');
+    // Simulate async verification (1.5s) then grant access
+    // In production you'd POST to your backend to cross-check with Djamo
+    setTimeout(() => {
+      ProService.activate(user.uid, selectedPlan, meeting.id);
+      setVerifying(false);
+      setStep('success');
+    }, 1500);
+  };
+
+  // ── Success screen ──────────────────────────────────────────
+  if (step === 'success') {
+    const status = ProService.getStatus(user.uid);
+    const expiry = status ? new Date(status.expiresAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) : '';
+    return (
+      <div style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        background: 'rgba(13,0,32,0.97)', backdropFilter: 'blur(20px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontFamily: 'Poppins, sans-serif', padding: 20,
+      }}>
+        <div style={{
+          background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)',
+          borderRadius: 24, padding: '40px 32px', maxWidth: 400, width: '100%', textAlign: 'center',
+        }}>
+          {/* Badge Pro animé */}
+          <div style={{
+            width: 80, height: 80, borderRadius: '50%', margin: '0 auto 20px',
+            background: 'linear-gradient(135deg,#FF4081,#AA00FF)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 38,
+            boxShadow: '0 0 0 12px rgba(255,64,129,0.15), 0 0 40px rgba(170,0,255,0.30)',
+          }}>💎</div>
+          <h2 style={{ color: 'white', fontWeight: 800, fontSize: 22, margin: '0 0 8px' }}>
+            Bienvenue dans CRUX Pro !
+          </h2>
+          <p style={{ color: 'rgba(255,255,255,0.60)', fontSize: 14, margin: '0 0 6px' }}>
+            Votre accès est actif jusqu'au
+          </p>
+          <p style={{ color: '#FF4081', fontWeight: 700, fontSize: 15, margin: '0 0 28px' }}>{expiry}</p>
+
+          {/* Avantages */}
+          <div style={{ background: 'rgba(255,64,129,0.08)', border: '1px solid rgba(255,64,129,0.20)', borderRadius: 14, padding: '16px 20px', marginBottom: 28, textAlign: 'left' }}>
+            {['✅ Réunions sans limite de durée', '✅ Qualité vidéo HD', '✅ Enregistrement activé', '✅ Contrôles hôte avancés'].map(f => (
+              <p key={f} style={{ color: 'rgba(255,255,255,0.80)', fontSize: 13, margin: '4px 0' }}>{f}</p>
+            ))}
+          </div>
+
+          <button onClick={onPaid} style={{
+            width: '100%', padding: '16px', borderRadius: 16,
+            background: 'linear-gradient(135deg,#FF4081,#AA00FF)',
+            border: 'none', color: 'white', fontSize: 16, fontWeight: 700,
+            cursor: 'pointer', fontFamily: 'Poppins, sans-serif',
+            boxShadow: '0 8px 24px rgba(255,64,129,0.35)',
+          }}>
+            🚀 Continuer la réunion
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Verify screen ───────────────────────────────────────────
+  if (step === 'verify') {
+    return (
+      <div style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        background: 'rgba(13,0,32,0.97)', backdropFilter: 'blur(20px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontFamily: 'Poppins, sans-serif', padding: 20,
+      }}>
+        <div style={{
+          background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)',
+          borderRadius: 24, padding: '40px 32px', maxWidth: 400, width: '100%', textAlign: 'center',
+        }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>🔐</div>
+          <h2 style={{ color: 'white', fontWeight: 800, fontSize: 20, margin: '0 0 8px' }}>
+            Confirmer le paiement
+          </h2>
+          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 13, margin: '0 0 24px', lineHeight: 1.6 }}>
+            Une fois le paiement effectué sur Djamo, entrez votre <strong style={{ color: 'white' }}>référence de transaction</strong> pour activer CRUX Pro.
+          </p>
+
+          {/* Instruction visuelle */}
+          <div style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)', borderRadius: 12, padding: '12px 16px', marginBottom: 20, textAlign: 'left' }}>
+            <p style={{ color: 'rgba(255,255,255,0.50)', fontSize: 11, margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: 0.8 }}>Comment trouver la référence ?</p>
+            <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12, margin: 0, lineHeight: 1.6 }}>
+              Ouvrez <strong>Djamo</strong> → <strong>Historique</strong> → copiez le numéro de la transaction (ex: <span style={{ fontFamily: 'monospace', color: '#FF4081' }}>TXN-XXXXXXXX</span>)
+            </p>
+          </div>
+
+          <input
+            type="text"
+            placeholder="Ex: TXN-12345678"
+            value={txRef}
+            onChange={e => setTxRef(e.target.value)}
+            style={{
+              width: '100%', padding: '14px 16px', boxSizing: 'border-box',
+              background: 'rgba(255,255,255,0.10)', border: verifyError ? '1.5px solid #FF4081' : '1.5px solid rgba(255,255,255,0.20)',
+              borderRadius: 12, color: 'white', fontSize: 15, fontFamily: 'monospace',
+              outline: 'none', marginBottom: 8,
+            }}
+          />
+          {verifyError && <p style={{ color: '#FF4081', fontSize: 12, marginBottom: 12 }}>⚠️ {verifyError}</p>}
+
+          <button onClick={handleVerify} disabled={verifying} style={{
+            width: '100%', padding: '15px', borderRadius: 14, marginBottom: 12,
+            background: verifying ? 'rgba(255,64,129,0.5)' : 'linear-gradient(135deg,#FF4081,#AA00FF)',
+            border: 'none', color: 'white', fontSize: 15, fontWeight: 700,
+            cursor: verifying ? 'not-allowed' : 'pointer', fontFamily: 'Poppins, sans-serif',
+          }}>
+            {verifying ? '⏳ Vérification...' : '✅ Vérifier et activer'}
+          </button>
+
+          <button onClick={() => { window.open(DJAMO_PAYMENT_URL, '_blank'); }} style={{
+            width: '100%', padding: '12px', borderRadius: 14, marginBottom: 12,
+            background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.18)',
+            color: 'rgba(255,255,255,0.70)', fontSize: 13, fontWeight: 600,
+            cursor: 'pointer', fontFamily: 'Poppins, sans-serif',
+          }}>
+            🔄 Rouvrir Djamo
+          </button>
+
+          <button onClick={onExit} style={{
+            background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)',
+            fontSize: 12, cursor: 'pointer',
+          }}>Quitter la réunion</button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Plans screen (default) ──────────────────────────────────
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 9999,
@@ -1632,38 +1809,36 @@ function PaymentWall({ user, meeting, onPaid, onExit }) {
 
         {/* Plans */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
-          {/* Abonnement mensuel — Djamo */}
-          <a href="https://pay.djamo.com/qxmvj" target="_blank" rel="noopener noreferrer" style={{
-            display: 'block', padding: '18px 24px', borderRadius: 16,
+          <button onClick={() => handlePay('sub')} style={{
+            padding: '18px 24px', borderRadius: 16,
             background: 'linear-gradient(135deg,#FF4081,#AA00FF)',
-            textDecoration: 'none', color: 'white', textAlign: 'left',
+            border: 'none', color: 'white', textAlign: 'left', cursor: 'pointer',
           }}>
             <div style={{ fontWeight: 800, fontSize: 16 }}>💎 Pro — Abonnement mensuel</div>
             <div style={{ fontSize: 13, opacity: 0.85, marginTop: 4 }}>Réunions illimitées · 6 500 FCFA / mois</div>
             <div style={{ marginTop: 10, fontSize: 12, background: 'rgba(255,255,255,0.15)', borderRadius: 8, padding: '6px 12px', display: 'inline-block' }}>
               Payer via Djamo →
             </div>
-          </a>
+          </button>
 
-          {/* Paiement à la réunion — Djamo */}
-          <a href="https://pay.djamo.com/qxmvj" target="_blank" rel="noopener noreferrer" style={{
-            display: 'block', padding: '18px 24px', borderRadius: 16,
+          <button onClick={() => handlePay('single')} style={{
+            padding: '18px 24px', borderRadius: 16,
             background: 'rgba(255,255,255,0.10)', border: '1.5px solid rgba(255,255,255,0.20)',
-            textDecoration: 'none', color: 'white', textAlign: 'left',
+            color: 'white', textAlign: 'left', cursor: 'pointer',
           }}>
             <div style={{ fontWeight: 800, fontSize: 16 }}>🎟️ Paiement à la réunion</div>
             <div style={{ fontSize: 13, opacity: 0.85, marginTop: 4 }}>Cette réunion uniquement · 1 300 FCFA</div>
             <div style={{ marginTop: 10, fontSize: 12, background: 'rgba(255,255,255,0.12)', borderRadius: 8, padding: '6px 12px', display: 'inline-block' }}>
               Payer via Djamo →
             </div>
-          </a>
+          </button>
         </div>
 
         {/* Moyens de paiement */}
         <div style={{ marginBottom: 20 }}>
           <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginBottom: 8 }}>MOYENS DE PAIEMENT ACCEPTÉS</p>
           <div style={{ display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap' }}>
-            {['🟠 Orange Money', '💛 MTN Mobile Money', '🔵 Wave', '💳 Carte bancaire'].map(m => (
+            {['🟠 Orange Money', '💛 MTN MoMo', '🔵 Wave', '💳 Carte bancaire'].map(m => (
               <span key={m} style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 20, padding: '4px 12px', fontSize: 11, color: 'rgba(255,255,255,0.7)' }}>{m}</span>
             ))}
           </div>
