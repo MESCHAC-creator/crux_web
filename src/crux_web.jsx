@@ -1604,76 +1604,12 @@ function HostCtrlBtn({ icon, label, color, onClick, active }) {
 }
 
 // ============================================================
-// CINETPAY PAYMENT WALL
+// PAYMENT WALL (Djamo)
 // ============================================================
 const FREE_MINUTES = 2;
-const CINETPAY_SITE_ID = process.env.REACT_APP_CINETPAY_SITE_ID || '';
-const CINETPAY_API_KEY = process.env.REACT_APP_CINETPAY_API_KEY || '';
-const RETURN_URL = window.location.origin + window.location.pathname;
+const DJAMO_PAYMENT_URL = 'https://pay.djamo.com/qxmvj';
 
 function PaymentWall({ user, meeting, onPaid, onExit }) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  // Check if user already paid for this meeting session
-  const paidKey = `crux_paid_${meeting.id}_${user.uid}`;
-  if (localStorage.getItem(paidKey) === 'yes') { onPaid(); return null; }
-
-  // Check return from CinetPay
-  React.useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const txId = params.get('cpm_trans_id');
-    const status = params.get('cpm_result');
-    if (txId && status === '00') {
-      localStorage.setItem(paidKey, 'yes');
-      // Clean URL
-      window.history.replaceState({}, '', window.location.pathname);
-      onPaid();
-    }
-  }, []); // eslint-disable-line
-
-  const initPayment = async (plan) => {
-    setLoading(true);
-    setError('');
-    const transId = `CRUX-${Date.now()}-${user.uid.slice(0,6)}`;
-    const amount = plan === 'sub' ? 6500 : 1300; // FCFA
-    const desc = plan === 'sub' ? 'CRUX Pro — Abonnement mensuel' : 'CRUX — Réunion prolongée';
-    const returnUrl = `${RETURN_URL}?join=${meeting.id}`;
-
-    try {
-      const res = await fetch('https://api-checkout.cinetpay.com/v2/payment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          apikey: CINETPAY_API_KEY,
-          site_id: CINETPAY_SITE_ID,
-          transaction_id: transId,
-          amount,
-          currency: 'XOF',
-          description: desc,
-          return_url: returnUrl,
-          notify_url: returnUrl,
-          channels: 'ALL',
-          lang: 'fr',
-          metadata: JSON.stringify({ userId: user.uid, meetingId: meeting.id, plan }),
-          customer_name: user.name || 'Utilisateur',
-          customer_email: user.email || 'noreply@crux.app',
-        }),
-      });
-      const data = await res.json();
-      if (data.code === '201' && data.data?.payment_url) {
-        // Save transaction so we can verify on return
-        localStorage.setItem(`crux_tx_${transId}`, meeting.id);
-        window.location.href = data.data.payment_url;
-      } else {
-        setError(data.message || 'Erreur de paiement. Réessayez.');
-        setLoading(false);
-      }
-    } catch {
-      setError('Impossible de contacter le service de paiement. Vérifiez votre connexion.');
-      setLoading(false);
-    }
-  };
 
   return (
     <div style={{
@@ -1696,27 +1632,31 @@ function PaymentWall({ user, meeting, onPaid, onExit }) {
 
         {/* Plans */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
-          {/* Abonnement */}
-          <button onClick={() => initPayment('sub')} disabled={loading} style={{
-            padding: '18px 24px', borderRadius: 16,
+          {/* Abonnement mensuel — Djamo */}
+          <a href="https://pay.djamo.com/qxmvj" target="_blank" rel="noopener noreferrer" style={{
+            display: 'block', padding: '18px 24px', borderRadius: 16,
             background: 'linear-gradient(135deg,#FF4081,#AA00FF)',
-            border: 'none', color: 'white', cursor: loading ? 'not-allowed' : 'pointer',
-            textAlign: 'left', opacity: loading ? 0.7 : 1,
+            textDecoration: 'none', color: 'white', textAlign: 'left',
           }}>
             <div style={{ fontWeight: 800, fontSize: 16 }}>💎 Pro — Abonnement mensuel</div>
             <div style={{ fontSize: 13, opacity: 0.85, marginTop: 4 }}>Réunions illimitées · 6 500 FCFA / mois</div>
-          </button>
+            <div style={{ marginTop: 10, fontSize: 12, background: 'rgba(255,255,255,0.15)', borderRadius: 8, padding: '6px 12px', display: 'inline-block' }}>
+              Payer via Djamo →
+            </div>
+          </a>
 
-          {/* À la réunion */}
-          <button onClick={() => initPayment('single')} disabled={loading} style={{
-            padding: '18px 24px', borderRadius: 16,
-            background: 'rgba(255,255,255,0.1)', border: '1.5px solid rgba(255,255,255,0.2)',
-            color: 'white', cursor: loading ? 'not-allowed' : 'pointer',
-            textAlign: 'left', opacity: loading ? 0.7 : 1,
+          {/* Paiement à la réunion — Djamo */}
+          <a href="https://pay.djamo.com/qxmvj" target="_blank" rel="noopener noreferrer" style={{
+            display: 'block', padding: '18px 24px', borderRadius: 16,
+            background: 'rgba(255,255,255,0.10)', border: '1.5px solid rgba(255,255,255,0.20)',
+            textDecoration: 'none', color: 'white', textAlign: 'left',
           }}>
             <div style={{ fontWeight: 800, fontSize: 16 }}>🎟️ Paiement à la réunion</div>
             <div style={{ fontSize: 13, opacity: 0.85, marginTop: 4 }}>Cette réunion uniquement · 1 300 FCFA</div>
-          </button>
+            <div style={{ marginTop: 10, fontSize: 12, background: 'rgba(255,255,255,0.12)', borderRadius: 8, padding: '6px 12px', display: 'inline-block' }}>
+              Payer via Djamo →
+            </div>
+          </a>
         </div>
 
         {/* Moyens de paiement */}
@@ -1728,9 +1668,6 @@ function PaymentWall({ user, meeting, onPaid, onExit }) {
             ))}
           </div>
         </div>
-
-        {loading && <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>⏳ Connexion au paiement...</p>}
-        {error && <p style={{ color: '#FF4081', fontSize: 13, marginBottom: 12 }}>⚠️ {error}</p>}
 
         <button onClick={onExit} style={{
           background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)',
