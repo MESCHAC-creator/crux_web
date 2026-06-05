@@ -1732,7 +1732,7 @@ function HostCtrlBtn({ icon, label, color, onClick, active }) {
 // ============================================================
 // PAYMENT WALL — Firestore-backed, real-time code delivery
 // ============================================================
-const FREE_MINUTES = 2;
+const FREE_MINUTES = 30;
 const DJAMO_PAYMENT_URL = 'https://pay.djamo.com/qxmvj';
 
 const ProService = {
