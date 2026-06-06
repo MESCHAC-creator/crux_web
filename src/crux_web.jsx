@@ -895,7 +895,7 @@ export default function CruxApp() {
         {page === 'dashboard' && <Dashboard user={user} T={T} onJoin={goMeeting} onJoinByCode={(code) => handleJoinByCode(code, user)} />}
         {page === 'settings' && (
           <SettingsPage T={T} prefs={prefs} onUpdatePref={updatePref} onBack={() => setPage('dashboard')}
-            onPrivacy={() => setPage('privacy')} onTerms={() => setPage('terms')} />
+            onPrivacy={() => setPage('privacy')} onTerms={() => setPage('terms')} showToast={showToast} />
         )}
         {page === 'privacy' && <PrivacyPolicyPage T={T} onBack={() => setPage('settings')} />}
         {page === 'terms' && <TermsPage T={T} onBack={() => setPage('settings')} />}
@@ -1509,8 +1509,8 @@ function Dashboard({ user, T, onJoin, onJoinByCode }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 28 }}>
           <ActionCard icon="👥" title="Rejoindre" subtitle="Via un ID" gradient="linear-gradient(135deg,#8E44AD,#6C3483)" onTap={() => setShowJoinDialog(true)} />
           <ActionCard icon="📅" title="Planifier" subtitle="Créer" gradient="linear-gradient(135deg,#3498DB,#2980B9)" onTap={() => setShowSchedule(true)} />
-          <ActionCard icon="📤" title="Partager" subtitle="Inviter" gradient="linear-gradient(135deg,#27AE60,#1E8449)" onTap={() => { navigator.share?.({ title: 'CRUX', text: 'Rejoignez CRUX — Visioconférence Premium!' }).catch(() => {}); showToast('📱 Partagez CRUX !', 'success'); }} />
-          <ActionCard icon="❓" title="Aide" subtitle="Support" gradient="linear-gradient(135deg,#F39C12,#D68910)" onTap={() => showToast('📧 support@crux.app', 'info')} />
+          <ActionCard icon="📤" title="Partager" subtitle="Inviter" gradient="linear-gradient(135deg,#27AE60,#1E8449)" onTap={() => { navigator.share?.({ title: 'CRUX', text: 'Rejoignez CRUX — Visioconférence sécurisée!', url: 'https://meschac-creator.github.io/crux_web' }).catch(() => {}); showToast('📱 Partagez CRUX !', 'success'); }} />
+          <ActionCard icon="❓" title="Aide" subtitle="Support" gradient="linear-gradient(135deg,#F39C12,#D68910)" onTap={() => { window.location.href = 'mailto:support@crux.app'; }} />
         </div>
 
         {/* Meetings list */}
@@ -1550,7 +1550,7 @@ function Dashboard({ user, T, onJoin, onJoinByCode }) {
         }}>
           <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(142,68,173,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>ℹ️</div>
           <p style={{ fontSize: 12, color: '#555', margin: 0, lineHeight: 1.5 }}>
-            Les réunions s'ouvrent directement dans CRUX via Jitsi Meet — gratuit et sécurisé.
+            Les réunions s'ouvrent directement dans CRUX via <strong>ZegoCloud</strong> — technologie WebRTC sécurisée, durée illimitée, jusqu'à 100 participants.
           </p>
         </div>
       </div>
@@ -2582,7 +2582,7 @@ function TermsPage({ T, onBack }) {
 // ============================================================
 // SETTINGS PAGE
 // ============================================================
-function SettingsPage({ T, prefs, onUpdatePref, onBack, onPrivacy, onTerms }) {
+function SettingsPage({ T, prefs, onUpdatePref, onBack, onPrivacy, onTerms, showToast }) {
   const langs = [
     { code: 'fr', label: '🇫🇷 Français' },
     { code: 'en', label: '🇬🇧 English' },
@@ -2641,10 +2641,10 @@ function SettingsPage({ T, prefs, onUpdatePref, onBack, onPrivacy, onTerms }) {
           {sectionTitle('Réunion')}
           <div style={settCard}>
             {tileRow('📹', 'Caméra par défaut',
-              <ToggleSwitch on={prefs.defaultCam} onChange={v => onUpdatePref('defaultCam', v)} colorOn="#8E44AD" />,
+              <ToggleSwitch on={prefs.defaultCam} onChange={v => { onUpdatePref('defaultCam', v); showToast?.(v ? '📹 Caméra activée' : '📹 Caméra désactivée', 'success'); }} colorOn="#8E44AD" />,
               null, false)}
             {tileRow('🎤', 'Micro par défaut',
-              <ToggleSwitch on={prefs.defaultMic} onChange={v => onUpdatePref('defaultMic', v)} colorOn="#8E44AD" />)}
+              <ToggleSwitch on={prefs.defaultMic} onChange={v => { onUpdatePref('defaultMic', v); showToast?.(v ? '🎤 Micro activé' : '🎤 Micro désactivé', 'success'); }} colorOn="#8E44AD" />)}
             {tileRow('🎬', 'Qualité vidéo',
               <button onClick={() => setShowQuality(true)} style={{
                 background: '#F5F3FF', border: '1px solid #D0B0FF', borderRadius: 8,
@@ -2660,7 +2660,7 @@ function SettingsPage({ T, prefs, onUpdatePref, onBack, onPrivacy, onTerms }) {
           {sectionTitle(T.language || 'Apparence')}
           <div style={settCard}>
             {tileRow('🌙', T.darkMode,
-              <ToggleSwitch on={!!prefs.darkMode} onChange={v => onUpdatePref('darkMode', v)} colorOn="#8E44AD" />,
+              <ToggleSwitch on={!!prefs.darkMode} onChange={v => { onUpdatePref('darkMode', v); showToast?.(v ? '🌙 Mode sombre activé' : '☀️ Mode clair activé', 'success'); }} colorOn="#8E44AD" />,
               null, false)}
             {tileRow('🌐', T.language,
               <button onClick={() => setShowLang(true)} style={{
@@ -2677,7 +2677,7 @@ function SettingsPage({ T, prefs, onUpdatePref, onBack, onPrivacy, onTerms }) {
           {sectionTitle('Notifications')}
           <div style={settCard}>
             {tileRow('🔔', 'Activer les notifications',
-              <ToggleSwitch on={prefs.notifications} onChange={v => onUpdatePref('notifications', v)} colorOn="#8E44AD" />,
+              <ToggleSwitch on={prefs.notifications} onChange={v => { onUpdatePref('notifications', v); showToast?.(v ? '🔔 Notifications activées' : '🔕 Notifications désactivées', 'success'); }} colorOn="#8E44AD" />,
               null, false)}
           </div>
         </div>
@@ -2701,7 +2701,7 @@ function SettingsPage({ T, prefs, onUpdatePref, onBack, onPrivacy, onTerms }) {
         </div>
 
         {/* Action buttons */}
-        <button onClick={() => alert('📧 support@crux.app')} style={{
+        <button onClick={() => { window.location.href = 'mailto:support@crux.app'; }} style={{
           width: '100%', padding: '16px', marginBottom: 12,
           background: 'linear-gradient(135deg, #E74C3C, #8E44AD)',
           border: 'none', borderRadius: 16, color: 'white',
@@ -2712,7 +2712,7 @@ function SettingsPage({ T, prefs, onUpdatePref, onBack, onPrivacy, onTerms }) {
         }}>
           📧 Assistance
         </button>
-        <button onClick={() => navigator.share?.({ title: 'CRUX', text: 'Rejoignez-moi sur CRUX !' }).catch(() => {})} style={{
+        <button onClick={() => navigator.share?.({ title: 'CRUX', text: 'Rejoignez-moi sur CRUX !', url: 'https://meschac-creator.github.io/crux_web' }).catch(() => {})} style={{
           width: '100%', padding: '16px',
           background: 'linear-gradient(135deg, #3498DB, #8E44AD)',
           border: 'none', borderRadius: 16, color: 'white',
@@ -2731,7 +2731,7 @@ function SettingsPage({ T, prefs, onUpdatePref, onBack, onPrivacy, onTerms }) {
           <div style={{ background: 'white', borderRadius: 20, padding: '28px 24px', width: '100%', maxWidth: 340 }} onClick={e => e.stopPropagation()}>
             <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1A1A1A', margin: '0 0 16px' }}>Choisir la langue</h3>
             {langs.map(l => (
-              <div key={l.code} onClick={() => { onUpdatePref('language', l.code); setShowLang(false); }} style={{
+              <div key={l.code} onClick={() => { onUpdatePref('language', l.code); setShowLang(false); showToast?.('🌐 Langue modifiée', 'success'); }} style={{
                 padding: '14px 16px', borderRadius: 12, cursor: 'pointer', marginBottom: 4,
                 background: prefs.language === l.code ? '#F5F3FF' : 'transparent',
                 border: prefs.language === l.code ? '1.5px solid #8E44AD' : '1.5px solid transparent',
@@ -2752,7 +2752,7 @@ function SettingsPage({ T, prefs, onUpdatePref, onBack, onPrivacy, onTerms }) {
           <div style={{ background: 'white', borderRadius: 20, padding: '28px 24px', width: '100%', maxWidth: 340 }} onClick={e => e.stopPropagation()}>
             <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1A1A1A', margin: '0 0 16px' }}>Qualité vidéo</h3>
             {qualities.map(q => (
-              <div key={q} onClick={() => { onUpdatePref('videoQuality', q); setShowQuality(false); }} style={{
+              <div key={q} onClick={() => { onUpdatePref('videoQuality', q); setShowQuality(false); showToast?.('🎬 Qualité vidéo mise à jour', 'success'); }} style={{
                 padding: '14px 16px', borderRadius: 12, cursor: 'pointer', marginBottom: 4,
                 background: prefs.videoQuality === q ? '#F5F3FF' : 'transparent',
                 border: prefs.videoQuality === q ? '1.5px solid #8E44AD' : '1.5px solid transparent',
