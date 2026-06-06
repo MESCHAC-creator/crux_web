@@ -1,5 +1,5 @@
 import { AuthService, MeetingService } from './services/LocalStorageService';
-import { PaymentService } from './services/FirebaseService';
+import { PaymentService, MeetingService as FirebaseMeetingService } from './services/FirebaseService';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 // ============================================================
@@ -240,6 +240,14 @@ const T_MAP = {
     send: 'Envoyer',
     guestJoin: 'Rejoindre en tant qu\'invité',
     shareCode: 'Partager le code',
+    admit: 'Admettre', reject: 'Rejeter', admitAll: 'Admettre tous',
+    unmuteSelf: 'Activer mon son', screenShare: 'Partage d\'écran',
+    waitingForHost: 'En attente de l\'hôte pour vous admettre',
+    startInstantMeeting: 'Démarrer une réunion instantanée',
+    scheduleMeeting: 'Planifier une réunion',
+    joinViaCode: 'Rejoindre via un code',
+    noRecentMeetings: 'Aucune réunion récente',
+    message: 'Message',
   },
   en: {
     appTagline: 'Premium Video Conferencing',
@@ -320,6 +328,14 @@ const T_MAP = {
     send: 'Send',
     guestJoin: 'Join as guest',
     shareCode: 'Share code',
+    admit: 'Admit', reject: 'Reject', admitAll: 'Admit All',
+    unmuteSelf: 'Unmute Self', screenShare: 'Screen Share',
+    waitingForHost: 'Waiting for host to admit you',
+    startInstantMeeting: 'Start Instant Meeting',
+    scheduleMeeting: 'Schedule Meeting',
+    joinViaCode: 'Join via Code',
+    noRecentMeetings: 'No recent meetings',
+    message: 'Message',
   },
   es: {
     appTagline: 'Videoconferencia Premium',
@@ -400,6 +416,96 @@ const T_MAP = {
     send: 'Enviar',
     guestJoin: 'Unirse como invitado',
     shareCode: 'Compartir código',
+    admit: 'Admitir', reject: 'Rechazar', admitAll: 'Admitir todos',
+    unmuteSelf: 'Activar mi sonido', screenShare: 'Compartir pantalla',
+    waitingForHost: 'Esperando que el anfitrión te admita',
+    startInstantMeeting: 'Iniciar reunión instantánea',
+    scheduleMeeting: 'Programar reunión',
+    joinViaCode: 'Unirse mediante código',
+    noRecentMeetings: 'Sin reuniones recientes',
+    message: 'Mensaje',
+  },
+  ru: {
+    appTagline: 'Премиум видеоконференции',
+    signIn: 'Вход', signUp: 'Регистрация',
+    email: 'Эл. почта', password: 'Пароль', fullName: 'Полное имя',
+    show: 'Показать', hide: 'Скрыть',
+    orContinue: 'или продолжить с',
+    googleBtn: 'Продолжить с Google',
+    termsNote: 'Продолжая, вы соглашаетесь с нашими Условиями.',
+    welcome: 'Привет', dashboard: 'Главная',
+    instantMeeting: 'Мгновенная встреча', schedule: 'Запланировать',
+    joinCode: 'Войти по коду', dialIn: 'Позвонить',
+    recentMeetings: 'Недавние встречи', noMeetings: 'Нет встреч',
+    noMeetingsHint: 'Создайте первую встречу',
+    participants: 'участник(ов)',
+    settings: 'Настройки', logout: 'Выход', notifications: 'Уведомления',
+    noNotif: 'Нет новых уведомлений',
+    darkMode: 'Тёмный режим', language: 'Язык',
+    videoQuality: 'Качество видео', defaultMic: 'Микрофон включён по умолчанию',
+    defaultCam: 'Камера включена по умолчанию', notifToggle: 'Уведомления',
+    about: 'О приложении', version: 'Версия', team: 'Команда', support: 'Поддержка',
+    share: 'Поделиться CRUX', shareMsg: 'Попробуйте CRUX — Премиум видеоконференции!',
+    meetingSettings: 'Встреча', generalSettings: 'Общие',
+    low: 'Низкое', medium: 'Среднее', high: 'Высокое', veryHigh: 'Очень высокое',
+    waitingRoom: 'Зал ожидания', waitingFor: 'Ожидание хоста...',
+    prepareDevices: 'Подготовьте устройства', camera: 'Камера', mic: 'Микрофон',
+    joinMeeting: 'Войти во встречу', leaveWaiting: 'Покинуть зал ожидания',
+    meetingTitle: 'Название встречи', meetingDesc: 'Описание (необязательно)',
+    meetingType: 'Тип', temporary: 'Временная', persistent: 'Постоянная',
+    create: 'Создать', cancel: 'Отмена', join: 'Войти',
+    enterCode: 'Введите код встречи',
+    endMeeting: 'Завершить', confirmExit: 'Выйти из встречи?',
+    confirmExitMsg: 'Вы уверены, что хотите выйти?',
+    confirm: 'Выйти', newMeeting: 'Новая встреча',
+    back: '← Назад', contactSupport: 'Связаться с поддержкой',
+    loading: 'Загрузка...', connecting: 'Подключение...',
+    xpPoints: 'Очки XP', badges: 'Значки', yourStats: 'Ваша статистика',
+    meetingsHeld: 'Встречи', badgeEarned: 'Новый значок!',
+    reactions: 'Реакции', raiseHand: 'Поднять руку', handRaised: 'Рука поднята!',
+    notes: 'Заметки', notesPlaceholder: 'Ваши заметки...',
+    polls: 'Опросы', createPoll: 'Создать опрос', pollQuestion: 'Вопрос',
+    pollOption: 'Вариант', addOption: 'Добавить вариант', launchPoll: 'Запустить',
+    vote: 'Голосовать', pollResults: 'Результаты', closePoll: 'Закрыть',
+    bgBlur: 'Размытие фона', audioLevel: 'Уровень звука',
+    privacyMode: 'Режим конфиденциальности', privacyModeOn: 'Видео размыто — нажмите для просмотра',
+    confirmPassword: 'Подтвердить пароль',
+    passwordMismatch: 'Пароли не совпадают',
+    passwordTooShort: 'Пароль слишком короткий (мин. 6 символов)',
+    nameRequired: 'Имя слишком короткое (мин. 2 символа)',
+    emailInvalid: 'Неверный адрес эл. почты',
+    rememberMe: 'Запомнить меня',
+    forgotPassword: 'Забыли пароль?',
+    resetPasswordTitle: 'Сброс пароля',
+    resetPasswordDesc: 'Введите email для получения ссылки сброса.',
+    resetPasswordBtn: 'Отправить ссылку',
+    resetSent: 'Ссылка отправлена!',
+    resetSentMsg: 'Если аккаунт с этим email существует, вы получите ссылку сброса.',
+    statusScheduled: 'Запланирована', statusOngoing: 'Идёт', statusEnded: 'Завершена',
+    hostBadge: 'Хост',
+    hostControls: 'Управление хостом',
+    lockMeeting: 'Заблокировать встречу', unlockMeeting: 'Разблокировать',
+    meetingLocked: 'Встреча заблокирована',
+    muteAll: 'Отключить всех', muteAllDone: 'Сигнал отправлен участникам',
+    startRecording: 'Начать запись', stopRecording: 'Остановить запись',
+    recordingActive: 'Запись активна',
+    endForAll: 'Завершить для всех',
+    legal: 'Правовая информация', privacyPolicy: 'Политика конфиденциальности',
+    termsOfService: 'Условия использования',
+    securitySection: 'Безопасность', changePassword: 'Изменить пароль',
+    successCopied: 'Скопировано!', successSaved: 'Сохранено',
+    meetingCreated: 'Встреча успешно создана',
+    chat: 'Чат', inviteLink: 'Ссылка-приглашение',
+    linkCopied: 'Ссылка скопирована!',
+    chatPlaceholder: 'Ваше сообщение...',
+    noMessages: 'Нет сообщений',
+    send: 'Отправить',
+    guestJoin: 'Войти как гость',
+    shareCode: 'Поделиться кодом',
+    admit: 'Допустить', reject: 'Отклонить', admitAll: 'Допустить всех',
+    unmuteSelf: 'Включить свой звук',
+    screenShare: 'Демонстрация экрана',
+    waitingForHost: 'Ожидание хоста для приёма',
   },
   de: {
     appTagline: 'Premium-Videokonferenz',
@@ -480,6 +586,14 @@ const T_MAP = {
     send: 'Senden',
     guestJoin: 'Als Gast beitreten',
     shareCode: 'Code teilen',
+    admit: 'Zulassen', reject: 'Ablehnen', admitAll: 'Alle zulassen',
+    unmuteSelf: 'Mein Ton aktivieren', screenShare: 'Bildschirmfreigabe',
+    waitingForHost: 'Warten Sie auf den Gastgeber, um Sie zuzulassen',
+    startInstantMeeting: 'Sofort-Sitzung starten',
+    scheduleMeeting: 'Sitzung planen',
+    joinViaCode: 'Per Code beitreten',
+    noRecentMeetings: 'Keine letzten Sitzungen',
+    message: 'Nachricht',
   },
 };
 
@@ -654,11 +768,17 @@ function AdminPanel() {
 export default function CruxApp() {
   const [prefs, setPrefs] = useState(() => ({
     language: 'fr', notifications: true,
-    defaultMic: true, defaultCam: true, videoQuality: 'high',
+    defaultMic: true, defaultCam: true, videoQuality: 'high', darkMode: false,
     ...loadPrefs(),
   }));
   const T = T_MAP[prefs.language] || T_MAP.fr;
   const updatePref = useCallback((k, v) => setPrefs(p => { const n = { ...p, [k]: v }; savePrefs(n); return n; }), []);
+
+  // Apply dark mode to body
+  useEffect(() => {
+    document.body.style.background = prefs.darkMode ? '#0D0020' : '#F8F9FA';
+    document.body.style.colorScheme = prefs.darkMode ? 'dark' : 'light';
+  }, [prefs.darkMode]);
 
   // Admin panel via ?admin=crux2024
   const isAdminMode = new URLSearchParams(window.location.search).get('admin') === 'crux2024';
@@ -1974,6 +2094,7 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
   const [count, setCount] = useState(1);
   const [showConfirm, setShowConfirm] = useState(false);
   const [handRaised, setHandRaised] = useState(false);
+  const [raisedHands, setRaisedHands] = useState({}); // { userId: userName }
   const [showNotes, setShowNotes] = useState(false);
   const [notes, setNotes] = useState(() => localStorage.getItem(`crux_notes_${meeting.id}`) || '');
   const [showPoll, setShowPoll] = useState(false);
@@ -1988,21 +2109,12 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
   const isHost = meeting.creatorId === user.uid;
   const [jitsiReady, setJitsiReady] = useState(false);
   const [jitsiError, setJitsiError] = useState('');
-  const [showPaywall, setShowPaywall] = useState(false);
-  const [paid, setPaid] = useState(() => !!localStorage.getItem(`crux_paid_${meeting.id}_${user?.uid}`));
-
   const EMOJI_REACTIONS = ['👍', '❤️', '😂', '🎉', '👏', '🔥', '😮', '🙌'];
 
   useEffect(() => {
     const t = setInterval(() => setElapsed(e => e + 1), 1000);
     return () => clearInterval(t);
   }, []);
-
-  useEffect(() => {
-    if (elapsed >= FREE_MINUTES * 60 && !paid) {
-      setShowPaywall(true);
-    }
-  }, [elapsed, paid]);
 
   // Iframe src — plain iframe avoids the 5-min External API restriction
   const jitsiSrc = React.useMemo(() => {
@@ -2029,21 +2141,14 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
   }, [notes, meeting.id]);
 
   useEffect(() => {
-    const loadChat = async () => {
-      const msgs = await MeetingService.getChatMessages(meeting.id);
-      setChatMessages(msgs);
-    };
-    loadChat();
-    const interval = setInterval(loadChat, 3000);
-    return () => clearInterval(interval);
+    const unsub = FirebaseMeetingService.listenChatMessages(meeting.id, msgs => setChatMessages(msgs));
+    return () => unsub && unsub();
   }, [meeting.id]);
 
   const sendChatMessage = async () => {
     if (!chatInput.trim()) return;
-    await MeetingService.saveChatMessage(meeting.id, user.uid, user.name, chatInput.trim());
+    await FirebaseMeetingService.saveChatMessage(meeting.id, user.uid, user.name, chatInput.trim());
     setChatInput('');
-    const msgs = await MeetingService.getChatMessages(meeting.id);
-    setChatMessages(msgs);
   };
 
   const handleExit = async () => {
@@ -2059,10 +2164,16 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
     setTimeout(() => setReactions(r => r.filter(x => x.id !== id)), 3000);
   };
 
-  const toggleHand = () => {
+  useEffect(() => {
+    const unsub = FirebaseMeetingService.listenHands(meeting.id, hands => setRaisedHands(hands));
+    return () => unsub && unsub();
+  }, [meeting.id]);
+
+  const toggleHand = async () => {
     const raised = !handRaised;
     setHandRaised(raised);
     if (raised) GamService.addHandRaise(user.uid);
+    await FirebaseMeetingService.setHandRaised(meeting.id, user.uid, user.name || user.email, raised);
   };
 
   const fmt = s => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
@@ -2078,9 +2189,6 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
     whiteSpace: 'nowrap',
   });
 
-  if (showPaywall && !paid) {
-    return <PaymentWall user={user} meeting={meeting} onPaid={() => { setPaid(true); setShowPaywall(false); }} onExit={handleExit} />;
-  }
 
   if (jitsiError) {
     return (
@@ -2145,8 +2253,11 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
             🔗 Inviter
           </button>
           <span style={{ background: C.flamePrimary, color: 'white', fontSize: 10, fontWeight: 800, padding: '2px 7px', borderRadius: 5, letterSpacing: 1, animation: 'recPulse 2s infinite' }}>⏺ REC</span>
-          {handRaised && (
-            <span style={{ background: C.accentOrange, color: 'white', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 5, animation: 'recPulse 1s infinite' }}>✋</span>
+          {Object.keys(raisedHands).length > 0 && (
+            <span style={{ background: C.accentOrange, color: 'white', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 5, animation: 'recPulse 1s infinite', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              title={Object.values(raisedHands).join(', ')}>
+              ✋ {Object.values(raisedHands).join(', ')}
+            </span>
           )}
           {privacyMode && (
             <span style={{ background: C.violetDark, color: 'white', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 5 }}>🌫</span>
@@ -2216,17 +2327,6 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
           <span style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12, fontWeight: 500 }}>👥 {count}</span>
           <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>🕐 {fmt(elapsed)}</span>
-          {!paid && elapsed < FREE_MINUTES * 60 && (
-            <span style={{
-              fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
-              background: elapsed > (FREE_MINUTES - 5) * 60 ? 'rgba(255,64,129,0.3)' : 'rgba(255,255,255,0.1)',
-              color: elapsed > (FREE_MINUTES - 5) * 60 ? '#FF4081' : 'rgba(255,255,255,0.5)',
-              border: elapsed > (FREE_MINUTES - 5) * 60 ? '1px solid #FF4081' : 'none',
-            }}>
-              🆓 {fmt(FREE_MINUTES * 60 - elapsed)} restant
-            </span>
-          )}
-          {paid && <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: 'rgba(0,200,100,0.2)', color: '#00C864' }}>✅ Pro</span>}
           <button onClick={() => setShowConfirm(true)} style={{ padding: '7px 14px', background: C.error, color: 'white', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'Poppins, sans-serif', boxShadow: `0 3px 12px rgba(231,76,60,0.45)` }}>
             📞 {T.endMeeting}
           </button>
@@ -2527,9 +2627,15 @@ function TermsPage({ T, onBack }) {
 // SETTINGS PAGE
 // ============================================================
 function SettingsPage({ T, prefs, onUpdatePref, onBack, onPrivacy, onTerms }) {
-  const langs = [{ code: 'fr', label: '🇫🇷 Français' }, { code: 'en', label: '🇬🇧 English' }, { code: 'es', label: '🇪🇸 Español' }, { code: 'de', label: '🇩🇪 Deutsch' }];
+  const langs = [
+    { code: 'fr', label: '🇫🇷 Français' },
+    { code: 'en', label: '🇬🇧 English' },
+    { code: 'es', label: '🇪🇸 Español' },
+    { code: 'de', label: '🇩🇪 Deutsch' },
+    { code: 'ru', label: '🇷🇺 Русский' },
+  ];
   const qualities = ['low', 'medium', 'high', 'veryHigh'];
-  const qualityLabels = { low: 'Faible', medium: 'Moyen', high: 'Élevé', veryHigh: 'Très élevé' };
+  const qualityLabels = { low: T.low, medium: T.medium, high: T.high, veryHigh: T.veryHigh };
   const [showLang, setShowLang] = useState(false);
   const [showQuality, setShowQuality] = useState(false);
 
@@ -2595,15 +2701,18 @@ function SettingsPage({ T, prefs, onUpdatePref, onBack, onPrivacy, onTerms }) {
 
         {/* APPARENCE */}
         <div style={{ marginBottom: 20 }}>
-          {sectionTitle('Apparence')}
+          {sectionTitle(T.language || 'Apparence')}
           <div style={settCard}>
-            {tileRow('🌐', 'Langue',
+            {tileRow('🌙', T.darkMode,
+              <ToggleSwitch on={!!prefs.darkMode} onChange={v => onUpdatePref('darkMode', v)} colorOn="#8E44AD" />,
+              null, false)}
+            {tileRow('🌐', T.language,
               <button onClick={() => setShowLang(true)} style={{
                 background: '#F5F3FF', border: '1px solid #D0B0FF', borderRadius: 8,
                 padding: '6px 12px', fontSize: 13, color: '#8E44AD', fontWeight: 600,
                 cursor: 'pointer', fontFamily: 'Poppins, sans-serif',
               }}>{langs.find(l => l.code === prefs.language)?.label || '🇫🇷 Français'} ›</button>,
-              () => setShowLang(true), false)}
+              () => setShowLang(true))}
           </div>
         </div>
 
@@ -2630,8 +2739,8 @@ function SettingsPage({ T, prefs, onUpdatePref, onBack, onPrivacy, onTerms }) {
         <div style={{ marginBottom: 20 }}>
           {sectionTitle('Légal')}
           <div style={settCard}>
-            {tileRow('🔐', 'Politique de confidentialité', <span style={{ color: '#8E44AD', fontSize: 16 }}>›</span>, onPrivacy, false)}
-            {tileRow('📄', 'Conditions d\'utilisation', <span style={{ color: '#8E44AD', fontSize: 16 }}>›</span>, onTerms)}
+            {tileRow('🔐', T.privacyPolicy, <span style={{ color: '#8E44AD', fontSize: 16 }}>›</span>, onPrivacy, false)}
+            {tileRow('📄', T.termsOfService, <span style={{ color: '#8E44AD', fontSize: 16 }}>›</span>, onTerms)}
           </div>
         </div>
 

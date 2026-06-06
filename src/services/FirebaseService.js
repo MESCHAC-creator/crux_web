@@ -245,25 +245,52 @@ export const MeetingService = {
             userId,
             userName,
             message,
-            timestamp: new Date(),
+            timestamp: serverTimestamp(),
         });
     },
 
-    async getChatMessages(meetingId) {
-        try {
-            const q = query(
-                collection(db, 'meetings', meetingId, 'chat'),
-                orderBy('timestamp', 'asc')
-            );
-            const snapshot = await getDocs(q);
-            return snapshot.docs.map(d => ({
+    listenChatMessages(meetingId, callback) {
+        const q = query(
+            collection(db, 'meetings', meetingId, 'chat'),
+            orderBy('timestamp', 'asc')
+        );
+        return onSnapshot(q, snap => {
+            const msgs = snap.docs.map(d => ({
                 id: d.id,
                 ...d.data(),
                 timestamp: d.data().timestamp?.toDate?.() || new Date(),
             }));
-        } catch {
-            return [];
-        }
+            callback(msgs);
+        }, () => {
+            // Fallback without orderBy if index missing
+            return onSnapshot(collection(db, 'meetings', meetingId, 'chat'), snap2 => {
+                const msgs = snap2.docs.map(d => ({
+                    id: d.id,
+                    ...d.data(),
+                    timestamp: d.data().timestamp?.toDate?.() || new Date(),
+                })).sort((a, b) => a.timestamp - b.timestamp);
+                callback(msgs);
+            });
+        });
+    },
+
+    // Raise hand: write userId -> {name, raised} in meetings/{id}/hands/{userId}
+    async setHandRaised(meetingId, userId, userName, raised) {
+        await setDoc(doc(db, 'meetings', meetingId, 'hands', userId), {
+            userName,
+            raised,
+            updatedAt: serverTimestamp(),
+        });
+    },
+
+    listenHands(meetingId, callback) {
+        return onSnapshot(collection(db, 'meetings', meetingId, 'hands'), snap => {
+            const hands = {};
+            snap.docs.forEach(d => {
+                if (d.data().raised) hands[d.id] = d.data().userName;
+            });
+            callback(hands); // { userId: userName, ... } for all who raised hand
+        });
     },
 };
 
