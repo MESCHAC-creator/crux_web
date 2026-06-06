@@ -2155,6 +2155,17 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
   const [captionsOn, setCaptionsOn] = useState(false);
   const [captionText, setCaptionText] = useState('');
   const speechRef = useRef(null);
+  const handsSeenRef = useRef(new Set());
+  const pollsSeenRef = useRef(new Set());
+
+  const isHost = meeting.creatorId === user.uid || meeting.organizerId === user.uid;
+
+  const sendNotif = (title, body, icon = '📹') => {
+    if (!prefs.notifications) return;
+    if (Notification.permission === 'granted') {
+      new Notification(title, { body, icon: '/crux_web/logo192.png', silent: false });
+    }
+  };
 
   const fmt = s => String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
   const togglePanel = name => setActivePanel(p => p === name ? null : name);
@@ -2168,14 +2179,53 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
   // Notes auto-save
   useEffect(() => { localStorage.setItem('crux_notes_' + meeting.id, notes); }, [notes, meeting.id]);
 
+  // Demande permission notifications au montage
+  useEffect(() => {
+    if (prefs.notifications && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, [prefs.notifications]);
+
   // Firestore presence
   useEffect(() => {
     FirebaseMeetingService.joinPresence(meeting.id, user.uid, user.name || user.email);
     return () => { FirebaseMeetingService.leavePresence(meeting.id, user.uid); };
   }, [meeting.id, user.uid, user.name, user.email]);
 
-  // Firestore polls & Q&A
-  useEffect(() => { return FirebaseMeetingService.listenPolls(meeting.id, setPolls); }, [meeting.id]);
+  // Notification : main levée (hôte uniquement)
+  useEffect(() => {
+    if (!isHost) return;
+    return FirebaseMeetingService.listenHands(meeting.id, hands => {
+      hands.forEach(h => {
+        if (!handsSeenRef.current.has(h.uid)) {
+          handsSeenRef.current.add(h.uid);
+          sendNotif('✋ Main levée', `${h.userName} a levé la main`, '✋');
+        }
+      });
+      // Si une main est baissée, retirer de seen pour la notifier à nouveau si relevée
+      const raisedUids = new Set(hands.map(h => h.uid));
+      handsSeenRef.current.forEach(uid => { if (!raisedUids.has(uid)) handsSeenRef.current.delete(uid); });
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [meeting.id, isHost]);
+
+  // Notification : nouveau sondage (participants non-hôte)
+  useEffect(() => {
+    return FirebaseMeetingService.listenPolls(meeting.id, incoming => {
+      setPolls(incoming);
+      incoming.forEach(p => {
+        if (!pollsSeenRef.current.has(p.id) && p.active && p.userId !== user.uid) {
+          pollsSeenRef.current.add(p.id);
+          sendNotif('📊 Nouveau sondage', p.question || 'Un sondage a été lancé');
+        } else {
+          pollsSeenRef.current.add(p.id);
+        }
+      });
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [meeting.id, user.uid]);
+
+  // Firestore Q&A
   useEffect(() => { return FirebaseMeetingService.listenQA(meeting.id, setQaQuestions); }, [meeting.id]);
 
   // Web Speech captions
