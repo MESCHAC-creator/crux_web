@@ -274,22 +274,116 @@ export const MeetingService = {
         });
     },
 
-    // Raise hand: write userId -> {name, raised} in meetings/{id}/hands/{userId}
+    // ── RAISE HAND ─────────────────────────────────────────
     async setHandRaised(meetingId, userId, userName, raised) {
         await setDoc(doc(db, 'meetings', meetingId, 'hands', userId), {
             userName,
             raised,
+            raisedAt: raised ? serverTimestamp() : null,
             updatedAt: serverTimestamp(),
         });
     },
 
+    async lowerHand(meetingId, userId) {
+        await updateDoc(doc(db, 'meetings', meetingId, 'hands', userId), {
+            raised: false, updatedAt: serverTimestamp(),
+        });
+    },
+
+    async lowerAllHands(meetingId) {
+        const snap = await getDocs(collection(db, 'meetings', meetingId, 'hands'));
+        await Promise.all(snap.docs.map(d => updateDoc(d.ref, { raised: false })));
+    },
+
     listenHands(meetingId, callback) {
         return onSnapshot(collection(db, 'meetings', meetingId, 'hands'), snap => {
-            const hands = {};
-            snap.docs.forEach(d => {
-                if (d.data().raised) hands[d.id] = d.data().userName;
+            const hands = snap.docs
+                .filter(d => d.data().raised)
+                .map(d => ({ uid: d.id, userName: d.data().userName, raisedAt: d.data().raisedAt?.toDate?.() || new Date() }))
+                .sort((a, b) => a.raisedAt - b.raisedAt);
+            callback(hands); // ordered array [{ uid, userName, raisedAt }]
+        });
+    },
+
+    // ── PRESENCE (who is in the meeting) ──────────────────
+    async joinPresence(meetingId, userId, userName) {
+        await setDoc(doc(db, 'meetings', meetingId, 'presence', userId), {
+            userName, joinedAt: serverTimestamp(), online: true,
+        });
+    },
+
+    async leavePresence(meetingId, userId) {
+        try {
+            await updateDoc(doc(db, 'meetings', meetingId, 'presence', userId), {
+                online: false, leftAt: serverTimestamp(),
             });
-            callback(hands); // { userId: userName, ... } for all who raised hand
+        } catch { }
+    },
+
+    listenPresence(meetingId, callback) {
+        return onSnapshot(collection(db, 'meetings', meetingId, 'presence'), snap => {
+            const p = snap.docs.filter(d => d.data().online).map(d => ({ uid: d.id, ...d.data() }));
+            callback(p);
+        });
+    },
+
+    // ── Q&A ───────────────────────────────────────────────
+    async submitQuestion(meetingId, userId, userName, question) {
+        return addDoc(collection(db, 'meetings', meetingId, 'qa'), {
+            userId, userName, question, upvotes: [], answered: false, createdAt: serverTimestamp(),
+        });
+    },
+
+    async toggleUpvote(meetingId, questionId, userId) {
+        const ref = doc(db, 'meetings', meetingId, 'qa', questionId);
+        const snap = await getDoc(ref);
+        if (!snap.exists()) return;
+        const upvotes = snap.data().upvotes || [];
+        await updateDoc(ref, {
+            upvotes: upvotes.includes(userId) ? upvotes.filter(u => u !== userId) : [...upvotes, userId],
+        });
+    },
+
+    async markAnswered(meetingId, questionId) {
+        await updateDoc(doc(db, 'meetings', meetingId, 'qa', questionId), { answered: true });
+    },
+
+    listenQA(meetingId, callback) {
+        return onSnapshot(collection(db, 'meetings', meetingId, 'qa'), snap => {
+            callback(snap.docs.map(d => ({ id: d.id, ...d.data() }))
+                .sort((a, b) => (b.upvotes?.length || 0) - (a.upvotes?.length || 0)));
+        });
+    },
+
+    // ── POLLS (Firestore real-time) ───────────────────────
+    async createPoll(meetingId, userId, userName, question, options) {
+        return addDoc(collection(db, 'meetings', meetingId, 'polls'), {
+            userId, userName, question,
+            options: options.map(o => ({ text: o, votes: [] })),
+            active: true, createdAt: serverTimestamp(),
+        });
+    },
+
+    async votePoll(meetingId, pollId, optionIdx, userId) {
+        const ref = doc(db, 'meetings', meetingId, 'polls', pollId);
+        const snap = await getDoc(ref);
+        if (!snap.exists()) return;
+        const options = snap.data().options.map((o, i) => ({
+            ...o,
+            votes: i === optionIdx
+                ? [...new Set([...o.votes, userId])]
+                : o.votes.filter(v => v !== userId),
+        }));
+        await updateDoc(ref, { options });
+    },
+
+    async closePoll(meetingId, pollId) {
+        await updateDoc(doc(db, 'meetings', meetingId, 'polls', pollId), { active: false });
+    },
+
+    listenPolls(meetingId, callback) {
+        return onSnapshot(collection(db, 'meetings', meetingId, 'polls'), snap => {
+            callback(snap.docs.map(d => ({ id: d.id, ...d.data() })));
         });
     },
 };
