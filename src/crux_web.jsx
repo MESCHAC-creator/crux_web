@@ -2203,12 +2203,15 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
   // ── Jitsi iframe src ──────────────────────────────────────
   const jitsiSrc = React.useMemo(() => {
     const roomName = `crux${(meeting.roomId || meeting.id).replace(/[^a-zA-Z0-9]/g, '')}`;
+    // Only keep core AV controls in Jitsi — CRUX handles chat/people/hands/reactions/polls
+    const toolbar = JSON.stringify(['microphone', 'camera', 'desktop', 'fullscreen', 'settings', 'hangup']);
     const params = new URLSearchParams({
       'config.prejoinPageEnabled': 'false',
       'config.startWithAudioMuted': String(!prefs.defaultMic),
       'config.startWithVideoMuted': String(!prefs.defaultCam),
       'config.disableDeepLinking': 'true',
       'config.enableWelcomePage': 'false',
+      'config.toolbarButtons': toolbar,
       'userInfo.displayName': user.name || 'Utilisateur',
     });
     return `https://meet.jit.si/${roomName}#${params.toString()}`;
