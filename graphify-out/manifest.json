@@ -1,0 +1,287 @@
+{
+  "/home/user/crux_web/package.json": {
+    "mtime": 1780768290.2721653,
+    "ast_hash": "ab1b90f5e99c82541b1494ecdc03ea50",
+    "semantic_hash": "ab1b90f5e99c82541b1494ecdc03ea50"
+  },
+  "/home/user/crux_web/public/manifest.json": {
+    "mtime": 1780608471.2528372,
+    "ast_hash": "8c78ad1ded9381bea79cdbf97ac619c1",
+    "semantic_hash": "8c78ad1ded9381bea79cdbf97ac619c1"
+  },
+  "/home/user/crux_web/public/sw.js": {
+    "mtime": 1780608471.2578814,
+    "ast_hash": "0368103f452004ec7cc4d70aa3ecdc76",
+    "semantic_hash": "0368103f452004ec7cc4d70aa3ecdc76"
+  },
+  "/home/user/crux_web/src/App.js": {
+    "mtime": 1780608471.261899,
+    "ast_hash": "c179b5e4c83ee53ad3f6bfe078a538b0",
+    "semantic_hash": "c179b5e4c83ee53ad3f6bfe078a538b0"
+  },
+  "/home/user/crux_web/src/App.test.js": {
+    "mtime": 1780608471.261899,
+    "ast_hash": "d18ac434afb00158b91831ac1e36c491",
+    "semantic_hash": "d18ac434afb00158b91831ac1e36c491"
+  },
+  "/home/user/crux_web/src/crux_web.jsx": {
+    "mtime": 1780787688.2237651,
+    "ast_hash": "ec8eb2f4549d2e13f65b84baae90346d",
+    "semantic_hash": "ec8eb2f4549d2e13f65b84baae90346d"
+  },
+  "/home/user/crux_web/src/hooks/useZegoMeeting.js": {
+    "mtime": 1780608471.261899,
+    "ast_hash": "2462f339a3d3b0d5accecf99520eab18",
+    "semantic_hash": "2462f339a3d3b0d5accecf99520eab18"
+  },
+  "/home/user/crux_web/src/index.js": {
+    "mtime": 1780608471.261899,
+    "ast_hash": "f1e64396aa7a1c2bac2e2e1ea4e90bde",
+    "semantic_hash": "f1e64396aa7a1c2bac2e2e1ea4e90bde"
+  },
+  "/home/user/crux_web/src/reportWebVitals.js": {
+    "mtime": 1780608471.261899,
+    "ast_hash": "240e2381f826a9bb84d178b29b7b9abe",
+    "semantic_hash": "240e2381f826a9bb84d178b29b7b9abe"
+  },
+  "/home/user/crux_web/src/services/FirebaseService.js": {
+    "mtime": 1780768290.2761652,
+    "ast_hash": "bbdc271b9319c56547fc3311a7041b3e",
+    "semantic_hash": "bbdc271b9319c56547fc3311a7041b3e"
+  },
+  "/home/user/crux_web/src/services/LocalStorageService.js": {
+    "mtime": 1780768290.3961654,
+    "ast_hash": "ca3f7c9734a271cb7089195dd859ab40",
+    "semantic_hash": "ca3f7c9734a271cb7089195dd859ab40"
+  },
+  "/home/user/crux_web/src/services/ZegoService.js": {
+    "mtime": 1780608471.3938816,
+    "ast_hash": "7176499daefb82a8b63a56de54380909",
+    "semantic_hash": "7176499daefb82a8b63a56de54380909"
+  },
+  "/home/user/crux_web/src/setupTests.js": {
+    "mtime": 1780608471.3938816,
+    "ast_hash": "1a77571e1a8cf36018a41bcedf60db75",
+    "semantic_hash": "1a77571e1a8cf36018a41bcedf60db75"
+  },
+  "/home/user/crux_web/README.md": {
+    "mtime": 1780608471.2458816,
+    "ast_hash": "33822368bfb3ad3de6fceb9cd76aa0dd",
+    "semantic_hash": "33822368bfb3ad3de6fceb9cd76aa0dd"
+  },
+  "/home/user/crux_web/codemagic.yaml": {
+    "mtime": 1780608471.2478917,
+    "ast_hash": "445691c11e9a6819801a161e42e0ad76",
+    "semantic_hash": "445691c11e9a6819801a161e42e0ad76"
+  },
+  "/home/user/crux_web/public/404.html": {
+    "mtime": 1780768290.2721653,
+    "ast_hash": "ef3d95ec3afe93605e8fe1a63f9ea9fd",
+    "semantic_hash": "ef3d95ec3afe93605e8fe1a63f9ea9fd"
+  },
+  "/home/user/crux_web/public/index.html": {
+    "mtime": 1780768290.2761652,
+    "ast_hash": "7745e78c3fc8f5d9a5cd67d359c36f7e",
+    "semantic_hash": "7745e78c3fc8f5d9a5cd67d359c36f7e"
+  },
+  "/home/user/crux_web/public/robots.txt": {
+    "mtime": 1780608471.2528372,
+    "ast_hash": "fa1ded1ed7c11438a9b0385b1e112850",
+    "semantic_hash": "fa1ded1ed7c11438a9b0385b1e112850"
+  },
+  "/home/user/crux_web/public/crux-icon.png": {
+    "mtime": 1780768290.2761652,
+    "ast_hash": "86fcfd5d522173f5b58e5a6e74b4c4c3",
+    "semantic_hash": "86fcfd5d522173f5b58e5a6e74b4c4c3"
+  },
+  "/home/user/crux_web/public/crux-logo.svg": {
+    "mtime": 1780608471.2516904,
+    "ast_hash": "f91df6fc879feace89989ea17a4290a7",
+    "semantic_hash": "f91df6fc879feace89989ea17a4290a7"
+  },
+  "/home/user/crux_web/public/favicon.png": {
+    "mtime": 1780768290.2761652,
+    "ast_hash": "c07cdd59e85489d80f5b4e776f7ced8a",
+    "semantic_hash": "c07cdd59e85489d80f5b4e776f7ced8a"
+  },
+  "/home/user/crux_web/public/icons/apple-touch-icon-152.png": {
+    "mtime": 1780608471.2516904,
+    "ast_hash": "36aed8e4b147b3aee2d78f1e07248bde",
+    "semantic_hash": "36aed8e4b147b3aee2d78f1e07248bde"
+  },
+  "/home/user/crux_web/public/icons/apple-touch-icon-152.png.svg": {
+    "mtime": 1780608471.2528372,
+    "ast_hash": "81b03483e231c41c528a2c065ed2df8e",
+    "semantic_hash": "81b03483e231c41c528a2c065ed2df8e"
+  },
+  "/home/user/crux_web/public/icons/apple-touch-icon-167.png": {
+    "mtime": 1780608471.2528372,
+    "ast_hash": "09ac0834f9627a35471dcb48d2d2b0bc",
+    "semantic_hash": "09ac0834f9627a35471dcb48d2d2b0bc"
+  },
+  "/home/user/crux_web/public/icons/apple-touch-icon-167.png.svg": {
+    "mtime": 1780608471.2528372,
+    "ast_hash": "b765df391b55db54cb8391138180887e",
+    "semantic_hash": "b765df391b55db54cb8391138180887e"
+  },
+  "/home/user/crux_web/public/icons/apple-touch-icon-180.png": {
+    "mtime": 1780608471.2528372,
+    "ast_hash": "90a46029a4dee3563506f1874ec54c4e",
+    "semantic_hash": "90a46029a4dee3563506f1874ec54c4e"
+  },
+  "/home/user/crux_web/public/icons/apple-touch-icon-180.png.svg": {
+    "mtime": 1780608471.2528372,
+    "ast_hash": "3c1428948d4737c6d6337a6f86a79991",
+    "semantic_hash": "3c1428948d4737c6d6337a6f86a79991"
+  },
+  "/home/user/crux_web/public/icons/icon-128.png": {
+    "mtime": 1780608471.2528372,
+    "ast_hash": "0bc294bacc893c99f10f3e961097367f",
+    "semantic_hash": "0bc294bacc893c99f10f3e961097367f"
+  },
+  "/home/user/crux_web/public/icons/icon-128.png.svg": {
+    "mtime": 1780608471.2528372,
+    "ast_hash": "298a7e11c55f640e2f9fc928b4148967",
+    "semantic_hash": "298a7e11c55f640e2f9fc928b4148967"
+  },
+  "/home/user/crux_web/public/icons/icon-144.png": {
+    "mtime": 1780608471.2528372,
+    "ast_hash": "4ac80120ccc6e98800efbb07c1318ab2",
+    "semantic_hash": "4ac80120ccc6e98800efbb07c1318ab2"
+  },
+  "/home/user/crux_web/public/icons/icon-144.png.svg": {
+    "mtime": 1780608471.2528372,
+    "ast_hash": "d7f1abfc08f0df6d4f4b0007db5d6b78",
+    "semantic_hash": "d7f1abfc08f0df6d4f4b0007db5d6b78"
+  },
+  "/home/user/crux_web/public/icons/icon-152.png": {
+    "mtime": 1780608471.2528372,
+    "ast_hash": "36aed8e4b147b3aee2d78f1e07248bde",
+    "semantic_hash": "36aed8e4b147b3aee2d78f1e07248bde"
+  },
+  "/home/user/crux_web/public/icons/icon-152.png.svg": {
+    "mtime": 1780608471.2528372,
+    "ast_hash": "81b03483e231c41c528a2c065ed2df8e",
+    "semantic_hash": "81b03483e231c41c528a2c065ed2df8e"
+  },
+  "/home/user/crux_web/public/icons/icon-167.png": {
+    "mtime": 1780608471.2528372,
+    "ast_hash": "09ac0834f9627a35471dcb48d2d2b0bc",
+    "semantic_hash": "09ac0834f9627a35471dcb48d2d2b0bc"
+  },
+  "/home/user/crux_web/public/icons/icon-180.png": {
+    "mtime": 1780608471.2528372,
+    "ast_hash": "90a46029a4dee3563506f1874ec54c4e",
+    "semantic_hash": "90a46029a4dee3563506f1874ec54c4e"
+  },
+  "/home/user/crux_web/public/icons/icon-180.png.svg": {
+    "mtime": 1780608471.2528372,
+    "ast_hash": "3c1428948d4737c6d6337a6f86a79991",
+    "semantic_hash": "3c1428948d4737c6d6337a6f86a79991"
+  },
+  "/home/user/crux_web/public/icons/icon-192.png": {
+    "mtime": 1780608471.2528372,
+    "ast_hash": "1cf4e2ec157322480789babdb232c5e2",
+    "semantic_hash": "1cf4e2ec157322480789babdb232c5e2"
+  },
+  "/home/user/crux_web/public/icons/icon-192.png.svg": {
+    "mtime": 1780608471.2528372,
+    "ast_hash": "fd1af9c1ed980296cfec8468c1c423b7",
+    "semantic_hash": "fd1af9c1ed980296cfec8468c1c423b7"
+  },
+  "/home/user/crux_web/public/icons/icon-384.png": {
+    "mtime": 1780608471.2528372,
+    "ast_hash": "d88079edd06f38881142aaddcaa7dc46",
+    "semantic_hash": "d88079edd06f38881142aaddcaa7dc46"
+  },
+  "/home/user/crux_web/public/icons/icon-384.png.svg": {
+    "mtime": 1780608471.2528372,
+    "ast_hash": "710a8dda93f5a898a07aaec68a1f218e",
+    "semantic_hash": "710a8dda93f5a898a07aaec68a1f218e"
+  },
+  "/home/user/crux_web/public/icons/icon-512.png": {
+    "mtime": 1780608471.2528372,
+    "ast_hash": "09d2f7a91f58f432ba976ca5252c73ca",
+    "semantic_hash": "09d2f7a91f58f432ba976ca5252c73ca"
+  },
+  "/home/user/crux_web/public/icons/icon-512.png.svg": {
+    "mtime": 1780608471.2528372,
+    "ast_hash": "85da64e0da95aad78ec23b00adefae3f",
+    "semantic_hash": "85da64e0da95aad78ec23b00adefae3f"
+  },
+  "/home/user/crux_web/public/icons/icon-72.png": {
+    "mtime": 1780608471.2528372,
+    "ast_hash": "de9b027ed362e7c61112823961464e60",
+    "semantic_hash": "de9b027ed362e7c61112823961464e60"
+  },
+  "/home/user/crux_web/public/icons/icon-72.png.svg": {
+    "mtime": 1780608471.2528372,
+    "ast_hash": "16c3dccbba0d4c2468f591e32a9ca0e4",
+    "semantic_hash": "16c3dccbba0d4c2468f591e32a9ca0e4"
+  },
+  "/home/user/crux_web/public/icons/icon-96.png": {
+    "mtime": 1780608471.2528372,
+    "ast_hash": "b8ae97e173953be3cc4f85a0c163ad49",
+    "semantic_hash": "b8ae97e173953be3cc4f85a0c163ad49"
+  },
+  "/home/user/crux_web/public/icons/icon-96.png.svg": {
+    "mtime": 1780608471.2528372,
+    "ast_hash": "4c442cb04bc5bcf877c656814a5ec434",
+    "semantic_hash": "4c442cb04bc5bcf877c656814a5ec434"
+  },
+  "/home/user/crux_web/public/logo192.png": {
+    "mtime": 1780768290.2761652,
+    "ast_hash": "1cf4e2ec157322480789babdb232c5e2",
+    "semantic_hash": "1cf4e2ec157322480789babdb232c5e2"
+  },
+  "/home/user/crux_web/public/logo512.png": {
+    "mtime": 1780768290.2761652,
+    "ast_hash": "09d2f7a91f58f432ba976ca5252c73ca",
+    "semantic_hash": "09d2f7a91f58f432ba976ca5252c73ca"
+  },
+  "/home/user/crux_web/public/splash/splash-1170x2532.png": {
+    "mtime": 1780608471.2538815,
+    "ast_hash": "09c415e4e7f609b55f490f12ae1bad01",
+    "semantic_hash": "09c415e4e7f609b55f490f12ae1bad01"
+  },
+  "/home/user/crux_web/public/splash/splash-1170x2532.svg": {
+    "mtime": 1780608471.2538815,
+    "ast_hash": "2f1b400ee81fea060fd7bc355c9c6b23",
+    "semantic_hash": "2f1b400ee81fea060fd7bc355c9c6b23"
+  },
+  "/home/user/crux_web/public/splash/splash-1290x2796.png": {
+    "mtime": 1780608471.2538815,
+    "ast_hash": "dcb7b29d5dc63b44e953171c12cf7496",
+    "semantic_hash": "dcb7b29d5dc63b44e953171c12cf7496"
+  },
+  "/home/user/crux_web/public/splash/splash-1290x2796.svg": {
+    "mtime": 1780608471.2538815,
+    "ast_hash": "879e536cb648beb0540ece5b85fe9a9f",
+    "semantic_hash": "879e536cb648beb0540ece5b85fe9a9f"
+  },
+  "/home/user/crux_web/public/splash/splash-2048x2732.png": {
+    "mtime": 1780608471.2578814,
+    "ast_hash": "957bca8b546f855b2434182e59cce847",
+    "semantic_hash": "957bca8b546f855b2434182e59cce847"
+  },
+  "/home/user/crux_web/public/splash/splash-2048x2732.svg": {
+    "mtime": 1780608471.2578814,
+    "ast_hash": "6f634688d73e2173424d30400cccfeb1",
+    "semantic_hash": "6f634688d73e2173424d30400cccfeb1"
+  },
+  "/home/user/crux_web/public/splash/splash-750x1334.png": {
+    "mtime": 1780608471.2578814,
+    "ast_hash": "1678ad9f0761171f9b890fbb18e7495f",
+    "semantic_hash": "1678ad9f0761171f9b890fbb18e7495f"
+  },
+  "/home/user/crux_web/public/splash/splash-750x1334.svg": {
+    "mtime": 1780608471.2578814,
+    "ast_hash": "f6320e209f138d0c768e61b7eb9848b2",
+    "semantic_hash": "f6320e209f138d0c768e61b7eb9848b2"
+  },
+  "/home/user/crux_web/src/logo.svg": {
+    "mtime": 1780608471.261899,
+    "ast_hash": "06e733283fa43d1dd57738cfc409adbd",
+    "semantic_hash": "06e733283fa43d1dd57738cfc409adbd"
+  }
+}
