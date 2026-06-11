@@ -1539,7 +1539,7 @@ function Dashboard({ user, T, dark, onJoin, onJoinByCode }) {
           <ActionCard icon="👥" title="Rejoindre" subtitle="Via un ID" gradient="linear-gradient(135deg,#8E44AD,#6C3483)" onTap={() => setShowJoinDialog(true)} />
           <ActionCard icon="📅" title="Planifier" subtitle="Créer" gradient="linear-gradient(135deg,#3498DB,#2980B9)" onTap={() => setShowSchedule(true)} />
           <ActionCard icon="📤" title="Partager" subtitle="Inviter" gradient="linear-gradient(135deg,#27AE60,#1E8449)" onTap={() => { navigator.share?.({ title: 'CRUX', text: 'Rejoignez CRUX — Visioconférence sécurisée!', url: 'https://meschac-creator.github.io/crux_web' }).catch(() => {}); showToast('📱 Partagez CRUX !', 'success'); }} />
-          <ActionCard icon="❓" title="Aide" subtitle="Support" gradient="linear-gradient(135deg,#F39C12,#D68910)" onTap={() => { window.location.href = 'mailto:support@crux.app'; }} />
+          <ActionCard icon="📞" title={T.dialIn} subtitle="Appeler" gradient="linear-gradient(135deg,#27AE60,#1E8449)" onTap={() => { window.location.href = 'tel:+33123456789'; }} />
         </div>
 
         {/* Meetings list */}
@@ -1835,7 +1835,8 @@ function HostControlsPanel({ meeting, T, onClose, onEndForAll }) {
     const val = await MeetingService.toggleRecording(meeting.id);
     setIsRecording(val);
   };
-  const muteAll = () => {
+  const muteAll = async () => {
+    await FirebaseMeetingService.muteAllParticipants(meeting.id);
     setMuteMsg(T.muteAllDone);
     setTimeout(() => setMuteMsg(''), 3000);
   };
@@ -1851,6 +1852,11 @@ function HostControlsPanel({ meeting, T, onClose, onEndForAll }) {
       <div style={{ padding: '60px 20px 12px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span style={{ fontWeight: 700, fontSize: 14, color: 'white' }}>👑 {T.hostControls}</span>
         <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'rgba(255,255,255,0.5)', lineHeight: 1 }}>×</button>
+      </div>
+      {/* Live badge + participant count */}
+      <div style={{ padding: '10px 20px', display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+        <span style={{ background: '#E74C3C', color: 'white', fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 20, letterSpacing: 1 }}>● LIVE</span>
+        <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>👥 {meeting.participantCount || 1} participant(s)</span>
       </div>
       <div style={{ flex: 1, padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
         <HostCtrlBtn icon={isLocked ? '🔓' : '🔒'} label={isLocked ? T.unlockMeeting : T.lockMeeting} color={isLocked ? C.warning : C.iceBlue} onClick={toggleLock} />
@@ -2184,6 +2190,8 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
   const [notes, setNotes] = useState(() => localStorage.getItem('crux_notes_' + meeting.id) || '');
   const [captionsOn, setCaptionsOn] = useState(false);
   const [captionText, setCaptionText] = useState('');
+  const [showReactions, setShowReactions] = useState(false);
+  const [floatingReactions, setFloatingReactions] = useState([]);
   const speechRef = useRef(null);
   const handsSeenRef = useRef(new Set());
   const pollsSeenRef = useRef(new Set());
@@ -2257,6 +2265,24 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
 
   // Firestore Q&A
   useEffect(() => { return FirebaseMeetingService.listenQA(meeting.id, setQaQuestions); }, [meeting.id]);
+
+  // Firestore reactions (real-time floating emojis)
+  useEffect(() => {
+    return FirebaseMeetingService.listenReactions(meeting.id, newReactions => {
+      newReactions.forEach(r => {
+        const id = r.id + '_' + Date.now();
+        const x = 20 + Math.random() * 60; // % from left
+        setFloatingReactions(prev => [...prev, { id, emoji: r.emoji, x }]);
+        setTimeout(() => setFloatingReactions(prev => prev.filter(f => f.id !== id)), 3000);
+      });
+    });
+  }, [meeting.id]);
+
+  const sendReaction = async (emoji) => {
+    setShowReactions(false);
+    await FirebaseMeetingService.sendReaction(meeting.id, user.uid, user.name || user.email, emoji);
+    GamificationService.logReaction(user.uid);
+  };
 
   // Web Speech captions
   useEffect(() => {
@@ -2355,8 +2381,37 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
         🕐 {fmt(elapsed)}
       </div>
 
+      {/* Floating emoji reactions */}
+      {floatingReactions.map(r => (
+        <div key={r.id} style={{
+          position: 'absolute', bottom: 100, left: `${r.x}%`, zIndex: 60,
+          fontSize: 40, pointerEvents: 'none', userSelect: 'none',
+          animation: 'floatUp 3s ease-out forwards',
+        }}>{r.emoji}</div>
+      ))}
+
+      {/* Reaction picker popup */}
+      {showReactions && (
+        <div style={{
+          position: 'absolute', bottom: 90, left: '50%', transform: 'translateX(-50%)',
+          zIndex: 50, background: 'rgba(20,20,20,0.95)', borderRadius: 16,
+          padding: '12px 16px', display: 'flex', gap: 12, boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
+          border: '1px solid rgba(255,255,255,0.1)',
+        }}>
+          {['👍','❤️','😂','😮','👏','🙌'].map(emoji => (
+            <button key={emoji} onClick={() => sendReaction(emoji)} style={{
+              background: 'none', border: 'none', cursor: 'pointer', fontSize: 32,
+              padding: 6, borderRadius: 10, transition: 'transform 0.15s',
+            }} onMouseEnter={e => e.target.style.transform = 'scale(1.35)'}
+               onMouseLeave={e => e.target.style.transform = 'scale(1)'}
+            >{emoji}</button>
+          ))}
+        </div>
+      )}
+
       {/* CRUX right sidebar — only CRUX-exclusive features */}
       <div style={{ position: 'absolute', right: activePanel ? 348 : 12, top: '50%', transform: 'translateY(-50%)', zIndex: 30, display: 'flex', flexDirection: 'column', gap: 10, transition: 'right 0.3s ease' }}>
+        <SideBtn icon="😀" label={T.reactions} onClick={() => setShowReactions(v => !v)} active={showReactions} color={C.accentOrange} />
         <SideBtn icon="📊" label={T.polls} onClick={() => togglePanel('poll')} active={activePanel === 'poll'} badge={activePoll ? 1 : 0} color={C.violet} />
         <SideBtn icon="❓" label="Q&A" onClick={() => togglePanel('qa')} active={activePanel === 'qa'} color={C.accentGolden} />
         <SideBtn icon="📝" label={T.notes} onClick={() => togglePanel('notes')} active={activePanel === 'notes'} color={C.iceBlue} />

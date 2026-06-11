@@ -22,6 +22,7 @@ import {
     updateDoc,
     deleteDoc,
     orderBy,
+    limit,
     setDoc,
     onSnapshot,
     serverTimestamp,
@@ -385,6 +386,25 @@ export const MeetingService = {
         return onSnapshot(collection(db, 'meetings', meetingId, 'polls'), snap => {
             callback(snap.docs.map(d => ({ id: d.id, ...d.data() })));
         });
+    },
+
+    // ── REACTIONS (Firestore real-time) ───────────────────────
+    async sendReaction(meetingId, userId, userName, emoji) {
+        return addDoc(collection(db, 'meetings', meetingId, 'reactions'), {
+            userId, userName, emoji, createdAt: serverTimestamp(),
+        });
+    },
+
+    listenReactions(meetingId, callback) {
+        return onSnapshot(
+            query(collection(db, 'meetings', meetingId, 'reactions'), orderBy('createdAt', 'desc'), limit(50)),
+            snap => { callback(snap.docChanges().filter(c => c.type === 'added').map(c => ({ id: c.doc.id, ...c.doc.data() }))); }
+        );
+    },
+
+    // ── HOST CONTROLS ─────────────────────────────────────────
+    async muteAllParticipants(meetingId) {
+        await updateDoc(doc(db, 'meetings', meetingId), { muteAll: true, muteAllAt: serverTimestamp() });
     },
 };
 
