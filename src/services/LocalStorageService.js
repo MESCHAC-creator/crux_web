@@ -59,6 +59,34 @@ export const AuthService = {
 
     getCurrentUser() { return currentUser; },
 
+    async updateDisplayName(name) {
+        const users = JSON.parse(localStorage.getItem('crux_users') || '[]');
+        if (!currentUser) throw new Error('Non connecté');
+        const idx = users.findIndex(u => u.uid === currentUser.uid);
+        if (idx >= 0) { users[idx].name = name; localStorage.setItem('crux_users', JSON.stringify(users)); }
+        currentUser = { ...currentUser, name };
+        localStorage.setItem('crux_current_user', JSON.stringify(currentUser));
+        notifyListeners(currentUser);
+    },
+
+    async changePassword(currentPassword, newPassword) {
+        const users = JSON.parse(localStorage.getItem('crux_users') || '[]');
+        if (!currentUser) throw new Error('Non connecté');
+        const encoded = btoa(unescape(encodeURIComponent(currentPassword)));
+        const idx = users.findIndex(u => u.uid === currentUser.uid && u.password === encoded);
+        if (idx < 0) throw new Error('Mot de passe actuel incorrect');
+        users[idx].password = btoa(unescape(encodeURIComponent(newPassword)));
+        localStorage.setItem('crux_users', JSON.stringify(users));
+    },
+
+    async deleteAccount() {
+        if (!currentUser) throw new Error('Non connecté');
+        const users = JSON.parse(localStorage.getItem('crux_users') || '[]');
+        const filtered = users.filter(u => u.uid !== currentUser.uid);
+        localStorage.setItem('crux_users', JSON.stringify(filtered));
+        await this.logout();
+    },
+
     onAuthStateChanged(callback) {
         authStateListeners.push(callback);
         setTimeout(() => { try { callback(currentUser); } catch (_) {} }, 0);

@@ -630,6 +630,23 @@ const loadPrefs = () => { try { return JSON.parse(localStorage.getItem('crux_pre
 const savePrefs = (p) => localStorage.setItem('crux_prefs', JSON.stringify(p));
 
 // ============================================================
+// COLOR PALETTE (10 gradient themes — matches crux_new_final)
+// ============================================================
+const COLOR_PALETTES = [
+  { id: 'flame',   name: 'Flamme',    start: '#E74C3C', end: '#9B59B6' },
+  { id: 'ocean',   name: 'Océan',     start: '#1565C0', end: '#00BCD4' },
+  { id: 'forest',  name: 'Forêt',     start: '#2E7D32', end: '#66BB6A' },
+  { id: 'sunset',  name: 'Coucher',   start: '#FF6F00', end: '#E91E63' },
+  { id: 'candy',   name: 'Candy',     start: '#E91E63', end: '#FF9800' },
+  { id: 'night',   name: 'Nuit',      start: '#1A237E', end: '#6A1B9A' },
+  { id: 'gold',    name: 'Or',        start: '#F57F17', end: '#FF8F00' },
+  { id: 'rose',    name: 'Rose',      start: '#AD1457', end: '#F06292' },
+  { id: 'teal',    name: 'Teal',      start: '#00695C', end: '#26A69A' },
+  { id: 'storm',   name: 'Orage',     start: '#37474F', end: '#546E7A' },
+];
+const getPalette = (id) => COLOR_PALETTES.find(p => p.id === id) || COLOR_PALETTES[0];
+
+// ============================================================
 // TOAST SYSTEM
 // ============================================================
 const toastListeners = [];
@@ -897,6 +914,10 @@ export default function CruxApp() {
   };
   const exitMeeting = () => { setMeeting(null); setPage('dashboard'); };
 
+  // Expose nav and user globally
+  useEffect(() => { window._cruxGoProfile = () => setPage('profile'); return () => { delete window._cruxGoProfile; }; }, []);
+  useEffect(() => { window._cruxUser = user; }, [user]);
+
   if (page === 'splash') return <><ToastContainer /><SplashScreen T={T} /></>;
   if (!user) return <><ToastContainer /><AuthPage T={T} onSuccess={u => { setUser(u); setPage('dashboard'); }} /></>;
   if (meeting) return <><ToastContainer /><MeetingErrorBoundary onExit={exitMeeting}><MeetingRoom meeting={meeting} user={user} T={T} prefs={prefs} onExit={exitMeeting} /></MeetingErrorBoundary></>;
@@ -928,6 +949,7 @@ export default function CruxApp() {
         )}
         {page === 'privacy' && <PrivacyPolicyPage T={T} dark={prefs.darkMode} onBack={() => setPage('settings')} />}
         {page === 'terms' && <TermsPage T={T} dark={prefs.darkMode} onBack={() => setPage('settings')} />}
+        {page === 'profile' && <ProfilePage user={user} T={T} dark={prefs.darkMode} onBack={() => setPage('dashboard')} onUserUpdated={u => setUser(u)} />}
       </div>
     </div>
   );
@@ -1145,6 +1167,7 @@ function Navbar({ user, T, prefs, onLogout, onSettings, onDashboard }) {
           )}
         </div>
         <button onClick={onSettings} style={navIconBtn} title={T.settings}>⚙️</button>
+        <button onClick={() => window._cruxGoProfile?.()} style={navIconBtn} title="Profil">👤</button>
         <button onClick={onLogout} style={{
           padding: '8px 18px', background: C.primaryGradient, color: 'white',
           border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 13,
@@ -1538,7 +1561,7 @@ function Dashboard({ user, T, dark, onJoin, onJoinByCode }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 28 }}>
           <ActionCard icon="👥" title="Rejoindre" subtitle="Via un ID" gradient="linear-gradient(135deg,#8E44AD,#6C3483)" onTap={() => setShowJoinDialog(true)} />
           <ActionCard icon="📅" title="Planifier" subtitle="Créer" gradient="linear-gradient(135deg,#3498DB,#2980B9)" onTap={() => setShowSchedule(true)} />
-          <ActionCard icon="📤" title="Partager" subtitle="Inviter" gradient="linear-gradient(135deg,#27AE60,#1E8449)" onTap={() => { navigator.share?.({ title: 'CRUX', text: 'Rejoignez CRUX — Visioconférence sécurisée!', url: 'https://meschac-creator.github.io/crux_web' }).catch(() => {}); showToast('📱 Partagez CRUX !', 'success'); }} />
+          <ActionCard icon="👤" title="Mon Profil" subtitle="Compte" gradient="linear-gradient(135deg,#FF9800,#E65100)" onTap={() => window._cruxGoProfile?.()} />
           <ActionCard icon="📞" title={T.dialIn} subtitle="Appeler" gradient="linear-gradient(135deg,#27AE60,#1E8449)" onTap={() => { window.location.href = 'tel:+33123456789'; }} />
         </div>
 
@@ -1893,6 +1916,8 @@ const FREE_MINUTES = 30;
 const DJAMO_PAYMENT_URL = 'https://pay.djamo.com/qxmvj';
 
 const ProService = {
+  PRICE_XOF: 25000,
+  FREE_MINUTES: 30,
   getStatus(userId) {
     try { return JSON.parse(localStorage.getItem(`crux_pro_${userId}`) || 'null'); } catch { return null; }
   },
@@ -1909,6 +1934,19 @@ const ProService = {
       : Date.now() + 24 * 60 * 60 * 1000;
     localStorage.setItem(`crux_pro_${userId}`, JSON.stringify({ plan, meetingId, expiresAt }));
   },
+  async isPro(uid) {
+    if (this.isActive(uid, null)) return true;
+    try {
+      const { doc: fsDoc, getDoc, getFirestore } = await import('firebase/firestore');
+      const snap = await getDoc(fsDoc(getFirestore(), 'users', uid));
+      if (!snap.exists()) return false;
+      const d = snap.data();
+      if (!d.isPro) return false;
+      if (d.proExpiry && d.proExpiry.toDate() < new Date()) return false;
+      return true;
+    } catch { return false; }
+  },
+  openPayment() { window.open(DJAMO_PAYMENT_URL, '_blank'); },
 };
 
 // steps: 'plans' | 'submitted' | 'waiting' | 'success'
@@ -2192,6 +2230,8 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
   const [captionText, setCaptionText] = useState('');
   const [showReactions, setShowReactions] = useState(false);
   const [floatingReactions, setFloatingReactions] = useState([]);
+  const [callFrozen, setCallFrozen] = useState(false);
+  const [netQuality, setNetQuality] = useState('good'); // good | fair | poor
   const speechRef = useRef(null);
   const handsSeenRef = useRef(new Set());
   const pollsSeenRef = useRef(new Set());
@@ -2216,6 +2256,22 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
 
   // Notes auto-save
   useEffect(() => { localStorage.setItem('crux_notes_' + meeting.id, notes); }, [notes, meeting.id]);
+
+  // Pro paywall — freeze call after 30 minutes for free users
+  useEffect(() => {
+    if (elapsed === ProService.FREE_MINUTES * 60) {
+      ProService.isPro(user.uid).then(pro => { if (!pro) setCallFrozen(true); });
+    }
+  }, [elapsed, user.uid]);
+
+  // Simulated network quality indicator (real stats need WebRTC access)
+  useEffect(() => {
+    const t = setInterval(() => {
+      const rtt = Math.random();
+      setNetQuality(rtt < 0.7 ? 'good' : rtt < 0.9 ? 'fair' : 'poor');
+    }, 5000);
+    return () => clearInterval(t);
+  }, []);
 
   // Demande permission notifications au montage
   useEffect(() => {
@@ -2406,6 +2462,27 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
                onMouseLeave={e => e.target.style.transform = 'scale(1)'}
             >{emoji}</button>
           ))}
+        </div>
+      )}
+
+      {/* Network quality indicator */}
+      <div style={{ position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', zIndex: 20, display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)', borderRadius: 8, padding: '4px 10px', pointerEvents: 'none', border: '1px solid rgba(255,255,255,0.15)' }}>
+        {[0,1,2].map(i => <div key={i} style={{ width: 4, height: 8 + i * 4, borderRadius: 2, background: netQuality === 'poor' && i > 0 ? 'rgba(255,255,255,0.3)' : netQuality === 'fair' && i > 1 ? 'rgba(255,255,255,0.3)' : (netQuality === 'good' ? '#4CAF50' : netQuality === 'fair' ? '#FFC107' : '#E74C3C') }} />)}
+        <span style={{ color: 'white', fontSize: 10, fontWeight: 600, marginLeft: 4 }}>{netQuality === 'good' ? 'HD' : netQuality === 'fair' ? 'SD' : 'Faible'}</span>
+      </div>
+
+      {/* Pro paywall frozen overlay */}
+      {callFrozen && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(12px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: 'Poppins, sans-serif' }}>
+          <div style={{ fontSize: 56, marginBottom: 16 }}>⏱️</div>
+          <h2 style={{ color: 'white', fontSize: 22, fontWeight: 800, margin: '0 0 8px', textAlign: 'center' }}>Limite gratuite atteinte</h2>
+          <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, textAlign: 'center', maxWidth: 280, margin: '0 0 24px' }}>La version gratuite est limitée à {ProService.FREE_MINUTES} minutes. Passez à Pro pour des réunions illimitées.</p>
+          <button onClick={() => ProService.openPayment()} style={{ padding: '14px 32px', background: 'linear-gradient(135deg,#F57F17,#FF8F00)', border: 'none', borderRadius: 16, color: 'white', fontWeight: 800, fontSize: 15, cursor: 'pointer', fontFamily: 'Poppins, sans-serif', boxShadow: '0 8px 24px rgba(245,127,23,0.5)', marginBottom: 12 }}>
+            ⭐ Activer Pro — {ProService.PRICE_XOF.toLocaleString()} XOF
+          </button>
+          <button onClick={() => { setCallFrozen(false); onExit(); }} style={{ background: 'none', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 12, padding: '10px 24px', color: 'rgba(255,255,255,0.7)', fontSize: 13, cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>
+            Quitter la réunion
+          </button>
         </div>
       )}
 
@@ -2650,6 +2727,186 @@ function LivePoll({ meetingId, userId, userName, T, onClose }) {
 }
 
 // ============================================================
+// PROFILE PAGE
+// ============================================================
+function ProfilePage({ user, T, dark, onBack, onUserUpdated }) {
+  const [displayName, setDisplayName] = useState(user.name || user.email || '');
+  const [editName, setEditName] = useState(false);
+  const [newName, setNewName] = useState(displayName);
+  const [changingPw, setChangingPw] = useState(false);
+  const [currentPw, setCurrentPw] = useState('');
+  const [newPw, setNewPw] = useState('');
+  const [pwError, setPwError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState(() => localStorage.getItem(`crux_avatar_${user.uid}`) || '');
+  const stats = GamificationService.getStats(user.uid);
+
+  const bg = dark ? '#0D0020' : '#F5F3FF';
+  const cardBg = dark ? '#1A0A2E' : 'white';
+  const textPri = dark ? '#F0EAF8' : '#1A1A1A';
+  const textSec = dark ? '#C0A8E0' : '#666';
+
+  const saveName = async () => {
+    if (!newName.trim() || newName.trim().length < 2) return;
+    setLoading(true);
+    try {
+      await AuthService.updateDisplayName(newName.trim());
+      setDisplayName(newName.trim());
+      onUserUpdated({ ...user, name: newName.trim() });
+      setEditName(false);
+      showToast('✅ Nom mis à jour', 'success');
+    } catch { showToast('❌ Erreur lors de la mise à jour', 'error'); }
+    setLoading(false);
+  };
+
+  const changePassword = async () => {
+    if (newPw.length < 6) { setPwError('Mot de passe trop court (min. 6 caractères)'); return; }
+    setLoading(true); setPwError('');
+    try {
+      await AuthService.changePassword(currentPw, newPw);
+      setChangingPw(false); setCurrentPw(''); setNewPw('');
+      showToast('✅ Mot de passe modifié', 'success');
+    } catch (e) { setPwError(e.message || 'Erreur'); }
+    setLoading(false);
+  };
+
+  const handleAvatarUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target.result;
+      localStorage.setItem(`crux_avatar_${user.uid}`, dataUrl);
+      setAvatarUrl(dataUrl);
+      showToast('📸 Photo mise à jour', 'success');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const deleteAccount = async () => {
+    setLoading(true);
+    try {
+      await AuthService.deleteAccount();
+      showToast('🗑️ Compte supprimé', 'success');
+    } catch (e) { showToast('❌ ' + (e.message || 'Erreur'), 'error'); }
+    setLoading(false);
+  };
+
+  const initials = (displayName || user.email || 'U').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+
+  return (
+    <div className="crux-scroll" style={{ minHeight: '100vh', fontFamily: 'Poppins, sans-serif', background: bg }}>
+      {/* Header */}
+      <div style={{ background: 'linear-gradient(135deg,#E74C3C,#8E44AD)', padding: '20px 20px 60px', position: 'relative' }}>
+        <button onClick={onBack} style={{ background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 12, padding: '8px 14px', color: 'white', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>←</button>
+        <h2 style={{ fontSize: 20, fontWeight: 700, color: 'white', margin: '12px 0 0' }}>Mon Profil</h2>
+      </div>
+
+      <div style={{ padding: '0 16px', maxWidth: 520, margin: '0 auto', position: 'relative', top: -44 }}>
+        {/* Avatar card */}
+        <div style={{ background: cardBg, borderRadius: 20, padding: '24px 20px', textAlign: 'center', boxShadow: dark ? '0 4px 20px rgba(0,0,0,0.4)' : '0 4px 20px rgba(0,0,0,0.08)', marginBottom: 16 }}>
+          <div style={{ position: 'relative', width: 90, height: 90, margin: '0 auto 12px' }}>
+            {avatarUrl ? (
+              <img src={avatarUrl} alt="avatar" style={{ width: 90, height: 90, borderRadius: '50%', objectFit: 'cover', border: '3px solid white', boxShadow: '0 4px 16px rgba(0,0,0,0.2)' }} />
+            ) : (
+              <div style={{ width: 90, height: 90, borderRadius: '50%', background: 'linear-gradient(135deg,#E74C3C,#8E44AD)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, fontWeight: 800, color: 'white', border: '3px solid white', boxShadow: '0 4px 16px rgba(0,0,0,0.2)' }}>{initials}</div>
+            )}
+            <label style={{ position: 'absolute', bottom: 0, right: 0, width: 28, height: 28, borderRadius: '50%', background: '#8E44AD', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '2px solid white', fontSize: 14 }}>
+              📷<input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarUpload} />
+            </label>
+          </div>
+          <p style={{ fontSize: 18, fontWeight: 700, color: textPri, margin: '0 0 4px' }}>{displayName}</p>
+          <p style={{ fontSize: 13, color: textSec, margin: 0 }}>{user.email}</p>
+
+          {/* Stats */}
+          <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginTop: 16 }}>
+            <div style={{ background: dark ? '#2D1050' : '#F5F3FF', borderRadius: 12, padding: '10px 20px', textAlign: 'center' }}>
+              <p style={{ fontSize: 22, fontWeight: 800, color: '#8E44AD', margin: 0 }}>{stats.meetings}</p>
+              <p style={{ fontSize: 11, color: textSec, margin: '2px 0 0' }}>Réunions</p>
+            </div>
+            <div style={{ background: dark ? '#2D1050' : '#F5F3FF', borderRadius: 12, padding: '10px 20px', textAlign: 'center' }}>
+              <p style={{ fontSize: 22, fontWeight: 800, color: '#E74C3C', margin: 0 }}>{stats.xp}</p>
+              <p style={{ fontSize: 11, color: textSec, margin: '2px 0 0' }}>XP</p>
+            </div>
+            <div style={{ background: dark ? '#2D1050' : '#F5F3FF', borderRadius: 12, padding: '10px 20px', textAlign: 'center' }}>
+              <p style={{ fontSize: 22, fontWeight: 800, color: '#27AE60', margin: 0 }}>{stats.badges?.length || 0}</p>
+              <p style={{ fontSize: 11, color: textSec, margin: '2px 0 0' }}>Badges</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Edit name */}
+        <div style={{ background: cardBg, borderRadius: 20, padding: '0 4px', boxShadow: dark ? '0 4px 20px rgba(0,0,0,0.4)' : '0 4px 20px rgba(0,0,0,0.08)', marginBottom: 16, overflow: 'hidden' }}>
+          <div onClick={() => { setEditName(v => !v); setNewName(displayName); }} style={{ display: 'flex', alignItems: 'center', padding: '16px', cursor: 'pointer', gap: 14, borderBottom: editName ? `1px solid ${dark ? 'rgba(255,255,255,0.08)' : '#F0F0F0'}` : 'none' }}>
+            <span style={{ fontSize: 20 }}>✏️</span>
+            <span style={{ flex: 1, fontSize: 14, fontWeight: 500, color: textPri }}>Modifier le nom</span>
+            <span style={{ color: '#8E44AD', fontSize: 18 }}>{editName ? '▾' : '›'}</span>
+          </div>
+          {editName && (
+            <div style={{ padding: '16px' }}>
+              <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Votre nom" maxLength={50}
+                style={{ width: '100%', boxSizing: 'border-box', padding: '12px 16px', borderRadius: 12, border: '1.5px solid #8E44AD', fontSize: 14, color: textPri, background: dark ? '#2D1050' : '#F8F3FF', fontFamily: 'Poppins, sans-serif', outline: 'none', marginBottom: 12 }} />
+              <button onClick={saveName} disabled={loading || !newName.trim()} style={{ width: '100%', padding: '12px', background: 'linear-gradient(135deg,#E74C3C,#8E44AD)', border: 'none', borderRadius: 12, color: 'white', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>
+                {loading ? '⏳' : '✅ Enregistrer'}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Change password */}
+        <div style={{ background: cardBg, borderRadius: 20, padding: '0 4px', boxShadow: dark ? '0 4px 20px rgba(0,0,0,0.4)' : '0 4px 20px rgba(0,0,0,0.08)', marginBottom: 16, overflow: 'hidden' }}>
+          <div onClick={() => { setChangingPw(v => !v); setPwError(''); }} style={{ display: 'flex', alignItems: 'center', padding: '16px', cursor: 'pointer', gap: 14, borderBottom: changingPw ? `1px solid ${dark ? 'rgba(255,255,255,0.08)' : '#F0F0F0'}` : 'none' }}>
+            <span style={{ fontSize: 20 }}>🔒</span>
+            <span style={{ flex: 1, fontSize: 14, fontWeight: 500, color: textPri }}>Changer le mot de passe</span>
+            <span style={{ color: '#8E44AD', fontSize: 18 }}>{changingPw ? '▾' : '›'}</span>
+          </div>
+          {changingPw && (
+            <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <input type="password" value={currentPw} onChange={e => setCurrentPw(e.target.value)} placeholder="Mot de passe actuel"
+                style={{ padding: '12px 16px', borderRadius: 12, border: '1.5px solid #DDD', fontSize: 14, color: textPri, background: dark ? '#2D1050' : '#F8F3FF', fontFamily: 'Poppins, sans-serif', outline: 'none' }} />
+              <input type="password" value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="Nouveau mot de passe (min. 6)"
+                style={{ padding: '12px 16px', borderRadius: 12, border: '1.5px solid #DDD', fontSize: 14, color: textPri, background: dark ? '#2D1050' : '#F8F3FF', fontFamily: 'Poppins, sans-serif', outline: 'none' }} />
+              {pwError && <p style={{ color: '#E74C3C', fontSize: 12, margin: 0 }}>{pwError}</p>}
+              <button onClick={changePassword} disabled={loading} style={{ padding: '12px', background: 'linear-gradient(135deg,#E74C3C,#8E44AD)', border: 'none', borderRadius: 12, color: 'white', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>
+                {loading ? '⏳' : '🔑 Modifier'}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Danger zone */}
+        <div style={{ background: cardBg, borderRadius: 20, overflow: 'hidden', boxShadow: dark ? '0 4px 20px rgba(0,0,0,0.4)' : '0 4px 20px rgba(0,0,0,0.08)', marginBottom: 32 }}>
+          <div style={{ padding: '12px 16px', borderBottom: `1px solid ${dark ? 'rgba(255,255,255,0.08)' : '#F0F0F0'}` }}>
+            <p style={{ fontSize: 11, fontWeight: 700, color: '#E74C3C', letterSpacing: 1, textTransform: 'uppercase', margin: 0 }}>Zone dangereuse</p>
+          </div>
+          <div onClick={() => setShowDelete(true)} style={{ display: 'flex', alignItems: 'center', padding: '16px', cursor: 'pointer', gap: 14 }}>
+            <span style={{ fontSize: 20 }}>🗑️</span>
+            <span style={{ flex: 1, fontSize: 14, fontWeight: 500, color: '#E74C3C' }}>Supprimer le compte</span>
+            <span style={{ color: '#E74C3C', fontSize: 18 }}>›</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Delete confirmation modal */}
+      {showDelete && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div style={{ background: cardBg, borderRadius: 20, padding: 28, maxWidth: 320, width: '100%', textAlign: 'center' }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>⚠️</div>
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: textPri, margin: '0 0 8px' }}>Supprimer le compte ?</h3>
+            <p style={{ fontSize: 13, color: textSec, margin: '0 0 20px' }}>Cette action est irréversible. Toutes vos données seront perdues.</p>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button onClick={() => setShowDelete(false)} style={{ flex: 1, padding: '12px', background: dark ? '#2D1050' : '#F5F3FF', border: 'none', borderRadius: 12, color: textPri, fontWeight: 600, cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>Annuler</button>
+              <button onClick={deleteAccount} disabled={loading} style={{ flex: 1, padding: '12px', background: '#E74C3C', border: 'none', borderRadius: 12, color: 'white', fontWeight: 700, cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>{loading ? '⏳' : 'Supprimer'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
 // PRIVACY POLICY PAGE
 // ============================================================
 function PrivacyPolicyPage({ T, onBack }) {
@@ -2718,6 +2975,20 @@ function TermsPage({ T, onBack }) {
 // SETTINGS PAGE
 // ============================================================
 function SettingsPage({ T, prefs, dark, onUpdatePref, onBack, onPrivacy, onTerms, showToast }) {
+  const [isPro, setIsPro] = useState(false);
+  const [proLoading, setProLoading] = useState(true);
+  const [showColorPicker, setShowColorPicker] = useState(false);
+  const [dndStart, setDndStart] = useState(prefs.dndStart || '22:00');
+  const [dndEnd, setDndEnd] = useState(prefs.dndEnd || '08:00');
+
+  useEffect(() => {
+    if (window._cruxUser?.uid) {
+      ProService.isPro(window._cruxUser.uid).then(v => { setIsPro(v); setProLoading(false); });
+    } else { setProLoading(false); }
+  }, []);
+
+  const currentPalette = getPalette(prefs.accentPalette);
+
   const langs = [
     { code: 'fr', label: '🇫🇷 Français' },
     { code: 'en', label: '🇬🇧 English' },
@@ -2807,6 +3078,19 @@ function SettingsPage({ T, prefs, dark, onUpdatePref, onBack, onPrivacy, onTerms
           </div>
         </div>
 
+        {/* COULEUR DE L'APPLICATION */}
+        <div style={{ marginBottom: 20 }}>
+          {sectionTitle('Couleur de l\'application')}
+          <div style={settCard}>
+            {tileRow('🎨', 'Thème de couleur',
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 28, height: 28, borderRadius: '50%', background: `linear-gradient(135deg, ${currentPalette.start}, ${currentPalette.end})`, boxShadow: `0 2px 8px ${currentPalette.start}50` }} />
+                <span style={{ fontSize: 12, color: '#8E44AD', fontWeight: 600 }}>{currentPalette.name} ›</span>
+              </div>,
+              () => setShowColorPicker(true), false)}
+          </div>
+        </div>
+
         {/* NOTIFICATIONS */}
         <div style={{ marginBottom: 20 }}>
           {sectionTitle('Notifications')}
@@ -2814,6 +3098,58 @@ function SettingsPage({ T, prefs, dark, onUpdatePref, onBack, onPrivacy, onTerms
             {tileRow('🔔', 'Activer les notifications',
               <ToggleSwitch on={prefs.notifications} onChange={v => { onUpdatePref('notifications', v); showToast?.(v ? '🔔 Notifications activées' : '🔕 Notifications désactivées', 'success'); }} colorOn="#8E44AD" />,
               null, false)}
+            {tileRow('🌙', 'Ne pas déranger',
+              <ToggleSwitch on={!!prefs.dnd} onChange={v => { onUpdatePref('dnd', v); showToast?.(v ? '🌙 Ne pas déranger activé' : '🔔 Ne pas déranger désactivé', 'success'); }} colorOn="#8B5CF6" />)}
+            {prefs.dnd && (
+              <div style={{ padding: '12px 16px', borderTop: `1px solid ${dark ? 'rgba(255,255,255,0.08)' : '#F0F0F0'}`, display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontSize: 12, color: dark ? '#C0A8E0' : '#666', fontWeight: 500 }}>De</span>
+                <input type="time" value={dndStart} onChange={e => { setDndStart(e.target.value); onUpdatePref('dndStart', e.target.value); }}
+                  style={{ padding: '6px 10px', borderRadius: 8, border: '1.5px solid #8B5CF6', fontSize: 13, color: dark ? '#F0EAF8' : '#1A1A1A', background: dark ? '#2D1050' : '#F8F3FF', fontFamily: 'Poppins, sans-serif' }} />
+                <span style={{ fontSize: 16, color: '#8B5CF6' }}>→</span>
+                <input type="time" value={dndEnd} onChange={e => { setDndEnd(e.target.value); onUpdatePref('dndEnd', e.target.value); }}
+                  style={{ padding: '6px 10px', borderRadius: 8, border: '1.5px solid #8B5CF6', fontSize: 13, color: dark ? '#F0EAF8' : '#1A1A1A', background: dark ? '#2D1050' : '#F8F3FF', fontFamily: 'Poppins, sans-serif' }} />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* PRO */}
+        <div style={{ marginBottom: 20 }}>
+          {sectionTitle('Abonnement')}
+          <div style={{
+            borderRadius: 16, overflow: 'hidden', marginBottom: 8,
+            background: isPro ? 'linear-gradient(135deg,#F57F17,#FF8F00)' : 'linear-gradient(135deg,#6A1B9A,#8E44AD)',
+            boxShadow: isPro ? '0 8px 24px rgba(245,127,23,0.4)' : '0 8px 24px rgba(142,68,173,0.3)',
+            padding: 20,
+          }}>
+            {proLoading ? (
+              <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.7)', fontSize: 14 }}>⏳ Vérification...</div>
+            ) : isPro ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontSize: 36 }}>⭐</span>
+                <div>
+                  <p style={{ color: 'white', fontWeight: 800, fontSize: 16, margin: 0 }}>CRUX Pro — Actif</p>
+                  <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, margin: '4px 0 0' }}>Toutes les fonctionnalités débloquées</p>
+                </div>
+                <span style={{ marginLeft: 'auto', fontSize: 24 }}>✅</span>
+              </div>
+            ) : (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+                  <span style={{ fontSize: 36 }}>🚀</span>
+                  <div>
+                    <p style={{ color: 'white', fontWeight: 800, fontSize: 16, margin: 0 }}>Passer à Pro</p>
+                    <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, margin: '4px 0 0' }}>Réunions illimitées · HD · Enregistrement</p>
+                  </div>
+                </div>
+                <button onClick={() => ProService.openPayment()} style={{
+                  width: '100%', padding: '12px', background: 'white', border: 'none', borderRadius: 12,
+                  color: '#6A1B9A', fontWeight: 800, fontSize: 14, cursor: 'pointer', fontFamily: 'Poppins, sans-serif',
+                }}>
+                  Activer Pro — {ProService.PRICE_XOF.toLocaleString()} XOF
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -2877,6 +3213,33 @@ function SettingsPage({ T, prefs, dark, onUpdatePref, onBack, onPrivacy, onTerms
                 {prefs.language === l.code && <span style={{ color: '#8E44AD', fontWeight: 700 }}>✓</span>}
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Color picker dialog */}
+      {showColorPicker && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }} onClick={() => setShowColorPicker(false)}>
+          <div style={{ background: dark ? '#1A0A2E' : 'white', borderRadius: 20, padding: '28px 24px', width: '100%', maxWidth: 360 }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: dark ? '#F0EAF8' : '#1A1A1A', margin: '0 0 20px' }}>🎨 Thème de couleur</h3>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, justifyContent: 'center' }}>
+              {COLOR_PALETTES.map(p => {
+                const selected = prefs.accentPalette === p.id || (!prefs.accentPalette && p.id === 'flame');
+                return (
+                  <div key={p.id} onClick={() => { onUpdatePref('accentPalette', p.id); setShowColorPicker(false); showToast?.(`🎨 Thème "${p.name}" appliqué`, 'success'); }} style={{ cursor: 'pointer', textAlign: 'center' }}>
+                    <div style={{
+                      width: 52, height: 52, borderRadius: '50%',
+                      background: `linear-gradient(135deg, ${p.start}, ${p.end})`,
+                      boxShadow: selected ? `0 0 0 3px white, 0 0 0 5px ${p.start}` : `0 4px 12px ${p.start}60`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: selected ? 20 : 0, color: 'white', transition: 'all 0.2s',
+                      transform: selected ? 'scale(1.12)' : 'scale(1)',
+                    }}>{selected ? '✓' : ''}</div>
+                    <p style={{ fontSize: 10, color: selected ? p.start : (dark ? '#C0A8E0' : '#666'), fontWeight: selected ? 700 : 400, margin: '6px 0 0' }}>{p.name}</p>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
