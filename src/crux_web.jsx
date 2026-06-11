@@ -94,6 +94,31 @@ const C = {
   smokeWarm:   'rgba(255,79,56,0.08)',
 };
 
+// ── Theme helper (dark mode) ──────────────────────────────────
+const DARK = {
+  bgPage:    '#0D0020',
+  bgCard:    '#1A0A2E',
+  bgCard2:   '#210C40',
+  bgInput:   '#1A0A2E',
+  textPri:   '#F0EAF8',
+  textSec:   '#C0A8E0',
+  textMuted: '#7060A0',
+  border:    'rgba(255,255,255,0.10)',
+  shadow:    '0 2px 10px rgba(0,0,0,0.3)',
+};
+const LIGHT = {
+  bgPage:    '#F5F3FF',
+  bgCard:    '#FFFFFF',
+  bgCard2:   '#F8F3FF',
+  bgInput:   '#FFFFFF',
+  textPri:   '#1A1A1A',
+  textSec:   '#555555',
+  textMuted: '#999999',
+  border:    '#DCDCDC',
+  shadow:    '0 2px 10px rgba(0,0,0,0.06)',
+};
+const th = (dark) => dark ? DARK : LIGHT;
+
 // ============================================================
 // GAMIFICATION SERVICE
 // ============================================================
@@ -775,10 +800,14 @@ export default function CruxApp() {
   const T = T_MAP[prefs.language] || T_MAP.fr;
   const updatePref = useCallback((k, v) => setPrefs(p => { const n = { ...p, [k]: v }; savePrefs(n); return n; }), []);
 
-  // Apply dark mode to body
+  // Apply dark mode via CSS class (cascades to all components)
   useEffect(() => {
-    document.body.style.background = prefs.darkMode ? '#0D0020' : '#F8F9FA';
-    document.body.style.colorScheme = prefs.darkMode ? 'dark' : 'light';
+    if (prefs.darkMode) {
+      document.body.classList.add('dark-mode');
+    } else {
+      document.body.classList.remove('dark-mode');
+    }
+    return () => document.body.classList.remove('dark-mode');
   }, [prefs.darkMode]);
 
   // Admin panel via ?admin=crux2024
@@ -892,13 +921,13 @@ export default function CruxApp() {
       <Navbar user={user} T={T} prefs={prefs} onLogout={logout}
         onSettings={() => setPage('settings')} onDashboard={() => setPage('dashboard')} />
       <div style={{ paddingTop: '64px' }}>
-        {page === 'dashboard' && <Dashboard user={user} T={T} onJoin={goMeeting} onJoinByCode={(code) => handleJoinByCode(code, user)} />}
+        {page === 'dashboard' && <Dashboard user={user} T={T} dark={prefs.darkMode} onJoin={goMeeting} onJoinByCode={(code) => handleJoinByCode(code, user)} />}
         {page === 'settings' && (
-          <SettingsPage T={T} prefs={prefs} onUpdatePref={updatePref} onBack={() => setPage('dashboard')}
+          <SettingsPage T={T} prefs={prefs} dark={prefs.darkMode} onUpdatePref={updatePref} onBack={() => setPage('dashboard')}
             onPrivacy={() => setPage('privacy')} onTerms={() => setPage('terms')} showToast={showToast} />
         )}
-        {page === 'privacy' && <PrivacyPolicyPage T={T} onBack={() => setPage('settings')} />}
-        {page === 'terms' && <TermsPage T={T} onBack={() => setPage('settings')} />}
+        {page === 'privacy' && <PrivacyPolicyPage T={T} dark={prefs.darkMode} onBack={() => setPage('settings')} />}
+        {page === 'terms' && <TermsPage T={T} dark={prefs.darkMode} onBack={() => setPage('settings')} />}
       </div>
     </div>
   );
@@ -1404,7 +1433,7 @@ function ActionCard({ icon, title, subtitle, gradient, onTap }) {
   );
 }
 
-function Dashboard({ user, T, onJoin, onJoinByCode }) {
+function Dashboard({ user, T, dark, onJoin, onJoinByCode }) {
   const [meetings, setMeetings] = useState([]);
   const [loadingMeetings, setLoadingMeetings] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -1455,7 +1484,7 @@ function Dashboard({ user, T, onJoin, onJoinByCode }) {
   };
 
   return (
-    <div style={{ background: '#F5F3FF', minHeight: 'calc(100vh - 64px)', fontFamily: 'Poppins, sans-serif' }}>
+    <div style={{ background: dark ? '#0D0020' : '#F5F3FF', minHeight: 'calc(100vh - 64px)', fontFamily: 'Poppins, sans-serif' }}>
       {/* Gradient Header — Flutter SliverAppBar */}
       <div style={{
         background: 'linear-gradient(135deg, #E74C3C, #8E44AD)',
@@ -1505,7 +1534,7 @@ function Dashboard({ user, T, onJoin, onJoinByCode }) {
         </div>
 
         {/* Actions rapides */}
-        <p style={{ fontSize: 17, fontWeight: 800, color: '#1A1A1A', margin: '0 0 14px' }}>Actions rapides</p>
+        <p style={{ fontSize: 17, fontWeight: 800, color: dark ? '#F0EAF8' : '#1A1A1A', margin: '0 0 14px' }}>Actions rapides</p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 28 }}>
           <ActionCard icon="👥" title="Rejoindre" subtitle="Via un ID" gradient="linear-gradient(135deg,#8E44AD,#6C3483)" onTap={() => setShowJoinDialog(true)} />
           <ActionCard icon="📅" title="Planifier" subtitle="Créer" gradient="linear-gradient(135deg,#3498DB,#2980B9)" onTap={() => setShowSchedule(true)} />
@@ -1515,7 +1544,7 @@ function Dashboard({ user, T, onJoin, onJoinByCode }) {
 
         {/* Meetings list */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-          <p style={{ fontSize: 17, fontWeight: 800, color: '#1A1A1A', margin: 0 }}>
+          <p style={{ fontSize: 17, fontWeight: 800, color: dark ? '#F0EAF8' : '#1A1A1A', margin: 0 }}>
             {T.recentMeetings} {!loadingMeetings && `(${meetings.length})`}
           </p>
           <button onClick={() => setShowSchedule(true)} style={{
@@ -1528,17 +1557,17 @@ function Dashboard({ user, T, onJoin, onJoinByCode }) {
         {loadingMeetings ? (
           <div style={{ textAlign: 'center', padding: 40, color: '#999' }}>⏳ {T.loading}</div>
         ) : meetings.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '48px 24px', background: 'white', borderRadius: 20, border: '2px dashed #DDD' }}>
+          <div style={{ textAlign: 'center', padding: '48px 24px', background: dark ? '#1A0A2E' : 'white', borderRadius: 20, border: `2px dashed ${dark ? '#3A1A5E' : '#DDD'}` }}>
             <div style={{ fontSize: 48, marginBottom: 12 }}>📅</div>
-            <p style={{ fontWeight: 700, color: '#1A1A1A', margin: '0 0 6px' }}>{T.noMeetings}</p>
-            <p style={{ color: '#999', fontSize: 13 }}>{T.noMeetingsHint}</p>
+            <p style={{ fontWeight: 700, color: dark ? '#F0EAF8' : '#1A1A1A', margin: '0 0 6px' }}>{T.noMeetings}</p>
+            <p style={{ color: dark ? '#7060A0' : '#999', fontSize: 13 }}>{T.noMeetingsHint}</p>
             <button onClick={createMeeting} style={{ marginTop: 18, padding: '11px 24px', background: 'linear-gradient(135deg,#E74C3C,#8E44AD)', color: 'white', border: 'none', borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>
               🚀 Démarrer maintenant
             </button>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {meetings.map(m => <MeetingCard key={m.id} meeting={m} T={T} onJoin={() => onJoin(m)} />)}
+            {meetings.map(m => <MeetingCard key={m.id} meeting={m} T={T} dark={dark} onJoin={() => onJoin(m)} />)}
           </div>
         )}
 
@@ -1549,7 +1578,7 @@ function Dashboard({ user, T, onJoin, onJoinByCode }) {
           display: 'flex', alignItems: 'flex-start', gap: 12,
         }}>
           <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(142,68,173,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>ℹ️</div>
-          <p style={{ fontSize: 12, color: '#555', margin: 0, lineHeight: 1.5 }}>
+          <p style={{ fontSize: 12, color: dark ? '#C0A8E0' : '#555', margin: 0, lineHeight: 1.5 }}>
             Les réunions s'ouvrent directement dans CRUX via <strong>ZegoCloud</strong> — technologie WebRTC sécurisée, durée illimitée, jusqu'à 100 participants.
           </p>
         </div>
@@ -1595,7 +1624,7 @@ function StatChip({ icon, value, label }) {
 // ============================================================
 // MEETING CARD
 // ============================================================
-function MeetingCard({ meeting, T, onJoin }) {
+function MeetingCard({ meeting, T, dark, onJoin }) {
   const ago = Math.floor((Date.now() - meeting.createdAt) / 60000);
   const isPersistent = meeting.type === 'persistent';
   const status = meeting.status || 'scheduled';
@@ -1603,14 +1632,15 @@ function MeetingCard({ meeting, T, onJoin }) {
   const statusLabels = { scheduled: T.statusScheduled, ongoing: T.statusOngoing, ended: T.statusEnded };
   const statusColor = statusColors[status] || C.textTertiary;
   const isEnded = status === 'ended';
+  const DT = th(dark);
   return (
-    <div style={{ background: C.white, borderRadius: 16, padding: 20, border: `1.5px solid ${C.border}`, transition: 'all 0.22s', boxShadow: '0 2px 12px rgba(0,0,0,0.04)', fontFamily: 'Poppins, sans-serif', opacity: isEnded ? 0.7 : 1 }}
+    <div style={{ background: DT.bgCard, borderRadius: 16, padding: 20, border: `1.5px solid ${DT.border}`, transition: 'all 0.22s', boxShadow: DT.shadow, fontFamily: 'Poppins, sans-serif', opacity: isEnded ? 0.7 : 1 }}
       onMouseEnter={e => { if (!isEnded) { e.currentTarget.style.boxShadow = `0 8px 28px ${C.violetGlow}`; e.currentTarget.style.borderColor = C.violetLight; } }}
-      onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.04)'; e.currentTarget.style.borderColor = C.border; }}
+      onMouseLeave={e => { e.currentTarget.style.boxShadow = DT.shadow; e.currentTarget.style.borderColor = DT.border; }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
         <div style={{ flex: 1, marginRight: 8 }}>
-          <h4 style={{ fontSize: 15, fontWeight: 700, color: C.textPrimary, margin: '0 0 4px' }}>
+          <h4 style={{ fontSize: 15, fontWeight: 700, color: DT.textPri, margin: '0 0 4px' }}>
             {meeting.isLocked && <span style={{ marginRight: 6 }}>🔒</span>}
             {meeting.title}
           </h4>
@@ -1629,11 +1659,11 @@ function MeetingCard({ meeting, T, onJoin }) {
           {isPersistent ? '📌' : '⏱'} {isPersistent ? T.persistent : T.temporary}
         </span>
       </div>
-      {meeting.description && <p style={{ fontSize: 13, color: C.textSecondary, margin: '0 0 12px', lineHeight: 1.5 }}>{meeting.description}</p>}
+      {meeting.description && <p style={{ fontSize: 13, color: DT.textSec, margin: '0 0 12px', lineHeight: 1.5 }}>{meeting.description}</p>}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 20, background: `${C.success}15`, color: C.success }}>👥 {meeting.participantCount || 1}</span>
-          <span style={{ fontSize: 12, color: C.textTertiary }}>{ago > 0 ? `${ago}min` : "À l'instant"}</span>
+          <span style={{ fontSize: 12, color: DT.textMuted }}>{ago > 0 ? `${ago}min` : "À l'instant"}</span>
         </div>
         {!isEnded && (
           <button onClick={onJoin} style={{ padding: '8px 16px', background: C.primaryGradient, color: 'white', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'Poppins, sans-serif', boxShadow: `0 4px 12px ${C.fireGlow}` }}>{T.joinMeeting} →</button>
@@ -2270,7 +2300,7 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
         url: window.location.origin + window.location.pathname + '?join=' + meeting.id,
       }],
       scenario: { mode: ZegoUIKitPrebuilt.VideoConference },
-      showPreJoinView: false,
+      showPreJoinView: true,
       turnOnMicrophoneWhenJoining: prefs.defaultMic !== false,
       turnOnCameraWhenJoining: prefs.defaultCam !== false,
       showMyMicrophoneToggleButton: true,
@@ -2632,7 +2662,7 @@ function TermsPage({ T, onBack }) {
 // ============================================================
 // SETTINGS PAGE
 // ============================================================
-function SettingsPage({ T, prefs, onUpdatePref, onBack, onPrivacy, onTerms, showToast }) {
+function SettingsPage({ T, prefs, dark, onUpdatePref, onBack, onPrivacy, onTerms, showToast }) {
   const langs = [
     { code: 'fr', label: '🇫🇷 Français' },
     { code: 'en', label: '🇬🇧 English' },
@@ -2649,26 +2679,26 @@ function SettingsPage({ T, prefs, onUpdatePref, onBack, onPrivacy, onTerms, show
     <p style={{ color: '#8E44AD', fontSize: 11, fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase', margin: '0 0 4px', paddingLeft: 4 }}>{label}</p>
   );
 
-  const settCard = { background: 'white', borderRadius: 16, overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,0.06)', marginBottom: 8 };
-
   const tileRow = (icon, title, right, onClick, showDivider = true) => (
     <div onClick={onClick} style={{
       display: 'flex', alignItems: 'center', padding: '14px 16px',
-      borderTop: showDivider ? '1px solid #F0F0F0' : 'none',
+      borderTop: showDivider ? `1px solid ${dark ? 'rgba(255,255,255,0.08)' : '#F0F0F0'}` : 'none',
       cursor: onClick ? 'pointer' : 'default', gap: 14,
       transition: 'background 0.15s',
     }}
-      onMouseEnter={e => onClick && (e.currentTarget.style.background = '#F8F3FF')}
+      onMouseEnter={e => onClick && (e.currentTarget.style.background = dark ? 'rgba(255,255,255,0.05)' : '#F8F3FF')}
       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
     >
       <span style={{ fontSize: 20, width: 28, textAlign: 'center' }}>{icon}</span>
-      <span style={{ flex: 1, fontSize: 14, fontWeight: 500, color: '#1A1A1A' }}>{title}</span>
+      <span style={{ flex: 1, fontSize: 14, fontWeight: 500, color: dark ? '#F0EAF8' : '#1A1A1A' }}>{title}</span>
       {right}
     </div>
   );
 
+  const settCard = { background: dark ? '#1A0A2E' : 'white', borderRadius: 16, overflow: 'hidden', boxShadow: dark ? '0 2px 10px rgba(0,0,0,0.3)' : '0 2px 10px rgba(0,0,0,0.06)', marginBottom: 8 };
+
   return (
-    <div className="crux-scroll" style={{ minHeight: '100vh', fontFamily: 'Poppins, sans-serif', background: '#F5F3FF' }}>
+    <div className="crux-scroll" style={{ minHeight: '100vh', fontFamily: 'Poppins, sans-serif', background: dark ? '#0D0020' : '#F5F3FF' }}>
       {/* Gradient AppBar */}
       <div style={{
         background: 'linear-gradient(135deg, #E74C3C, #8E44AD)',
@@ -2777,15 +2807,15 @@ function SettingsPage({ T, prefs, onUpdatePref, onBack, onPrivacy, onTerms, show
 
       {/* Language dialog */}
       {showLang && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }} onClick={() => setShowLang(false)}>
-          <div style={{ background: 'white', borderRadius: 20, padding: '28px 24px', width: '100%', maxWidth: 340 }} onClick={e => e.stopPropagation()}>
-            <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1A1A1A', margin: '0 0 16px' }}>Choisir la langue</h3>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }} onClick={() => setShowLang(false)}>
+          <div style={{ background: dark ? '#1A0A2E' : 'white', borderRadius: 20, padding: '28px 24px', width: '100%', maxWidth: 340 }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: dark ? '#F0EAF8' : '#1A1A1A', margin: '0 0 16px' }}>Choisir la langue</h3>
             {langs.map(l => (
               <div key={l.code} onClick={() => { onUpdatePref('language', l.code); setShowLang(false); showToast?.('🌐 Langue modifiée', 'success'); }} style={{
                 padding: '14px 16px', borderRadius: 12, cursor: 'pointer', marginBottom: 4,
-                background: prefs.language === l.code ? '#F5F3FF' : 'transparent',
-                border: prefs.language === l.code ? '1.5px solid #8E44AD' : '1.5px solid transparent',
-                fontSize: 14, fontWeight: 500, color: '#1A1A1A',
+                background: prefs.language === l.code ? (dark ? '#2D1050' : '#F5F3FF') : 'transparent',
+                border: prefs.language === l.code ? '1.5px solid #8E44AD' : `1.5px solid ${dark ? 'rgba(255,255,255,0.08)' : 'transparent'}`,
+                fontSize: 14, fontWeight: 500, color: dark ? '#F0EAF8' : '#1A1A1A',
                 display: 'flex', justifyContent: 'space-between',
               }}>
                 {l.label}
@@ -2798,15 +2828,15 @@ function SettingsPage({ T, prefs, onUpdatePref, onBack, onPrivacy, onTerms, show
 
       {/* Quality dialog */}
       {showQuality && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }} onClick={() => setShowQuality(false)}>
-          <div style={{ background: 'white', borderRadius: 20, padding: '28px 24px', width: '100%', maxWidth: 340 }} onClick={e => e.stopPropagation()}>
-            <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1A1A1A', margin: '0 0 16px' }}>Qualité vidéo</h3>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }} onClick={() => setShowQuality(false)}>
+          <div style={{ background: dark ? '#1A0A2E' : 'white', borderRadius: 20, padding: '28px 24px', width: '100%', maxWidth: 340 }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: dark ? '#F0EAF8' : '#1A1A1A', margin: '0 0 16px' }}>Qualité vidéo</h3>
             {qualities.map(q => (
               <div key={q} onClick={() => { onUpdatePref('videoQuality', q); setShowQuality(false); showToast?.('🎬 Qualité vidéo mise à jour', 'success'); }} style={{
                 padding: '14px 16px', borderRadius: 12, cursor: 'pointer', marginBottom: 4,
-                background: prefs.videoQuality === q ? '#F5F3FF' : 'transparent',
-                border: prefs.videoQuality === q ? '1.5px solid #8E44AD' : '1.5px solid transparent',
-                fontSize: 14, fontWeight: 500, color: '#1A1A1A',
+                background: prefs.videoQuality === q ? (dark ? '#2D1050' : '#F5F3FF') : 'transparent',
+                border: prefs.videoQuality === q ? '1.5px solid #8E44AD' : `1.5px solid ${dark ? 'rgba(255,255,255,0.08)' : 'transparent'}`,
+                fontSize: 14, fontWeight: 500, color: dark ? '#F0EAF8' : '#1A1A1A',
                 display: 'flex', justifyContent: 'space-between',
               }}>
                 {qualityLabels[q]}
