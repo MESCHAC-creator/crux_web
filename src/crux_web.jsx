@@ -917,6 +917,7 @@ export default function CruxApp() {
 
   // Expose nav and user globally
   useEffect(() => { window._cruxGoProfile = () => setPage('profile'); return () => { delete window._cruxGoProfile; }; }, []);
+  useEffect(() => { window._cruxGoNotes = () => setPage('notes'); return () => { delete window._cruxGoNotes; }; }, []);
   useEffect(() => { window._cruxUser = user; }, [user]);
 
   if (page === 'splash') return <><ToastContainer /><SplashScreen T={T} /></>;
@@ -951,6 +952,7 @@ export default function CruxApp() {
         {page === 'privacy' && <PrivacyPolicyPage T={T} dark={prefs.darkMode} onBack={() => setPage('settings')} />}
         {page === 'terms' && <TermsPage T={T} dark={prefs.darkMode} onBack={() => setPage('settings')} />}
         {page === 'profile' && <ProfilePage user={user} T={T} dark={prefs.darkMode} onBack={() => setPage('dashboard')} onUserUpdated={u => setUser(u)} />}
+        {page === 'notes' && <NotesPage user={user} T={T} dark={prefs.darkMode} onBack={() => setPage('dashboard')} />}
       </div>
     </div>
   );
@@ -1561,6 +1563,13 @@ function Dashboard({ user, T, dark, onJoin, onJoinByCode }) {
             <span style={{ fontSize: 28 }}>👤</span>
             <span style={{ fontSize: 13, fontWeight: 700 }}>Profil</span>
           </button>
+          <button style={quickBtnStyle(dark ? '#2D1050' : 'white', dark ? '#F0EAF8' : '#1A1A1A')}
+            onClick={() => window._cruxGoNotes?.()}
+            onMouseEnter={e => { e.currentTarget.style.transform='translateY(-2px)'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform=''; }}>
+            <span style={{ fontSize: 28 }}>📝</span>
+            <span style={{ fontSize: 13, fontWeight: 700 }}>Mes notes</span>
+          </button>
         </div>
 
         {/* Recent meetings */}
@@ -1883,12 +1892,12 @@ function HostCtrlBtn({ icon, label, color, onClick, active }) {
 // ============================================================
 // PAYMENT WALL — Firestore-backed, real-time code delivery
 // ============================================================
-const FREE_MINUTES = 30;
+const FREE_MINUTES = 90;
 const DJAMO_PAYMENT_URL = 'https://pay.djamo.com/qxmvj';
 
 const ProService = {
   PRICE_XOF: 25000,
-  FREE_MINUTES: 30,
+  FREE_MINUTES: 90,
   getStatus(userId) {
     try { return JSON.parse(localStorage.getItem(`crux_pro_${userId}`) || 'null'); } catch { return null; }
   },
@@ -2135,13 +2144,13 @@ class MeetingErrorBoundary extends React.Component {
 // MEETING ROOM  — Google Meet feature parity
 // ============================================================
 
-// Right-sidebar icon button
+// Bottom-bar icon button
 function SideBtn({ icon, label, onClick, active, badge, color = '#E74C3C' }) {
   const [hover, setHover] = React.useState(false);
   return (
-    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+    <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
       {hover && (
-        <div style={{ position: 'absolute', right: 58, background: 'rgba(0,0,0,0.85)', color: 'white', fontSize: 12, fontWeight: 600, padding: '5px 10px', borderRadius: 8, whiteSpace: 'nowrap', pointerEvents: 'none', zIndex: 10 }}>
+        <div style={{ position: 'absolute', bottom: 52, background: 'rgba(0,0,0,0.85)', color: 'white', fontSize: 11, fontWeight: 600, padding: '4px 8px', borderRadius: 6, whiteSpace: 'nowrap', pointerEvents: 'none', zIndex: 10 }}>
           {label}
         </div>
       )}
@@ -2150,18 +2159,192 @@ function SideBtn({ icon, label, onClick, active, badge, color = '#E74C3C' }) {
         onMouseEnter={() => setHover(true)}
         onMouseLeave={() => setHover(false)}
         style={{
-          width: 44, height: 44, borderRadius: '50%', border: 'none', cursor: 'pointer',
-          background: active ? color : 'rgba(255,255,255,0.15)',
-          color: 'white', fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          width: 40, height: 40, borderRadius: 10, border: active ? `2px solid ${color}` : '2px solid transparent', cursor: 'pointer',
+          background: active ? color + '30' : 'rgba(255,255,255,0.12)',
+          color: 'white', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center',
           backdropFilter: 'blur(10px)', transition: 'all 0.2s',
-          boxShadow: active ? `0 2px 12px ${color}80` : 'none',
         }}
       >{icon}</button>
+      <span style={{ color: active ? color : 'rgba(255,255,255,0.6)', fontSize: 9, fontWeight: active ? 700 : 500, lineHeight: 1 }}>{label.length > 8 ? label.slice(0, 7) + '…' : label}</span>
       {badge > 0 && (
-        <div style={{ position: 'absolute', top: -3, right: -3, background: '#E74C3C', color: 'white', fontSize: 10, fontWeight: 800, width: 18, height: 18, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #0A0A0A' }}>
+        <div style={{ position: 'absolute', top: -3, right: -3, background: '#E74C3C', color: 'white', fontSize: 9, fontWeight: 800, width: 16, height: 16, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #0A0A0A' }}>
           {badge > 9 ? '9+' : badge}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Canvas Whiteboard ─────────────────────────────────────────
+function CruxWhiteboard({ meetingId, userId }) {
+  const canvasRef = useRef(null);
+  const [tool, setTool] = React.useState('pen'); // pen|eraser|line|rect|circle|arrow|text|laser
+  const [color, setColor] = React.useState('#FF4081');
+  const [strokeWidth, setStrokeWidth] = React.useState(3);
+  const [history, setHistory] = React.useState([]);
+  const [redoStack, setRedoStack] = React.useState([]);
+  const drawing = useRef(false);
+  const startPos = useRef({ x: 0, y: 0 });
+  const snapshotRef = useRef(null);
+  const laserTimerRef = useRef(null);
+
+  const COLORS = ['#FF4081','#E74C3C','#FF9800','#F1C40F','#27AE60','#3498DB','#8E44AD','#FFFFFF','#000000'];
+  const TOOLS = [
+    { id: 'pen', icon: '✏️', label: 'Stylo' },
+    { id: 'eraser', icon: '🧹', label: 'Gomme' },
+    { id: 'line', icon: '📏', label: 'Ligne' },
+    { id: 'rect', icon: '⬜', label: 'Rect' },
+    { id: 'circle', icon: '⭕', label: 'Cercle' },
+    { id: 'arrow', icon: '➡️', label: 'Flèche' },
+    { id: 'laser', icon: '🔴', label: 'Laser' },
+  ];
+
+  const getCtx = () => canvasRef.current?.getContext('2d');
+
+  const getPos = (e, canvas) => {
+    const rect = canvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return { x: (clientX - rect.left) * (canvas.width / rect.width), y: (clientY - rect.top) * (canvas.height / rect.height) };
+  };
+
+  const saveHistory = () => {
+    const canvas = canvasRef.current; if (!canvas) return;
+    setHistory(h => [...h, canvas.toDataURL()]);
+    setRedoStack([]);
+  };
+
+  const undo = () => {
+    const canvas = canvasRef.current; if (!canvas) return;
+    setHistory(h => {
+      if (h.length === 0) { getCtx().clearRect(0, 0, canvas.width, canvas.height); return h; }
+      const newH = [...h]; const last = newH.pop();
+      setRedoStack(r => [canvas.toDataURL(), ...r]);
+      const img = new Image(); img.onload = () => { getCtx().clearRect(0, 0, canvas.width, canvas.height); getCtx().drawImage(img, 0, 0); };
+      img.src = last;
+      return newH;
+    });
+  };
+
+  const redo = () => {
+    setRedoStack(r => {
+      if (r.length === 0) return r;
+      const newR = [...r]; const next = newR.shift();
+      const canvas = canvasRef.current;
+      setHistory(h => [...h, canvas.toDataURL()]);
+      const img = new Image(); img.onload = () => { getCtx().clearRect(0, 0, canvas.width, canvas.height); getCtx().drawImage(img, 0, 0); };
+      img.src = next;
+      return newR;
+    });
+  };
+
+  const clearAll = () => { const canvas = canvasRef.current; if (!canvas) return; saveHistory(); getCtx().clearRect(0, 0, canvas.width, canvas.height); };
+
+  const drawShape = (ctx, x0, y0, x1, y1) => {
+    ctx.beginPath();
+    if (tool === 'line') { ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); }
+    else if (tool === 'rect') { ctx.rect(x0, y0, x1 - x0, y1 - y0); }
+    else if (tool === 'circle') { ctx.ellipse((x0+x1)/2, (y0+y1)/2, Math.abs(x1-x0)/2, Math.abs(y1-y0)/2, 0, 0, 2*Math.PI); }
+    else if (tool === 'arrow') {
+      ctx.moveTo(x0, y0); ctx.lineTo(x1, y1);
+      const angle = Math.atan2(y1-y0, x1-x0);
+      const headLen = 16;
+      ctx.moveTo(x1, y1); ctx.lineTo(x1 - headLen * Math.cos(angle - 0.4), y1 - headLen * Math.sin(angle - 0.4));
+      ctx.moveTo(x1, y1); ctx.lineTo(x1 - headLen * Math.cos(angle + 0.4), y1 - headLen * Math.sin(angle + 0.4));
+    }
+    ctx.stroke();
+  };
+
+  const onStart = (e) => {
+    e.preventDefault();
+    const canvas = canvasRef.current; if (!canvas) return;
+    const pos = getPos(e, canvas);
+    drawing.current = true;
+    startPos.current = pos;
+    snapshotRef.current = canvas.toDataURL();
+    const ctx = getCtx();
+    ctx.lineWidth = tool === 'eraser' ? strokeWidth * 4 : strokeWidth;
+    ctx.strokeStyle = tool === 'laser' ? 'rgba(255,0,0,0.85)' : (tool === 'eraser' ? '#FFFFFF' : color);
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    if (tool === 'pen' || tool === 'eraser' || tool === 'laser') {
+      ctx.beginPath(); ctx.moveTo(pos.x, pos.y);
+    }
+  };
+
+  const onMove = (e) => {
+    e.preventDefault();
+    if (!drawing.current) return;
+    const canvas = canvasRef.current; if (!canvas) return;
+    const pos = getPos(e, canvas);
+    const ctx = getCtx();
+    if (tool === 'pen' || tool === 'eraser' || tool === 'laser') {
+      ctx.lineTo(pos.x, pos.y); ctx.stroke();
+    } else {
+      const img = new Image();
+      img.onload = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+        ctx.lineWidth = strokeWidth; ctx.strokeStyle = color; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        drawShape(ctx, startPos.current.x, startPos.current.y, pos.x, pos.y);
+      };
+      img.src = snapshotRef.current;
+    }
+  };
+
+  const onEnd = (e) => {
+    if (!drawing.current) return;
+    drawing.current = false;
+    if (tool === 'laser') {
+      clearTimeout(laserTimerRef.current);
+      laserTimerRef.current = setTimeout(() => {
+        const canvas = canvasRef.current; if (!canvas) return;
+        const img = new Image(); img.onload = () => { getCtx().clearRect(0, 0, canvas.width, canvas.height); getCtx().drawImage(img, 0, 0); };
+        img.src = snapshotRef.current;
+      }, 1200);
+    } else {
+      saveHistory();
+    }
+  };
+
+  const exportImage = () => {
+    const canvas = canvasRef.current; if (!canvas) return;
+    const a = document.createElement('a'); a.download = 'tableau-crux.png'; a.href = canvas.toDataURL(); a.click();
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#1A1A1A' }}>
+      {/* Toolbar */}
+      <div style={{ display: 'flex', gap: 4, padding: '6px 8px', background: '#111', borderBottom: '1px solid rgba(255,255,255,0.1)', flexWrap: 'wrap', alignItems: 'center' }}>
+        {TOOLS.map(t => (
+          <button key={t.id} onClick={() => setTool(t.id)} title={t.label}
+            style={{ width: 32, height: 32, border: tool===t.id ? '2px solid #FF4081' : '1px solid transparent', borderRadius: 6, background: tool===t.id ? 'rgba(255,64,129,0.2)' : 'rgba(255,255,255,0.07)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {t.icon}
+          </button>
+        ))}
+        <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.15)', margin: '0 2px' }} />
+        {COLORS.map(c => (
+          <button key={c} onClick={() => setColor(c)}
+            style={{ width: 20, height: 20, borderRadius: '50%', background: c, border: color===c ? '2px solid white' : '2px solid transparent', cursor: 'pointer', padding: 0 }} />
+        ))}
+        <input type="color" value={color} onChange={e => setColor(e.target.value)}
+          style={{ width: 24, height: 24, borderRadius: '50%', border: 'none', cursor: 'pointer', padding: 0, background: 'none' }} />
+        <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.15)', margin: '0 2px' }} />
+        <input type="range" min={1} max={20} value={strokeWidth} onChange={e => setStrokeWidth(Number(e.target.value))}
+          style={{ width: 56, accentColor: color }} />
+        <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.15)', margin: '0 2px' }} />
+        <button onClick={undo} title="Annuler" style={{ width: 28, height: 28, background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: 6, cursor: 'pointer', color: 'white', fontSize: 14 }}>↩</button>
+        <button onClick={redo} title="Rétablir" style={{ width: 28, height: 28, background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: 6, cursor: 'pointer', color: 'white', fontSize: 14 }}>↪</button>
+        <button onClick={clearAll} title="Effacer tout" style={{ width: 28, height: 28, background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: 6, cursor: 'pointer', color: 'white', fontSize: 14 }}>🗑</button>
+        <button onClick={exportImage} title="Exporter" style={{ width: 28, height: 28, background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: 6, cursor: 'pointer', color: 'white', fontSize: 14 }}>💾</button>
+      </div>
+      {/* Canvas */}
+      <canvas
+        ref={canvasRef}
+        width={800} height={500}
+        onMouseDown={onStart} onMouseMove={onMove} onMouseUp={onEnd} onMouseLeave={onEnd}
+        onTouchStart={onStart} onTouchMove={onMove} onTouchEnd={onEnd}
+        style={{ flex: 1, display: 'block', width: '100%', height: '100%', cursor: tool==='eraser'?'cell':tool==='laser'?'crosshair':'crosshair', background: 'white', touchAction: 'none' }}
+      />
     </div>
   );
 }
@@ -2203,6 +2386,8 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
   const [floatingReactions, setFloatingReactions] = useState([]);
   const [callFrozen, setCallFrozen] = useState(false);
   const [netQuality, setNetQuality] = useState('good'); // good | fair | poor
+  const [isSharingScreen, setIsSharingScreen] = useState(false);
+  const screenStreamRef = useRef(null);
   const speechRef = useRef(null);
   const handsSeenRef = useRef(new Set());
   const pollsSeenRef = useRef(new Set());
@@ -2309,6 +2494,34 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
     setShowReactions(false);
     await FirebaseMeetingService.sendReaction(meeting.id, user.uid, user.name || user.email, emoji);
     GamificationService.logReaction(user.uid);
+  };
+
+  const startScreenShare = async () => {
+    if (isSharingScreen) {
+      screenStreamRef.current?.getTracks().forEach(t => t.stop());
+      screenStreamRef.current = null;
+      setIsSharingScreen(false);
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: 'always' }, audio: true });
+      screenStreamRef.current = stream;
+      setIsSharingScreen(true);
+      stream.getVideoTracks()[0].onended = () => { setIsSharingScreen(false); screenStreamRef.current = null; };
+      // Overlay preview
+      const vid = document.createElement('video');
+      vid.srcObject = stream; vid.autoplay = true; vid.muted = true;
+      vid.style.cssText = 'position:fixed;bottom:90px;right:12px;width:200px;height:112px;border-radius:10px;border:2px solid #27AE60;z-index:99998;object-fit:cover;box-shadow:0 4px 20px rgba(0,0,0,0.6)';
+      vid.id = 'crux-screen-preview';
+      document.getElementById('crux-screen-preview')?.remove();
+      document.body.appendChild(vid);
+      stream.getVideoTracks()[0].onended = () => {
+        setIsSharingScreen(false); screenStreamRef.current = null;
+        document.getElementById('crux-screen-preview')?.remove();
+      };
+    } catch (e) {
+      if (e.name !== 'NotAllowedError') console.error('Screen share error', e);
+    }
   };
 
   // Web Speech captions
@@ -2429,15 +2642,15 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
 
         {/* Floating emoji reactions */}
         {floatingReactions.map(r => (
-          <div key={r.id} style={{ position: 'absolute', bottom: 100, left: `${r.x}%`, fontSize: 40, userSelect: 'none', animation: 'floatUp 3s ease-out forwards' }}>{r.emoji}</div>
+          <div key={r.id} style={{ position: 'absolute', bottom: 140, left: `${r.x}%`, fontSize: 40, userSelect: 'none', pointerEvents: 'none', animation: 'floatUp 3s ease-out forwards', zIndex: 1 }}>{r.emoji}</div>
         ))}
 
         {/* Reaction picker */}
         {showReactions && (
-          <div style={{ position: 'absolute', bottom: 90, left: '50%', transform: 'translateX(-50%)', background: 'rgba(15,15,20,0.97)', borderRadius: 20, padding: '14px 18px', display: 'flex', gap: 8, boxShadow: '0 8px 32px rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.12)', pointerEvents: 'all' }}>
-            {['👍','❤️','😂','😮','👏','🙌'].map(emoji => (
+          <div style={{ position: 'absolute', bottom: 130, left: '50%', transform: 'translateX(-50%)', background: 'rgba(15,15,20,0.97)', borderRadius: 20, padding: '12px 16px', display: 'flex', gap: 8, boxShadow: '0 8px 32px rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.12)', pointerEvents: 'all', zIndex: 2 }}>
+            {['👍','❤️','😂','😮','👏','🙌','🎉','🔥','💯','😍'].map(emoji => (
               <button key={emoji} onClick={() => sendReaction(emoji)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 34, padding: 8, borderRadius: 12, transition: 'transform 0.15s', lineHeight: 1 }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 28, padding: 6, borderRadius: 10, transition: 'transform 0.15s', lineHeight: 1 }}
                 onMouseEnter={e => e.currentTarget.style.transform='scale(1.4)'}
                 onMouseLeave={e => e.currentTarget.style.transform='scale(1)'}
               >{emoji}</button>
@@ -2445,19 +2658,20 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
           </div>
         )}
 
-        {/* Right sidebar buttons */}
-        <div style={{ position: 'absolute', right: activePanel ? 352 : 12, top: '50%', transform: 'translateY(-50%)', display: 'flex', flexDirection: 'column', gap: 10, transition: 'right 0.3s ease', pointerEvents: 'all' }}>
+        {/* Bottom toolbar */}
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '10px 16px 14px', background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(12px)', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, pointerEvents: 'all', zIndex: 2 }}>
           <SideBtn icon="😀" label="Réactions" onClick={() => { setShowReactions(v=>!v); setActivePanel(null); }} active={showReactions} color={C.accentOrange} />
           <SideBtn icon="📊" label={T.polls} onClick={() => togglePanel('poll')} active={activePanel==='poll'} badge={activePoll?1:0} color={C.violet} />
           <SideBtn icon="❓" label="Q&A" onClick={() => togglePanel('qa')} active={activePanel==='qa'} color={C.accentGolden} />
           <SideBtn icon="📝" label={T.notes} onClick={() => togglePanel('notes')} active={activePanel==='notes'} color={C.iceBlue} />
-          <SideBtn icon="🎨" label="Tableau blanc" onClick={() => togglePanel('whiteboard')} active={activePanel==='whiteboard'} color={C.accentOrange} />
-          <SideBtn icon="🎤" label={captionsOn ? 'Stop sous-titres' : 'Sous-titres'} onClick={() => setCaptionsOn(v=>!v)} active={captionsOn} color={C.success} />
+          <SideBtn icon="🎨" label="Tableau" onClick={() => togglePanel('whiteboard')} active={activePanel==='whiteboard'} color={C.accentOrange} />
+          <SideBtn icon="🖥️" label="Partager" onClick={() => startScreenShare()} active={isSharingScreen} color={C.success} />
+          <SideBtn icon="🎤" label="Sous-titres" onClick={() => setCaptionsOn(v=>!v)} active={captionsOn} color={C.info} />
         </div>
 
-        {/* Side panel container */}
+        {/* Panel — slides from right, above bottom bar */}
         {activePanel && (
-          <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 340, pointerEvents: 'all' }}>
+          <div style={{ position: 'absolute', right: 0, top: 0, bottom: 80, width: Math.min(window.innerWidth, 340), pointerEvents: 'all', zIndex: 3 }}>
 
             {/* POLLS */}
             {activePanel === 'poll' && (
@@ -2570,7 +2784,7 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
             {/* WHITEBOARD */}
             {activePanel === 'whiteboard' && (
               <MeetPanel title="Tableau blanc" icon="🎨" onClose={() => setActivePanel(null)}>
-                <iframe src="https://excalidraw.com/" style={{ flex: 1, border: 'none', width: '100%' }} title="Tableau blanc" allow="clipboard-write" />
+                <CruxWhiteboard meetingId={meeting.id} userId={user.uid} />
               </MeetPanel>
             )}
           </div>
@@ -2881,6 +3095,105 @@ function ProfilePage({ user, T, dark, onBack, onUserUpdated }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ============================================================
+// NOTES PAGE — persistent notes per meeting
+// ============================================================
+function NotesPage({ user, T, dark, onBack }) {
+  const t = th(dark);
+  // Gather all saved notes from localStorage
+  const [notesList, setNotesList] = React.useState(() => {
+    const items = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('crux_notes_')) {
+        const meetingId = key.replace('crux_notes_', '');
+        const content = localStorage.getItem(key) || '';
+        if (content.trim()) items.push({ meetingId, content });
+      }
+    }
+    return items;
+  });
+  const [selected, setSelected] = React.useState(notesList[0]?.meetingId || null);
+  const [editContent, setEditContent] = React.useState(() => {
+    const first = notesList[0];
+    return first ? first.content : '';
+  });
+
+  const handleSelect = (id) => {
+    setSelected(id);
+    setEditContent(localStorage.getItem('crux_notes_' + id) || '');
+  };
+
+  const handleChange = (val) => {
+    setEditContent(val);
+    if (selected) {
+      localStorage.setItem('crux_notes_' + selected, val);
+      setNotesList(n => n.map(x => x.meetingId === selected ? { ...x, content: val } : x));
+    }
+  };
+
+  const handleDelete = (id) => {
+    localStorage.removeItem('crux_notes_' + id);
+    const updated = notesList.filter(x => x.meetingId !== id);
+    setNotesList(updated);
+    if (selected === id) {
+      const next = updated[0];
+      setSelected(next?.meetingId || null);
+      setEditContent(next?.content || '');
+    }
+  };
+
+  return (
+    <div style={{ minHeight: 'calc(100vh - 64px)', background: t.bgPage, fontFamily: 'Poppins, sans-serif', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ maxWidth: 900, margin: '0 auto', width: '100%', padding: '24px 20px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+          <button onClick={onBack} style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textSec, fontSize: 20 }}>←</button>
+          <h1 style={{ color: t.textPri, fontSize: 20, fontWeight: 800, margin: 0 }}>📝 Mes Notes</h1>
+        </div>
+
+        {notesList.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '64px 24px', color: t.textMuted }}>
+            <div style={{ fontSize: 56, marginBottom: 16 }}>📝</div>
+            <p style={{ fontSize: 16, fontWeight: 600 }}>Aucune note sauvegardée</p>
+            <p style={{ fontSize: 13, marginTop: 6 }}>Vos notes de réunion apparaîtront ici</p>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', gap: 16, flex: 1, minHeight: 0 }}>
+            {/* List */}
+            <div style={{ width: 220, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {notesList.map(n => (
+                <div key={n.meetingId} onClick={() => handleSelect(n.meetingId)}
+                  style={{ padding: '12px 14px', borderRadius: 12, background: selected===n.meetingId ? (dark ? '#2D1A5A' : '#F0E8FF') : t.bgCard, border: `1.5px solid ${selected===n.meetingId ? C.violet : t.border}`, cursor: 'pointer', position: 'relative' }}>
+                  <p style={{ color: t.textPri, fontSize: 12, fontWeight: 700, margin: '0 0 4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Réunion {n.meetingId.slice(0, 8)}</p>
+                  <p style={{ color: t.textMuted, fontSize: 11, margin: 0, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{n.content.slice(0, 80)}</p>
+                  <button onClick={e => { e.stopPropagation(); handleDelete(n.meetingId); }}
+                    style={{ position: 'absolute', top: 6, right: 6, background: 'none', border: 'none', cursor: 'pointer', color: C.error, fontSize: 14, lineHeight: 1 }}>×</button>
+                </div>
+              ))}
+            </div>
+            {/* Editor */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: t.bgCard, borderRadius: 16, border: `1px solid ${t.border}`, overflow: 'hidden' }}>
+              {selected ? (
+                <>
+                  <div style={{ padding: '12px 16px', borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: t.textSec, fontSize: 12, fontWeight: 600 }}>Réunion {selected.slice(0, 8)}</span>
+                    <span style={{ color: t.textMuted, fontSize: 11 }}>💾 Sauvegardé</span>
+                  </div>
+                  <textarea value={editContent} onChange={e => handleChange(e.target.value)}
+                    placeholder="Vos notes..."
+                    style={{ flex: 1, padding: '16px', border: 'none', resize: 'none', fontFamily: 'Poppins, sans-serif', fontSize: 14, color: t.textPri, background: 'transparent', outline: 'none', lineHeight: 1.8 }} />
+                </>
+              ) : (
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: t.textMuted, fontSize: 14 }}>Sélectionnez une note</div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
