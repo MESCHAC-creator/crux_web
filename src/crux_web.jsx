@@ -1556,20 +1556,6 @@ function Dashboard({ user, T, dark, onJoin, onJoinByCode }) {
             <span style={{ fontSize: 28 }}>📅</span>
             <span style={{ fontSize: 13, fontWeight: 700 }}>Planifier</span>
           </button>
-          <button style={quickBtnStyle(dark ? '#2D1050' : 'white', dark ? '#F0EAF8' : '#1A1A1A')}
-            onClick={() => window._cruxGoProfile?.()}
-            onMouseEnter={e => { e.currentTarget.style.transform='translateY(-2px)'; }}
-            onMouseLeave={e => { e.currentTarget.style.transform=''; }}>
-            <span style={{ fontSize: 28 }}>👤</span>
-            <span style={{ fontSize: 13, fontWeight: 700 }}>Profil</span>
-          </button>
-          <button style={quickBtnStyle(dark ? '#2D1050' : 'white', dark ? '#F0EAF8' : '#1A1A1A')}
-            onClick={() => window._cruxGoNotes?.()}
-            onMouseEnter={e => { e.currentTarget.style.transform='translateY(-2px)'; }}
-            onMouseLeave={e => { e.currentTarget.style.transform=''; }}>
-            <span style={{ fontSize: 28 }}>📝</span>
-            <span style={{ fontSize: 13, fontWeight: 700 }}>Mes notes</span>
-          </button>
         </div>
 
         {/* Recent meetings */}
@@ -1892,7 +1878,6 @@ function HostCtrlBtn({ icon, label, color, onClick, active }) {
 // ============================================================
 // PAYMENT WALL — Firestore-backed, real-time code delivery
 // ============================================================
-const FREE_MINUTES = 90;
 const DJAMO_PAYMENT_URL = 'https://pay.djamo.com/qxmvj';
 
 const ProService = {
@@ -2367,8 +2352,77 @@ function MeetPanel({ title, icon, onClose, children, dark = false }) {
   );
 }
 
+// ============================================================
+// PRE-JOIN WAITING ROOM — Google Meet style camera preview
+// ============================================================
+function PreJoinRoom({ meeting, user, onJoin, onLeave }) {
+  const videoRef = useRef(null);
+  const [camOn, setCamOn] = useState(true);
+  const [micOn, setMicOn] = useState(true);
+  const streamRef = useRef(null);
+
+  useEffect(() => {
+    let active = true;
+    if (camOn) {
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
+        .then(s => {
+          if (!active) { s.getTracks().forEach(t => t.stop()); return; }
+          streamRef.current = s;
+          if (videoRef.current) videoRef.current.srcObject = s;
+        })
+        .catch(() => {});
+    } else {
+      streamRef.current?.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+      if (videoRef.current) videoRef.current.srcObject = null;
+    }
+    return () => {
+      active = false;
+      streamRef.current?.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    };
+  }, [camOn]);
+
+  return (
+    <div style={{ minHeight: '100vh', background: '#202124', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Poppins, sans-serif', padding: 20 }}>
+      <div style={{ display: 'flex', gap: 40, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center', maxWidth: 900, width: '100%' }}>
+        {/* Camera preview */}
+        <div style={{ position: 'relative', width: 480, maxWidth: '100%', aspectRatio: '16/9', background: '#3c4043', borderRadius: 16, overflow: 'hidden', flexShrink: 0 }}>
+          <video ref={videoRef} autoPlay muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)', display: camOn ? 'block' : 'none' }} />
+          {!camOn && (
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: 80, height: 80, borderRadius: '50%', background: '#5f6368', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32 }}>👤</div>
+            </div>
+          )}
+          {/* Controls overlay */}
+          <div style={{ position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 12 }}>
+            <button onClick={() => setMicOn(v => !v)} style={{ width: 48, height: 48, borderRadius: '50%', border: 'none', background: micOn ? 'rgba(255,255,255,0.18)' : '#EA4335', cursor: 'pointer', fontSize: 20, backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{micOn ? '🎤' : '🔇'}</button>
+            <button onClick={() => setCamOn(v => !v)} style={{ width: 48, height: 48, borderRadius: '50%', border: 'none', background: camOn ? 'rgba(255,255,255,0.18)' : '#EA4335', cursor: 'pointer', fontSize: 20, backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{camOn ? '📷' : '🚫'}</button>
+          </div>
+        </div>
+
+        {/* Join card */}
+        <div style={{ textAlign: 'center', color: 'white', minWidth: 240 }}>
+          <h1 style={{ fontSize: 28, fontWeight: 400, marginBottom: 8, margin: '0 0 8px' }}>Prêt à rejoindre ?</h1>
+          <p style={{ color: '#9aa0a6', fontSize: 14, marginBottom: 4, margin: '0 0 4px' }}>{meeting.title}</p>
+          <p style={{ color: '#9aa0a6', fontSize: 13, marginBottom: 32, margin: '0 0 32px' }}>Organisé par {meeting.creatorName || meeting.organizer || 'Hôte'}</p>
+          <button onClick={() => onJoin(micOn, camOn)} style={{ padding: '14px 40px', background: '#1a73e8', border: 'none', borderRadius: 8, color: 'white', fontWeight: 600, fontSize: 16, cursor: 'pointer', fontFamily: 'Poppins, sans-serif', marginBottom: 16, display: 'block', width: '100%' }}>
+            Rejoindre maintenant
+          </button>
+          <button onClick={onLeave} style={{ background: 'none', border: 'none', color: '#9aa0a6', cursor: 'pointer', fontSize: 13, fontFamily: 'Poppins, sans-serif' }}>
+            Annuler
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MeetingRoom({ meeting, user, T, prefs, onExit }) {
   const zegoRef = useRef(null);
+  const [inPreJoin, setInPreJoin] = useState(true);
+  const initMicRef = useRef(true);
+  const initCamRef = useRef(true);
   const [elapsed, setElapsed] = useState(0);
   const [activePanel, setActivePanel] = useState(null);
 
@@ -2391,7 +2445,6 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
   const [isSharingScreen, setIsSharingScreen] = useState(false);
   const [screenStream, setScreenStream] = useState(null);
   const screenStreamRef = useRef(null);
-  const speechRef = useRef(null);
   const handsSeenRef = useRef(new Set());
   const pollsSeenRef = useRef(new Set());
 
@@ -2591,8 +2644,8 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
       }],
       scenario: { mode: ZegoUIKitPrebuilt.VideoConference },
       showPreJoinView: true,
-      turnOnMicrophoneWhenJoining: prefs.defaultMic !== false,
-      turnOnCameraWhenJoining: prefs.defaultCam !== false,
+      turnOnMicrophoneWhenJoining: initMicRef.current,
+      turnOnCameraWhenJoining: initCamRef.current,
       showMyMicrophoneToggleButton: true,
       showMyCameraToggleButton: true,
       showAudioVideoSettingsButton: true,
@@ -2636,6 +2689,21 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
     document.body
   );
 
+  if (inPreJoin) {
+    return (
+      <PreJoinRoom
+        meeting={meeting}
+        user={user}
+        onJoin={(mic, cam) => {
+          initMicRef.current = mic;
+          initCamRef.current = cam;
+          setInPreJoin(false);
+        }}
+        onLeave={onExit}
+      />
+    );
+  }
+
   return (
     <div style={{ width: '100vw', height: '100vh', background: '#111' }}>
       {/* ZegoCloud video — fills entire screen */}
@@ -2669,33 +2737,31 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
           />
         )}
 
-        {/* Top toolbar — Row 1: reactions+chat+polls+Q&A / Row 2: notes+whiteboard+screenshare+PiP */}
+        {/* Top toolbar — single compact row */}
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.82)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255,255,255,0.08)', pointerEvents: 'all', zIndex: 2 }}>
-          {/* Row 1 */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 12px 4px' }}>
-            {/* Left: timer */}
-            <div style={{ background: 'transparent', color: 'white', fontSize: 11, fontWeight: 600 }}>🕐 {fmt(elapsed)}</div>
-            {/* Center: network */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-              {[0,1,2].map(i => {
-                const lit = (netQuality==='good') || (netQuality==='fair'&&i<2) || (netQuality==='poor'&&i<1);
-                const col = netQuality==='good'?'#4CAF50':netQuality==='fair'?'#FFC107':'#E74C3C';
-                return <div key={i} style={{ width: 3, height: 6+i*3, borderRadius: 2, background: lit?col:'rgba(255,255,255,0.25)' }} />;
-              })}
-              <span style={{ color: 'white', fontSize: 9, fontWeight: 600, marginLeft: 3 }}>{netQuality==='good'?'HD':netQuality==='fair'?'SD':'⚠'}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px' }}>
+            {/* Left: timer + network */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 100 }}>
+              <div style={{ color: 'white', fontSize: 11, fontWeight: 600 }}>🕐 {fmt(elapsed)}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                {[0,1,2].map(i => {
+                  const lit = (netQuality==='good') || (netQuality==='fair'&&i<2) || (netQuality==='poor'&&i<1);
+                  const col = netQuality==='good'?'#4CAF50':netQuality==='fair'?'#FFC107':'#E74C3C';
+                  return <div key={i} style={{ width: 3, height: 6+i*3, borderRadius: 2, background: lit?col:'rgba(255,255,255,0.25)' }} />;
+                })}
+              </div>
             </div>
-            {/* Right: PiP */}
-            <button onClick={requestPiP} title="Mini-écran" style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 6, color: 'white', fontSize: 14, cursor: 'pointer', padding: '3px 8px', fontFamily: 'Poppins, sans-serif' }}>⊡</button>
-          </div>
-          {/* Row 2: tool buttons */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '4px 12px 8px', flexWrap: 'wrap' }}>
-            <SideBtn icon="😀" label="Réactions" onClick={() => { setShowReactions(v=>!v); setActivePanel(null); }} active={showReactions} color={C.accentOrange} />
-            <SideBtn icon="💬" label="Chat" onClick={() => togglePanel('chat')} active={activePanel==='chat'} badge={chatMessages.length > 0 ? chatMessages.length : 0} color={C.iceBlue} />
-            <SideBtn icon="📊" label={T.polls} onClick={() => togglePanel('poll')} active={activePanel==='poll'} badge={activePoll?1:0} color={C.violet} />
-            <SideBtn icon="❓" label="Q&A" onClick={() => togglePanel('qa')} active={activePanel==='qa'} color={C.accentGolden} />
-            <SideBtn icon="📝" label={T.notes} onClick={() => togglePanel('notes')} active={activePanel==='notes'} color={C.iceBlue} />
-            <SideBtn icon="🎨" label="Tableau" onClick={() => togglePanel('whiteboard')} active={activePanel==='whiteboard'} color={C.accentOrange} />
-            <SideBtn icon="🖥️" label={isSharingScreen ? 'Arrêter' : 'Partager'} onClick={startScreenShare} active={isSharingScreen} color={C.success} />
+            {/* Center: tool buttons */}
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <SideBtn icon="😀" label="Réactions" onClick={() => { setShowReactions(v=>!v); setActivePanel(null); }} active={showReactions} color={C.accentOrange} />
+              <SideBtn icon="💬" label="Chat" onClick={() => togglePanel('chat')} active={activePanel==='chat'} badge={chatMessages.length > 0 ? chatMessages.length : 0} color={C.iceBlue} />
+              <SideBtn icon="📊" label={T.polls} onClick={() => togglePanel('poll')} active={activePanel==='poll'} badge={activePoll?1:0} color={C.violet} />
+              <SideBtn icon="❓" label="Q&A" onClick={() => togglePanel('qa')} active={activePanel==='qa'} color={C.accentGolden} />
+              <SideBtn icon="📝" label={T.notes} onClick={() => togglePanel('notes')} active={activePanel==='notes'} color={C.iceBlue} />
+              <SideBtn icon="🎨" label="Tableau" onClick={() => togglePanel('whiteboard')} active={activePanel==='whiteboard'} color={C.accentOrange} />
+              <SideBtn icon="🖥️" label={isSharingScreen ? 'Arrêter' : 'Partager'} onClick={startScreenShare} active={isSharingScreen} color={C.success} />
+              <SideBtn icon="⊡" label="Mini-écran" onClick={requestPiP} color={C.iceBlue} />
+            </div>
           </div>
         </div>
 
