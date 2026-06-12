@@ -2389,6 +2389,7 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
   const [callFrozen, setCallFrozen] = useState(false);
   const [netQuality, setNetQuality] = useState('good'); // good | fair | poor
   const [isSharingScreen, setIsSharingScreen] = useState(false);
+  const [screenStream, setScreenStream] = useState(null);
   const screenStreamRef = useRef(null);
   const speechRef = useRef(null);
   const handsSeenRef = useRef(new Set());
@@ -2517,9 +2518,12 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
   useEffect(() => {
     return FirebaseMeetingService.listenChatMessages(meeting.id, msgs => {
         setChatMessages(msgs);
-        setTimeout(() => chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
     });
   }, [meeting.id]);
+
+  useEffect(() => {
+    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages]);
 
   const sendChatMsg = async () => {
     if (!chatInput.trim()) return;
@@ -2533,27 +2537,37 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
       screenStreamRef.current?.getTracks().forEach(t => t.stop());
       screenStreamRef.current = null;
       setIsSharingScreen(false);
+      setScreenStream(null);
+      return;
+    }
+    if (!navigator.mediaDevices?.getDisplayMedia) {
+      alert('Le partage d\'écran n\'est pas supporté sur cet appareil/navigateur.');
       return;
     }
     try {
-      const stream = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: 'always' }, audio: true });
+      const stream = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: 'always' }, audio: false });
       screenStreamRef.current = stream;
       setIsSharingScreen(true);
-      stream.getVideoTracks()[0].onended = () => { setIsSharingScreen(false); screenStreamRef.current = null; };
-      // Overlay preview
-      const vid = document.createElement('video');
-      vid.srcObject = stream; vid.autoplay = true; vid.muted = true;
-      vid.style.cssText = 'position:fixed;bottom:90px;right:12px;width:200px;height:112px;border-radius:10px;border:2px solid #27AE60;z-index:99998;object-fit:cover;box-shadow:0 4px 20px rgba(0,0,0,0.6)';
-      vid.id = 'crux-screen-preview';
-      document.getElementById('crux-screen-preview')?.remove();
-      document.body.appendChild(vid);
+      setScreenStream(stream);
       stream.getVideoTracks()[0].onended = () => {
-        setIsSharingScreen(false); screenStreamRef.current = null;
-        document.getElementById('crux-screen-preview')?.remove();
+        setIsSharingScreen(false);
+        setScreenStream(null);
+        screenStreamRef.current = null;
       };
     } catch (e) {
-      if (e.name !== 'NotAllowedError') console.error('Screen share error', e);
+      if (e.name !== 'NotAllowedError' && e.name !== 'AbortError') console.error('Screen share error', e);
     }
+  };
+
+  const requestPiP = async () => {
+    try {
+      const video = zegoRef.current?.querySelector('video');
+      if (video) {
+        await video.requestPictureInPicture();
+      } else {
+        alert('Impossible de démarrer le mode mini-écran pour le moment.');
+      }
+    } catch { }
   };
 
 
@@ -2628,32 +2642,17 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
       <div ref={zegoRef} style={{ position: 'absolute', inset: 0 }} />
 
       <Portal>
-        {/* Timer */}
-        <div style={{ position: 'absolute', top: 12, left: 12, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)', borderRadius: 8, padding: '5px 12px', color: 'white', fontSize: 12, fontWeight: 600, border: '1px solid rgba(255,255,255,0.15)' }}>
-          🕐 {fmt(elapsed)}
-        </div>
-
-        {/* Network quality */}
-        <div style={{ position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)', borderRadius: 8, padding: '5px 10px', border: '1px solid rgba(255,255,255,0.15)' }}>
-          {[0,1,2].map(i => {
-            const lit = (netQuality==='good') || (netQuality==='fair'&&i<2) || (netQuality==='poor'&&i<1);
-            const col = netQuality==='good'?'#4CAF50':netQuality==='fair'?'#FFC107':'#E74C3C';
-            return <div key={i} style={{ width: 4, height: 8+i*4, borderRadius: 2, background: lit?col:'rgba(255,255,255,0.25)' }} />;
-          })}
-          <span style={{ color: 'white', fontSize: 10, fontWeight: 600, marginLeft: 4 }}>{netQuality==='good'?'HD':netQuality==='fair'?'SD':'Faible'}</span>
-        </div>
-
         {/* Floating emoji reactions */}
         {floatingReactions.map(r => (
-          <div key={r.id} style={{ position: 'absolute', bottom: 140, left: `${r.x}%`, fontSize: 40, userSelect: 'none', pointerEvents: 'none', animation: 'floatUp 3s ease-out forwards', zIndex: 1 }}>{r.emoji}</div>
+          <div key={r.id} style={{ position: 'absolute', top: '30%', left: `${r.x}%`, fontSize: 40, userSelect: 'none', pointerEvents: 'none', animation: 'floatUp 3s ease-out forwards', zIndex: 1 }}>{r.emoji}</div>
         ))}
 
-        {/* Reaction picker */}
+        {/* Reaction picker — above toolbar */}
         {showReactions && (
-          <div style={{ position: 'absolute', bottom: 130, left: '50%', transform: 'translateX(-50%)', background: 'rgba(15,15,20,0.97)', borderRadius: 20, padding: '12px 16px', display: 'flex', gap: 8, boxShadow: '0 8px 32px rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.12)', pointerEvents: 'all', zIndex: 2 }}>
+          <div style={{ position: 'absolute', top: 60, left: '50%', transform: 'translateX(-50%)', background: 'rgba(15,15,20,0.97)', borderRadius: 20, padding: '10px 14px', display: 'flex', flexWrap: 'wrap', gap: 6, maxWidth: '90vw', justifyContent: 'center', boxShadow: '0 8px 32px rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.12)', pointerEvents: 'all', zIndex: 2 }}>
             {['👍','❤️','😂','😮','👏','🙌','🎉','🔥','💯','😍'].map(emoji => (
               <button key={emoji} onClick={() => sendReaction(emoji)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 28, padding: 6, borderRadius: 10, transition: 'transform 0.15s', lineHeight: 1 }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 26, padding: 5, borderRadius: 10, transition: 'transform 0.15s', lineHeight: 1 }}
                 onMouseEnter={e => e.currentTarget.style.transform='scale(1.4)'}
                 onMouseLeave={e => e.currentTarget.style.transform='scale(1)'}
               >{emoji}</button>
@@ -2661,20 +2660,48 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
           </div>
         )}
 
-        {/* Bottom toolbar */}
-        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '10px 16px 14px', background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(12px)', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, pointerEvents: 'all', zIndex: 2 }}>
-          <SideBtn icon="😀" label="Réactions" onClick={() => { setShowReactions(v=>!v); setActivePanel(null); }} active={showReactions} color={C.accentOrange} />
-          <SideBtn icon="💬" label="Chat" onClick={() => togglePanel('chat')} active={activePanel==='chat'} badge={chatMessages.length > 0 ? chatMessages.length : 0} color={C.iceBlue} />
-          <SideBtn icon="📊" label={T.polls} onClick={() => togglePanel('poll')} active={activePanel==='poll'} badge={activePoll?1:0} color={C.violet} />
-          <SideBtn icon="❓" label="Q&A" onClick={() => togglePanel('qa')} active={activePanel==='qa'} color={C.accentGolden} />
-          <SideBtn icon="📝" label={T.notes} onClick={() => togglePanel('notes')} active={activePanel==='notes'} color={C.iceBlue} />
-          <SideBtn icon="🎨" label="Tableau" onClick={() => togglePanel('whiteboard')} active={activePanel==='whiteboard'} color={C.accentOrange} />
-          <SideBtn icon="🖥️" label="Partager" onClick={() => startScreenShare()} active={isSharingScreen} color={C.success} />
+        {/* Screen share preview inside Portal */}
+        {screenStream && (
+          <video
+            ref={el => { if (el) el.srcObject = screenStream; }}
+            autoPlay muted
+            style={{ position: 'absolute', top: 56, right: 12, width: 180, height: 100, borderRadius: 10, border: '2px solid #27AE60', zIndex: 4, objectFit: 'cover', boxShadow: '0 4px 20px rgba(0,0,0,0.6)', pointerEvents: 'none' }}
+          />
+        )}
+
+        {/* Top toolbar — Row 1: reactions+chat+polls+Q&A / Row 2: notes+whiteboard+screenshare+PiP */}
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.82)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255,255,255,0.08)', pointerEvents: 'all', zIndex: 2 }}>
+          {/* Row 1 */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 12px 4px' }}>
+            {/* Left: timer */}
+            <div style={{ background: 'transparent', color: 'white', fontSize: 11, fontWeight: 600 }}>🕐 {fmt(elapsed)}</div>
+            {/* Center: network */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+              {[0,1,2].map(i => {
+                const lit = (netQuality==='good') || (netQuality==='fair'&&i<2) || (netQuality==='poor'&&i<1);
+                const col = netQuality==='good'?'#4CAF50':netQuality==='fair'?'#FFC107':'#E74C3C';
+                return <div key={i} style={{ width: 3, height: 6+i*3, borderRadius: 2, background: lit?col:'rgba(255,255,255,0.25)' }} />;
+              })}
+              <span style={{ color: 'white', fontSize: 9, fontWeight: 600, marginLeft: 3 }}>{netQuality==='good'?'HD':netQuality==='fair'?'SD':'⚠'}</span>
+            </div>
+            {/* Right: PiP */}
+            <button onClick={requestPiP} title="Mini-écran" style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 6, color: 'white', fontSize: 14, cursor: 'pointer', padding: '3px 8px', fontFamily: 'Poppins, sans-serif' }}>⊡</button>
+          </div>
+          {/* Row 2: tool buttons */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '4px 12px 8px', flexWrap: 'wrap' }}>
+            <SideBtn icon="😀" label="Réactions" onClick={() => { setShowReactions(v=>!v); setActivePanel(null); }} active={showReactions} color={C.accentOrange} />
+            <SideBtn icon="💬" label="Chat" onClick={() => togglePanel('chat')} active={activePanel==='chat'} badge={chatMessages.length > 0 ? chatMessages.length : 0} color={C.iceBlue} />
+            <SideBtn icon="📊" label={T.polls} onClick={() => togglePanel('poll')} active={activePanel==='poll'} badge={activePoll?1:0} color={C.violet} />
+            <SideBtn icon="❓" label="Q&A" onClick={() => togglePanel('qa')} active={activePanel==='qa'} color={C.accentGolden} />
+            <SideBtn icon="📝" label={T.notes} onClick={() => togglePanel('notes')} active={activePanel==='notes'} color={C.iceBlue} />
+            <SideBtn icon="🎨" label="Tableau" onClick={() => togglePanel('whiteboard')} active={activePanel==='whiteboard'} color={C.accentOrange} />
+            <SideBtn icon="🖥️" label={isSharingScreen ? 'Arrêter' : 'Partager'} onClick={startScreenShare} active={isSharingScreen} color={C.success} />
+          </div>
         </div>
 
-        {/* Panel — slides from right, above bottom bar */}
+        {/* Panel — slides from right, below top toolbar, keyboard-aware via env() */}
         {activePanel && (
-          <div style={{ position: 'absolute', right: 0, top: 0, bottom: 80, width: Math.min(window.innerWidth, 340), pointerEvents: 'all', zIndex: 3 }}>
+          <div style={{ position: 'absolute', right: 0, top: 96, bottom: 'env(keyboard-inset-height, 0px)', width: Math.min(window.innerWidth, 320), pointerEvents: 'all', zIndex: 3 }}>
 
             {/* CHAT */}
             {activePanel === 'chat' && (
@@ -2693,17 +2720,14 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
                   ))}
                   <div ref={chatBottomRef} />
                 </div>
-                <div style={{ padding: '8px 12px', borderTop: '1px solid ' + C.border, display: 'flex', gap: 8, flexDirection: 'column', flexShrink: 0 }}>
-                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                    <button onClick={() => setChatAnon(v => !v)} style={{ padding: '4px 10px', borderRadius: 8, border: '1px solid ' + C.border, background: chatAnon ? C.violet + '20' : 'transparent', color: chatAnon ? C.violet : C.textSecondary, fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>🕵️ {chatAnon ? 'Anonyme ✓' : 'Anonyme'}</button>
-                  </div>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <input value={chatInput} onChange={e => setChatInput(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMsg(); } }}
-                      placeholder="Message..."
-                      style={{ flex: 1, padding: '8px 12px', borderRadius: 10, border: '1.5px solid ' + C.border, fontSize: 13, fontFamily: 'Poppins, sans-serif', background: '#FAFAFA', outline: 'none', color: C.textPrimary }} />
-                    <button onClick={sendChatMsg} style={{ padding: '8px 14px', background: C.violet, border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>➤</button>
-                  </div>
+                <div style={{ padding: '6px 10px', borderTop: '1px solid ' + C.border, display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+                  <button onClick={() => setChatAnon(v => !v)} title={chatAnon ? 'Anonyme activé' : 'Envoyer anonymement'}
+                    style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid ' + C.border, background: chatAnon ? C.violet + '20' : 'transparent', color: chatAnon ? C.violet : C.textSecondary, fontSize: 13, cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🕵️</button>
+                  <input value={chatInput} onChange={e => setChatInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMsg(); } }}
+                    placeholder={chatAnon ? 'Message anonyme...' : 'Message...'}
+                    style={{ flex: 1, padding: '7px 10px', borderRadius: 10, border: '1.5px solid ' + C.border, fontSize: 12, fontFamily: 'Poppins, sans-serif', background: '#FAFAFA', outline: 'none', color: C.textPrimary, minWidth: 0 }} />
+                  <button onClick={sendChatMsg} style={{ width: 30, height: 30, background: C.violet, border: 'none', borderRadius: 8, color: 'white', fontWeight: 700, fontSize: 14, cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>➤</button>
                 </div>
               </MeetPanel>
             )}
@@ -2763,15 +2787,13 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
             {/* Q&A */}
             {activePanel === 'qa' && (
               <MeetPanel title="Questions & Réponses" icon="❓" onClose={() => setActivePanel(null)}>
-                <div style={{ padding: '12px 16px', borderBottom: '1px solid '+C.border, flexShrink: 0 }}>
+                <div style={{ padding: '8px 10px', borderBottom: '1px solid '+C.border, flexShrink: 0, display: 'flex', gap: 6, alignItems: 'center' }}>
                   <input value={qaInput} onChange={e => setQaInput(e.target.value)}
                     onKeyDown={e => e.key==='Enter' && submitQuestion(false)}
-                    placeholder="Posez votre question..."
-                    style={{ ...fieldStyle, fontSize: 13, marginBottom: 8 }} />
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button onClick={() => submitQuestion(false)} style={{ flex: 1, padding: '9px', background: C.accentGolden, color: 'white', border: 'none', borderRadius: 10, cursor: 'pointer', fontWeight: 700, fontSize: 13, fontFamily: 'Poppins, sans-serif' }}>✉️ Envoyer</button>
-                    <button onClick={() => submitQuestion(true)} style={{ flex: 1, padding: '9px', background: 'rgba(0,0,0,0.06)', color: C.textSecondary, border: '1px solid '+C.border, borderRadius: 10, cursor: 'pointer', fontWeight: 600, fontSize: 13, fontFamily: 'Poppins, sans-serif' }}>🕵️ Anonyme</button>
-                  </div>
+                    placeholder="Votre question..."
+                    style={{ flex: 1, padding: '7px 10px', borderRadius: 10, border: '1.5px solid '+C.border, fontSize: 12, fontFamily: 'Poppins, sans-serif', background: '#FAFAFA', outline: 'none', color: C.textPrimary, minWidth: 0 }} />
+                  <button onClick={() => submitQuestion(false)} title="Envoyer" style={{ width: 30, height: 30, background: C.accentGolden, color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>➤</button>
+                  <button onClick={() => submitQuestion(true)} title="Anonyme" style={{ width: 30, height: 30, background: 'rgba(0,0,0,0.07)', color: C.textSecondary, border: '1px solid '+C.border, borderRadius: 8, cursor: 'pointer', fontSize: 13, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🕵️</button>
                 </div>
                 <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {qaQuestions.length === 0 ? (
@@ -2810,9 +2832,9 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
             {/* NOTES */}
             {activePanel === 'notes' && (
               <MeetPanel title={T.notes} icon="📝" onClose={() => setActivePanel(null)}>
-                <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Vos notes de réunion..."
-                  style={{ flex: 1, padding: '14px 16px', border: 'none', resize: 'none', fontFamily: 'Poppins, sans-serif', fontSize: 13, color: C.textPrimary, background: 'transparent', outline: 'none', lineHeight: 1.7 }} />
-                <div style={{ padding: '8px 16px', borderTop: '1px solid '+C.border, fontSize: 11, color: C.textTertiary, textAlign: 'center', flexShrink: 0 }}>💾 Sauvegardé automatiquement</div>
+                <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Vos notes..."
+                  style={{ flex: 1, padding: '10px 12px', border: 'none', resize: 'none', fontFamily: 'Poppins, sans-serif', fontSize: 12, color: C.textPrimary, background: 'transparent', outline: 'none', lineHeight: 1.6 }} />
+                <div style={{ padding: '4px 12px 6px', borderTop: '1px solid '+C.border, fontSize: 10, color: C.textTertiary, textAlign: 'center', flexShrink: 0 }}>💾 Sauvegardé</div>
               </MeetPanel>
             )}
 
