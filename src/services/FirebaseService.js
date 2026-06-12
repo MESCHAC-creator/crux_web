@@ -406,6 +406,41 @@ export const MeetingService = {
     async muteAllParticipants(meetingId) {
         await updateDoc(doc(db, 'meetings', meetingId), { muteAll: true, muteAllAt: serverTimestamp() });
     },
+
+    // ── NOTES ─────────────────────────────────────────────────
+    async saveNote(meetingId, userId, content) {
+        await setDoc(doc(db, 'meetings', meetingId, 'notes', userId), {
+            content, updatedAt: serverTimestamp(), userId,
+        });
+    },
+
+    async getNote(meetingId, userId) {
+        const snap = await getDoc(doc(db, 'meetings', meetingId, 'notes', userId));
+        return snap.exists() ? snap.data().content : '';
+    },
+
+    listenNote(meetingId, userId, callback) {
+        return onSnapshot(doc(db, 'meetings', meetingId, 'notes', userId), snap => {
+            callback(snap.exists() ? snap.data().content : '');
+        });
+    },
+
+    async getUserNotes(userId) {
+        // returns array of {meetingId, content, updatedAt}
+        // NOTE: Firestore collectionGroup queries require index; use localStorage fallback
+        return [];
+    },
+
+    // ── ANONYMOUS CHAT ────────────────────────────────────────
+    async sendChatMessage(meetingId, userId, userName, message, anonymous = false) {
+        return addDoc(collection(db, 'meetings', meetingId, 'chat'), {
+            userId,
+            userName: anonymous ? 'Anonyme' : userName,
+            isAnonymous: anonymous,
+            message,
+            timestamp: serverTimestamp(),
+        });
+    },
 };
 
 // ============================================================

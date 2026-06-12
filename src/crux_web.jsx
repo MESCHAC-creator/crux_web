@@ -2380,10 +2380,12 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
   const [qaQuestions, setQaQuestions] = useState([]);
   const [qaInput, setQaInput] = useState('');
   const [notes, setNotes] = useState(() => localStorage.getItem('crux_notes_' + meeting.id) || '');
-  const [captionsOn, setCaptionsOn] = useState(false);
-  const [captionText, setCaptionText] = useState('');
   const [showReactions, setShowReactions] = useState(false);
   const [floatingReactions, setFloatingReactions] = useState([]);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatAnon, setChatAnon] = useState(false);
+  const chatBottomRef = useRef(null);
   const [callFrozen, setCallFrozen] = useState(false);
   const [netQuality, setNetQuality] = useState('good'); // good | fair | poor
   const [isSharingScreen, setIsSharingScreen] = useState(false);
@@ -2411,7 +2413,22 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
   }, []);
 
   // Notes auto-save
-  useEffect(() => { localStorage.setItem('crux_notes_' + meeting.id, notes); }, [notes, meeting.id]);
+  useEffect(() => {
+    localStorage.setItem('crux_notes_' + meeting.id, notes);
+    const t = setTimeout(() => {
+        FirebaseMeetingService.saveNote(meeting.id, user.uid, notes).catch(() => {});
+    }, 1000);
+    return () => clearTimeout(t);
+  }, [notes, meeting.id, user.uid]);
+
+  // Load notes from Firestore on mount
+  useEffect(() => {
+    FirebaseMeetingService.getNote(meeting.id, user.uid).then(content => {
+        if (content && !localStorage.getItem('crux_notes_' + meeting.id)) {
+            setNotes(content);
+        }
+    }).catch(() => {});
+  }, [meeting.id, user.uid]);
 
   // Pro paywall — freeze call after 30 minutes for free users
   useEffect(() => {
@@ -2493,7 +2510,22 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
   const sendReaction = async (emoji) => {
     setShowReactions(false);
     await FirebaseMeetingService.sendReaction(meeting.id, user.uid, user.name || user.email, emoji);
-    GamificationService.logReaction(user.uid);
+    GamService.addReaction(user.uid);
+  };
+
+  // Chat messages listener
+  useEffect(() => {
+    return FirebaseMeetingService.listenChatMessages(meeting.id, msgs => {
+        setChatMessages(msgs);
+        setTimeout(() => chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+    });
+  }, [meeting.id]);
+
+  const sendChatMsg = async () => {
+    if (!chatInput.trim()) return;
+    const msg = chatInput.trim();
+    setChatInput('');
+    await FirebaseMeetingService.sendChatMessage(meeting.id, user.uid, user.name || user.email, msg, chatAnon);
   };
 
   const startScreenShare = async () => {
@@ -2524,28 +2556,6 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
     }
   };
 
-  // Web Speech captions
-  useEffect(() => {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) return;
-    if (captionsOn) {
-      const sr = new SR();
-      sr.continuous = true; sr.interimResults = true; sr.lang = prefs.language || 'fr';
-      sr.onresult = e => {
-        let txt = '';
-        for (let i = e.resultIndex; i < e.results.length; i++) txt += e.results[i][0].transcript;
-        setCaptionText(txt);
-      };
-      sr.onend = () => { if (captionsOn) sr.start(); };
-      sr.start();
-      speechRef.current = sr;
-    } else {
-      speechRef.current?.stop();
-      speechRef.current = null;
-      setCaptionText('');
-    }
-    return () => { speechRef.current?.stop(); };
-  }, [captionsOn, prefs.language]);
 
   // ZegoCloud video — initialise once on mount
   useEffect(() => {
@@ -2633,13 +2643,6 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
           <span style={{ color: 'white', fontSize: 10, fontWeight: 600, marginLeft: 4 }}>{netQuality==='good'?'HD':netQuality==='fair'?'SD':'Faible'}</span>
         </div>
 
-        {/* Live captions */}
-        {captionsOn && captionText && (
-          <div style={{ position: 'absolute', bottom: 90, left: '50%', transform: 'translateX(-50%)', maxWidth: '65%', textAlign: 'center', background: 'rgba(0,0,0,0.82)', color: 'white', fontSize: 16, fontWeight: 600, padding: '10px 20px', borderRadius: 12 }}>
-            {captionText}
-          </div>
-        )}
-
         {/* Floating emoji reactions */}
         {floatingReactions.map(r => (
           <div key={r.id} style={{ position: 'absolute', bottom: 140, left: `${r.x}%`, fontSize: 40, userSelect: 'none', pointerEvents: 'none', animation: 'floatUp 3s ease-out forwards', zIndex: 1 }}>{r.emoji}</div>
@@ -2661,17 +2664,49 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
         {/* Bottom toolbar */}
         <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '10px 16px 14px', background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(12px)', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, pointerEvents: 'all', zIndex: 2 }}>
           <SideBtn icon="😀" label="Réactions" onClick={() => { setShowReactions(v=>!v); setActivePanel(null); }} active={showReactions} color={C.accentOrange} />
+          <SideBtn icon="💬" label="Chat" onClick={() => togglePanel('chat')} active={activePanel==='chat'} badge={chatMessages.length > 0 ? chatMessages.length : 0} color={C.iceBlue} />
           <SideBtn icon="📊" label={T.polls} onClick={() => togglePanel('poll')} active={activePanel==='poll'} badge={activePoll?1:0} color={C.violet} />
           <SideBtn icon="❓" label="Q&A" onClick={() => togglePanel('qa')} active={activePanel==='qa'} color={C.accentGolden} />
           <SideBtn icon="📝" label={T.notes} onClick={() => togglePanel('notes')} active={activePanel==='notes'} color={C.iceBlue} />
           <SideBtn icon="🎨" label="Tableau" onClick={() => togglePanel('whiteboard')} active={activePanel==='whiteboard'} color={C.accentOrange} />
           <SideBtn icon="🖥️" label="Partager" onClick={() => startScreenShare()} active={isSharingScreen} color={C.success} />
-          <SideBtn icon="🎤" label="Sous-titres" onClick={() => setCaptionsOn(v=>!v)} active={captionsOn} color={C.info} />
         </div>
 
         {/* Panel — slides from right, above bottom bar */}
         {activePanel && (
           <div style={{ position: 'absolute', right: 0, top: 0, bottom: 80, width: Math.min(window.innerWidth, 340), pointerEvents: 'all', zIndex: 3 }}>
+
+            {/* CHAT */}
+            {activePanel === 'chat' && (
+              <MeetPanel title="Messages" icon="💬" onClose={() => setActivePanel(null)}>
+                <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {chatMessages.length === 0 ? (
+                    <div style={{ textAlign: 'center', paddingTop: 40, color: C.textTertiary }}>
+                      <div style={{ fontSize: 36 }}>💬</div>
+                      <p style={{ fontSize: 13 }}>Aucun message</p>
+                    </div>
+                  ) : chatMessages.map(m => (
+                    <div key={m.id} style={{ display: 'flex', flexDirection: 'column', alignSelf: m.userId === user.uid ? 'flex-end' : 'flex-start', maxWidth: '80%' }}>
+                      <span style={{ fontSize: 10, color: C.textTertiary, marginBottom: 2, fontStyle: m.isAnonymous ? 'italic' : 'normal' }}>{m.isAnonymous ? '🕵️ Anonyme' : (m.userId === user.uid ? 'Vous' : m.userName)}</span>
+                      <div style={{ background: m.userId === user.uid ? C.violet : C.lightBg, color: m.userId === user.uid ? 'white' : C.textPrimary, padding: '8px 12px', borderRadius: m.userId === user.uid ? '14px 14px 2px 14px' : '14px 14px 14px 2px', fontSize: 13, lineHeight: 1.5 }}>{m.message}</div>
+                    </div>
+                  ))}
+                  <div ref={chatBottomRef} />
+                </div>
+                <div style={{ padding: '8px 12px', borderTop: '1px solid ' + C.border, display: 'flex', gap: 8, flexDirection: 'column', flexShrink: 0 }}>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <button onClick={() => setChatAnon(v => !v)} style={{ padding: '4px 10px', borderRadius: 8, border: '1px solid ' + C.border, background: chatAnon ? C.violet + '20' : 'transparent', color: chatAnon ? C.violet : C.textSecondary, fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>🕵️ {chatAnon ? 'Anonyme ✓' : 'Anonyme'}</button>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <input value={chatInput} onChange={e => setChatInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMsg(); } }}
+                      placeholder="Message..."
+                      style={{ flex: 1, padding: '8px 12px', borderRadius: 10, border: '1.5px solid ' + C.border, fontSize: 13, fontFamily: 'Poppins, sans-serif', background: '#FAFAFA', outline: 'none', color: C.textPrimary }} />
+                    <button onClick={sendChatMsg} style={{ padding: '8px 14px', background: C.violet, border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>➤</button>
+                  </div>
+                </div>
+              </MeetPanel>
+            )}
 
             {/* POLLS */}
             {activePanel === 'poll' && (
@@ -2933,7 +2968,34 @@ function ProfilePage({ user, T, dark, onBack, onUserUpdated }) {
   const [loading, setLoading] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState(() => localStorage.getItem(`crux_avatar_${user.uid}`) || '');
-  const stats = GamificationService.getStats(user.uid);
+  const stats = GamService.getStats(user.uid);
+
+  const [showMeetings, setShowMeetings] = React.useState(false);
+  const [meetings, setMeetings] = React.useState([]);
+  const [meetingsLoading, setMeetingsLoading] = React.useState(false);
+  const [showNotes, setShowNotes] = React.useState(false);
+  const [expandedNote, setExpandedNote] = React.useState(null);
+  const [savedNotes] = React.useState(() => {
+    const items = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('crux_notes_')) {
+        const meetingId = key.replace('crux_notes_', '');
+        const content = localStorage.getItem(key) || '';
+        if (content.trim()) items.push({ meetingId, content });
+      }
+    }
+    return items;
+  });
+
+  React.useEffect(() => {
+    if (!showMeetings || meetings.length > 0) return;
+    setMeetingsLoading(true);
+    MeetingService.getUserMeetings(user.uid)
+      .then(m => setMeetings(m))
+      .catch(() => {})
+      .finally(() => setMeetingsLoading(false));
+  }, [showMeetings]);
 
   const bg = dark ? '#0D0020' : '#F5F3FF';
   const cardBg = dark ? '#1A0A2E' : 'white';
