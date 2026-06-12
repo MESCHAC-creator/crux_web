@@ -1,11 +1,11 @@
 {
   "files": {
     "main.css": "/crux_web/static/css/main.e2987113.css",
-    "main.js": "/crux_web/static/js/main.4b0d88b8.js",
+    "main.js": "/crux_web/static/js/main.e5c90f50.js",
     "index.html": "/crux_web/index.html"
   },
   "entrypoints": [
     "static/css/main.e2987113.css",
-    "static/js/main.4b0d88b8.js"
+    "static/js/main.e5c90f50.js"
   ]
 }
