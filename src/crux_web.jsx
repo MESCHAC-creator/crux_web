@@ -1280,14 +1280,9 @@ function AuthPage({ T, onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showForgot, setShowForgot] = useState(false);
-  const [angle, setAngle] = useState(0);
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
-    setTimeout(() => setMounted(true), 80);
-    const t = setInterval(() => setAngle(a => (a + 0.4) % 360), 40);
-    return () => clearInterval(t);
-  }, []);
+  useEffect(() => { setTimeout(() => setMounted(true), 60); }, []);
 
   const submit = async (e) => {
     e.preventDefault(); setError('');
@@ -1310,123 +1305,87 @@ function AuthPage({ T, onSuccess }) {
   };
 
   const switchMode = (m) => { setMode(m); setError(''); setName(''); setPass(''); setConfirmPass(''); };
-
-  const bgGrad = `linear-gradient(${angle}deg, #1A0030, #6B003B, #CC0033, #3D0070)`;
   const isLogin = mode === 'signIn';
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', fontFamily: 'Poppins, sans-serif', background: bgGrad, position: 'relative', overflow: 'hidden' }}>
-      {/* Floating circles — Flutter _FloatingCircle */}
-      <FloatingAuthCircle size={300} top="-80px" left="-80px" color="#FF4081" dur="8s" />
-      <FloatingAuthCircle size={250} bottom="-60px" right="-60px" color="#AA00FF" dur="11s" delay="2s" />
-      <FloatingAuthCircle size={180} top="40%" right="5%" color="#E74C3C" dur="14s" delay="4s" />
-      <FloatingAuthCircle size={140} bottom="25%" left="5%" color="#BB8FCE" dur="9s" delay="1s" />
-      <FloatingAuthCircle size={90} top="20%" left="48%" color="#FF4081" dur="16s" delay="5s" />
-
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F8F9FA', fontFamily: 'Poppins, sans-serif', padding: '24px 16px' }}>
       {showForgot && <ForgotPasswordModal T={T} onClose={() => setShowForgot(false)} />}
 
       <div style={{
-        width: '100%', maxWidth: 480, margin: '0 auto',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: '24px 20px', position: 'relative', zIndex: 1,
-        minHeight: '100vh',
+        background: 'white', borderRadius: 12, padding: '40px 36px',
+        width: '100%', maxWidth: 400,
+        boxShadow: '0 2px 16px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.04)',
+        transform: mounted ? 'translateY(0)' : 'translateY(16px)',
+        opacity: mounted ? 1 : 0, transition: 'all 0.4s ease',
       }}>
-        <div style={{
-          background: 'rgba(255,255,255,0.10)', backdropFilter: 'blur(20px)',
-          border: '1px solid rgba(255,255,255,0.25)', borderRadius: 28, padding: '36px 28px',
-          width: '100%', boxShadow: '0 30px 80px rgba(0,0,0,0.3)',
-          transform: mounted ? 'scale(1) translateY(0)' : 'scale(0.92) translateY(20px)',
-          opacity: mounted ? 1 : 0, transition: 'all 0.5s cubic-bezier(0.34,1.56,0.64,1)',
-        }}>
-          {/* Header */}
-          <div style={{ textAlign: 'center', marginBottom: 28 }}>
-            <div style={{
-              width: 80, height: 80, borderRadius: 22, margin: '0 auto 16px',
-              background: 'linear-gradient(135deg,#FF4081,#AA00FF)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 8px 30px rgba(255,64,129,0.5), 0 0 0 4px rgba(255,64,129,0.15)',
-              animation: 'pulse 2s ease-in-out infinite',
-            }}>
-              {isLogin
-                ? <svg width="40" height="40" viewBox="0 0 100 100"><rect x="10" y="28" width="55" height="44" rx="10" fill="white"/><circle cx="37" cy="50" r="14" fill="url(#ag)"/><circle cx="37" cy="50" r="7" fill="white"/><polygon points="65,34 90,22 90,78 65,66" fill="white"/><defs><linearGradient id="ag" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#FF4081"/><stop offset="100%" stopColor="#AA00FF"/></linearGradient></defs></svg>
-                : <span style={{ fontSize: 40 }}>🪪</span>
-              }
-            </div>
-            <h1 style={{ fontSize: 28, fontWeight: 800, margin: '0 0 4px', color: 'white', letterSpacing: 0.5 }}>
-              {isLogin ? 'Connexion' : 'Créer un compte'}
-            </h1>
-            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', margin: 0 }}>
-              {isLogin ? 'Bienvenue sur CRUX' : 'Rejoignez CRUX dès maintenant'}
-            </p>
+        {/* Logo */}
+        <div style={{ textAlign: 'center', marginBottom: 28 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 10 }}>
+            <CruxLogo size={44} />
+            <span style={{ fontSize: 26, fontWeight: 900, background: C.pinkPurple, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>CRUX</span>
           </div>
+          <h1 style={{ fontSize: 22, fontWeight: 700, margin: '0 0 4px', color: '#202124' }}>
+            {isLogin ? 'Se connecter' : 'Créer un compte'}
+          </h1>
+          <p style={{ fontSize: 13, color: '#5F6368', margin: 0 }}>
+            {isLogin ? 'Bienvenue sur CRUX' : 'Rejoignez CRUX dès maintenant'}
+          </p>
+        </div>
 
-          {/* Form */}
-          <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {!isLogin && (
-              <div style={{ opacity: mounted ? 1 : 0, transform: mounted ? 'translateX(0)' : 'translateX(-30px)', transition: 'all 0.5s 0.1s' }}>
-                <GlassTextField icon="👤" placeholder="Nom complet" label={T.fullName} value={name} onChange={setName} />
-              </div>
-            )}
-            <div style={{ opacity: mounted ? 1 : 0, transform: mounted ? 'translateX(0)' : `translateX(${isLogin ? '-' : ''}30px)`, transition: 'all 0.5s 0.15s' }}>
-              <GlassTextField icon="✉️" type="email" placeholder="email@exemple.com" label={T.email} value={email} onChange={setEmail} />
-            </div>
-            <div style={{ opacity: mounted ? 1 : 0, transform: mounted ? 'translateX(0)' : 'translateX(-30px)', transition: 'all 0.5s 0.2s' }}>
-              <GlassTextField icon="🔒" type={showPass ? 'text' : 'password'} placeholder="••••••••" label={T.password} value={pass} onChange={setPass}
-                suffix={<button type="button" onClick={() => setShowPass(v => !v)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', fontSize: 18, cursor: 'pointer', lineHeight: 1 }}>{showPass ? '🙈' : '👁'}</button>}
-              />
-            </div>
-            {!isLogin && (
-              <div style={{ opacity: mounted ? 1 : 0, transform: mounted ? 'translateX(0)' : 'translateX(30px)', transition: 'all 0.5s 0.25s' }}>
-                <GlassTextField icon="🔒" type={showConfirmPass ? 'text' : 'password'} placeholder="••••••••" label={T.confirmPassword} value={confirmPass} onChange={setConfirmPass}
-                  suffix={<button type="button" onClick={() => setShowConfirmPass(v => !v)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', fontSize: 18, cursor: 'pointer', lineHeight: 1 }}>{showConfirmPass ? '🙈' : '👁'}</button>}
-                />
-              </div>
-            )}
-            {isLogin && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: 'rgba(255,255,255,0.7)' }}>
-                  <input type="checkbox" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)} style={{ accentColor: '#FF4081' }} />
-                  {T.rememberMe}
-                </label>
-                <button type="button" onClick={() => setShowForgot(true)} style={{ background: 'none', border: 'none', color: '#FF4081', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'Poppins, sans-serif', textDecoration: 'underline' }}>
-                  {T.forgotPassword}
-                </button>
-              </div>
-            )}
-            {error && (
-              <div style={{ background: 'rgba(231,76,60,0.15)', border: '1px solid rgba(231,76,60,0.4)', color: '#FF8A80', borderRadius: 10, padding: '10px 14px', fontSize: 13 }}>⚠️ {error}</div>
-            )}
-            {/* Main button */}
-            <div style={{ opacity: mounted ? 1 : 0, transform: mounted ? 'translateY(0)' : 'translateY(20px)', transition: 'all 0.5s 0.3s' }}>
-              <button type="submit" disabled={loading} style={{
-                width: '100%', height: 56, border: 'none', borderRadius: 16,
-                background: loading ? 'rgba(255,255,255,0.1)' : 'linear-gradient(135deg,#FF4081,#AA00FF)',
-                color: 'white', fontSize: 17, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer',
-                fontFamily: 'Poppins, sans-serif', letterSpacing: 0.5,
-                boxShadow: loading ? 'none' : '0 8px 28px rgba(255,64,129,0.5)',
-                transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-              }}>
-                {loading
-                  ? <div style={{ width: 24, height: 24, borderRadius: '50%', border: '2.5px solid rgba(255,255,255,0.3)', borderTopColor: 'white', animation: 'spin 0.9s linear infinite' }} />
-                  : (isLogin ? T.signIn : T.signUp)
-                }
+        {/* Form */}
+        <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {!isLogin && (
+            <GlassTextField icon="👤" placeholder="Nom complet" label={T.fullName} value={name} onChange={setName} />
+          )}
+          <GlassTextField icon="✉️" type="email" placeholder="email@exemple.com" label={T.email} value={email} onChange={setEmail} />
+          <GlassTextField icon="🔒" type={showPass ? 'text' : 'password'} placeholder="••••••••" label={T.password} value={pass} onChange={setPass}
+            suffix={<button type="button" onClick={() => setShowPass(v => !v)} style={{ background: 'none', border: 'none', color: '#5F6368', fontSize: 16, cursor: 'pointer', lineHeight: 1 }}>{showPass ? '🙈' : '👁'}</button>}
+          />
+          {!isLogin && (
+            <GlassTextField icon="🔒" type={showConfirmPass ? 'text' : 'password'} placeholder="••••••••" label={T.confirmPassword} value={confirmPass} onChange={setConfirmPass}
+              suffix={<button type="button" onClick={() => setShowConfirmPass(v => !v)} style={{ background: 'none', border: 'none', color: '#5F6368', fontSize: 16, cursor: 'pointer', lineHeight: 1 }}>{showConfirmPass ? '🙈' : '👁'}</button>}
+            />
+          )}
+          {isLogin && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: '#5F6368' }}>
+                <input type="checkbox" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)} style={{ accentColor: '#1A73E8' }} />
+                {T.rememberMe}
+              </label>
+              <button type="button" onClick={() => setShowForgot(true)} style={{ background: 'none', border: 'none', color: '#1A73E8', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>
+                {T.forgotPassword}
               </button>
             </div>
-          </form>
+          )}
+          {error && (
+            <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#DC2626', borderRadius: 8, padding: '10px 14px', fontSize: 13 }}>⚠️ {error}</div>
+          )}
+          <button type="submit" disabled={loading} style={{
+            width: '100%', height: 50, border: 'none', borderRadius: 8, marginTop: 4,
+            background: loading ? '#DADCE0' : 'linear-gradient(135deg,#FF4081,#AA00FF)',
+            color: 'white', fontSize: 15, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer',
+            fontFamily: 'Poppins, sans-serif',
+            boxShadow: loading ? 'none' : '0 4px 16px rgba(255,64,129,0.35)',
+            transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          }}>
+            {loading
+              ? <div style={{ width: 22, height: 22, borderRadius: '50%', border: '2.5px solid rgba(255,255,255,0.3)', borderTopColor: 'white', animation: 'spin 0.9s linear infinite' }} />
+              : (isLogin ? T.signIn : T.signUp)
+            }
+          </button>
+        </form>
 
-          {/* Footer link */}
-          <div style={{ textAlign: 'center', marginTop: 20, opacity: mounted ? 1 : 0, transition: 'opacity 0.5s 0.4s' }}>
-            <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)' }}>
-              {isLogin ? "Pas encore de compte ? " : "Déjà un compte ? "}
-            </span>
-            <button onClick={() => switchMode(isLogin ? 'signUp' : 'signIn')} style={{
-              background: 'none', border: 'none', color: '#FF4081', fontWeight: 700,
-              fontSize: 14, cursor: 'pointer', fontFamily: 'Poppins, sans-serif',
-              textDecoration: 'underline', textDecorationColor: '#FF4081',
-            }}>
-              {isLogin ? T.signUp : T.signIn}
-            </button>
-          </div>
+        {/* Footer */}
+        <div style={{ textAlign: 'center', marginTop: 20 }}>
+          <span style={{ fontSize: 14, color: '#5F6368' }}>
+            {isLogin ? "Pas encore de compte ? " : "Déjà un compte ? "}
+          </span>
+          <button onClick={() => switchMode(isLogin ? 'signUp' : 'signIn')} style={{
+            background: 'none', border: 'none', color: '#1A73E8', fontWeight: 700,
+            fontSize: 14, cursor: 'pointer', fontFamily: 'Poppins, sans-serif',
+          }}>
+            {isLogin ? T.signUp : T.signIn}
+          </button>
         </div>
       </div>
     </div>
