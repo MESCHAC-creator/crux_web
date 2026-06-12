@@ -275,6 +275,20 @@ const T_MAP = {
     joinViaCode: 'Rejoindre via un code',
     noRecentMeetings: 'Aucune réunion récente',
     message: 'Message',
+    appearance: 'Apparence',
+    chooseLang: 'Choisir la langue',
+    whiteboard: 'Tableau',
+    miniScreen: 'Mini-écran',
+    stopSharing: 'Arrêter',
+    kickUser: 'Exclure',
+    muteUser: 'Micro off',
+    makeCoHost: 'Co-hôte',
+    coHost: 'Co-hôte',
+    kicked: 'Vous avez été exclu',
+    kickedMsg: "L'hôte vous a retiré de cette réunion.",
+    noParticipants: 'Aucun participant',
+    muted: 'L\'hôte a coupé votre micro',
+    mutedAll: 'L\'hôte a coupé tous les micros',
   },
   en: {
     appTagline: 'Premium Video Conferencing',
@@ -363,6 +377,20 @@ const T_MAP = {
     joinViaCode: 'Join via Code',
     noRecentMeetings: 'No recent meetings',
     message: 'Message',
+    appearance: 'Appearance',
+    chooseLang: 'Choose Language',
+    whiteboard: 'Board',
+    miniScreen: 'Mini Screen',
+    stopSharing: 'Stop',
+    kickUser: 'Kick',
+    muteUser: 'Mute',
+    makeCoHost: 'Co-Host',
+    coHost: 'Co-Host',
+    kicked: 'You were removed',
+    kickedMsg: 'The host removed you from this meeting.',
+    noParticipants: 'No participants',
+    muted: 'Host muted your microphone',
+    mutedAll: 'Host muted all microphones',
   },
   es: {
     appTagline: 'Videoconferencia Premium',
@@ -2393,8 +2421,13 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
   const screenStreamRef = useRef(null);
   const handsSeenRef = useRef(new Set());
   const pollsSeenRef = useRef(new Set());
+  const [participants, setParticipants] = useState([]);
+  const [coHosts, setCoHosts] = useState(meeting.coHosts || []);
+  const [kicked, setKicked] = useState(false);
+  const muteAllSeenRef = useRef(null);
 
   const isHost = meeting.creatorId === user.uid || meeting.organizerId === user.uid;
+  const isCoHost = coHosts.includes(user.uid);
 
   const sendNotif = (title, body, icon = '📹') => {
     if (!prefs.notifications) return;
@@ -2453,11 +2486,35 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
     }
   }, [prefs.notifications]);
 
-  // Firestore presence
+  // Firestore presence + participant list
   useEffect(() => {
     FirebaseMeetingService.joinPresence(meeting.id, user.uid, user.name || user.email);
-    return () => { FirebaseMeetingService.leavePresence(meeting.id, user.uid); };
+    const unsub = FirebaseMeetingService.listenPresence(meeting.id, setParticipants);
+    return () => { FirebaseMeetingService.leavePresence(meeting.id, user.uid); unsub(); };
   }, [meeting.id, user.uid, user.name, user.email]);
+
+  // Listen for host commands targeting me
+  useEffect(() => {
+    const unsub = FirebaseMeetingService.listenHostCommands(meeting.id, user.uid, (cmd) => {
+      if (cmd.type === 'kick') { setKicked(true); }
+      else if (cmd.type === 'mute') { showToast('🔇 ' + (T.muted || "L'hôte a coupé votre micro"), 'info'); }
+      else if (cmd.type === 'makeCoHost') { setCoHosts(prev => [...new Set([...prev, user.uid])]); showToast('⭐ ' + (T.coHost || 'Co-hôte'), 'success'); }
+    });
+    return unsub;
+  }, [meeting.id, user.uid]);
+
+  // Listen for mute-all commands
+  useEffect(() => {
+    const unsub = FirebaseMeetingService.listenMuteAll(meeting.id, (cmd) => {
+      if (!cmd?.timestamp) return;
+      const ts = cmd.timestamp?.seconds || 0;
+      if (muteAllSeenRef.current !== ts) {
+        muteAllSeenRef.current = ts;
+        if (cmd.fromId !== user.uid) showToast('🔇 ' + (T.mutedAll || "L'hôte a coupé tous les micros"), 'info');
+      }
+    });
+    return unsub;
+  }, [meeting.id, user.uid]);
 
   // Notification : main levée (hôte uniquement)
   useEffect(() => {
@@ -2721,19 +2778,20 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
             </div>
             {/* Center: tool buttons — scrollable on mobile, no wrap */}
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 4, overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none', justifyContent: 'center', padding: '0 4px' }}>
-              <SideBtn icon="😀" label="Réactions" onClick={() => { setShowReactions(v=>!v); setActivePanel(null); }} active={showReactions} color={C.accentOrange} />
+              <SideBtn icon="😀" label={T.reactions} onClick={() => { setShowReactions(v=>!v); setActivePanel(null); }} active={showReactions} color={C.accentOrange} />
               <SideBtn icon="📊" label={T.polls} onClick={() => togglePanel('poll')} active={activePanel==='poll'} badge={activePoll?1:0} color={C.violet} />
               <SideBtn icon="📝" label={T.notes} onClick={() => togglePanel('notes')} active={activePanel==='notes'} color={C.iceBlue} />
-              <SideBtn icon="🎨" label="Tableau" onClick={() => togglePanel('whiteboard')} active={activePanel==='whiteboard'} color={C.accentOrange} />
-              <SideBtn icon="🖥️" label={isSharingScreen ? 'Arrêter' : 'Partager'} onClick={startScreenShare} active={isSharingScreen} color={C.success} />
-              <SideBtn icon="⊡" label="Mini-écran" onClick={requestPiP} color={C.iceBlue} />
+              <SideBtn icon="🎨" label={T.whiteboard || 'Tableau'} onClick={() => togglePanel('whiteboard')} active={activePanel==='whiteboard'} color={C.accentOrange} />
+              <SideBtn icon="🖥️" label={isSharingScreen ? (T.stopSharing||'Arrêter') : (T.screenShare||'Partager')} onClick={startScreenShare} active={isSharingScreen} color={C.success} />
+              <SideBtn icon="⊡" label={T.miniScreen || 'Mini-écran'} onClick={requestPiP} color={C.iceBlue} />
+              <SideBtn icon="👥" label={T.participants} onClick={() => togglePanel('participants')} active={activePanel==='participants'} badge={participants.length} color={C.violet} />
             </div>
           </div>
         </div>
 
         {/* Panel — slides from right, below top toolbar, keyboard-aware via env() */}
         {activePanel && (
-          <div style={{ position: 'absolute', right: 0, top: 96, bottom: 'env(keyboard-inset-height, 0px)', width: Math.min(window.innerWidth, 320), pointerEvents: 'all', zIndex: 3 }}>
+          <div style={{ position: 'absolute', right: 0, top: 52, bottom: 0, width: 'min(100vw, 320px)', pointerEvents: 'all', zIndex: 3 }}>
 
             {/* CHAT */}
             {activePanel === 'chat' && (
@@ -2872,10 +2930,97 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
 
             {/* WHITEBOARD */}
             {activePanel === 'whiteboard' && (
-              <MeetPanel title="Tableau blanc" icon="🎨" onClose={() => setActivePanel(null)}>
+              <MeetPanel title={T.whiteboard || 'Tableau'} icon="🎨" onClose={() => setActivePanel(null)}>
                 <CruxWhiteboard meetingId={meeting.id} userId={user.uid} />
               </MeetPanel>
             )}
+
+            {/* PARTICIPANTS + HOST CONTROLS */}
+            {activePanel === 'participants' && (
+              <MeetPanel title={T.participants} icon="👥" onClose={() => setActivePanel(null)}>
+                <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+                  {/* Mute All — hosts & co-hosts only */}
+                  {(isHost || isCoHost) && (
+                    <div style={{ padding: '10px 14px', borderBottom: '1px solid ' + C.border, flexShrink: 0 }}>
+                      <button onClick={async () => {
+                        await FirebaseMeetingService.sendMuteAll(meeting.id, user.uid);
+                        showToast('🔇 ' + (T.muteAllDone || 'Signal envoyé'), 'success');
+                      }} style={{ width: '100%', padding: '9px', background: 'linear-gradient(135deg,#E74C3C,#8E44AD)', border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>
+                        🔇 {T.muteAll}
+                      </button>
+                    </div>
+                  )}
+
+                  {participants.length === 0 ? (
+                    <div style={{ textAlign: 'center', paddingTop: 40, color: C.textTertiary }}>
+                      <div style={{ fontSize: 36 }}>👥</div>
+                      <p style={{ fontSize: 13 }}>{T.noParticipants || 'Aucun participant'}</p>
+                    </div>
+                  ) : participants.map(p => {
+                    const isMe = p.uid === user.uid;
+                    const isParticipantHost = p.uid === meeting.creatorId || p.uid === meeting.organizerId;
+                    const isParticipantCoHost = coHosts.includes(p.uid);
+                    const initials = (p.userName || 'U').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+                    const avatarDataUrl = localStorage.getItem(`crux_avatar_${p.uid}`);
+                    return (
+                      <div key={p.uid} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: '1px solid ' + C.border }}>
+                        {/* Avatar */}
+                        {avatarDataUrl ? (
+                          <img src={avatarDataUrl} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                        ) : (
+                          <div style={{ width: 36, height: 36, borderRadius: '50%', background: isParticipantHost ? 'linear-gradient(135deg,#E74C3C,#8E44AD)' : isParticipantCoHost ? 'linear-gradient(135deg,#3498DB,#8E44AD)' : 'linear-gradient(135deg,#8E44AD,#3498DB)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: 'white', flexShrink: 0 }}>{initials}</div>
+                        )}
+                        {/* Name + role */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: C.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {p.userName}{isMe ? ' (vous)' : ''}
+                          </p>
+                          {(isParticipantHost || isParticipantCoHost) && (
+                            <p style={{ margin: 0, fontSize: 10, color: isParticipantHost ? '#E74C3C' : '#3498DB', fontWeight: 600 }}>
+                              {isParticipantHost ? (T.hostBadge || 'Hôte') : (T.coHost || 'Co-hôte')}
+                            </p>
+                          )}
+                        </div>
+                        {/* Host action buttons */}
+                        {(isHost || isCoHost) && !isMe && !isParticipantHost && (
+                          <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                            <button onClick={async () => {
+                              await FirebaseMeetingService.sendHostCommand(meeting.id, user.uid, p.uid, 'mute');
+                              showToast('🔇 Signal envoyé', 'success');
+                            }} title={T.muteUser || 'Couper micro'} style={{ padding: '5px 7px', fontSize: 11, background: 'rgba(231,76,60,0.12)', border: '1px solid rgba(231,76,60,0.3)', borderRadius: 7, color: '#E74C3C', cursor: 'pointer', fontFamily: 'Poppins, sans-serif', fontWeight: 600 }}>🔇</button>
+                            {isHost && !isParticipantCoHost && (
+                              <button onClick={async () => {
+                                const newCoHosts = [...new Set([...coHosts, p.uid])];
+                                setCoHosts(newCoHosts);
+                                await FirebaseMeetingService.sendHostCommand(meeting.id, user.uid, p.uid, 'makeCoHost');
+                                showToast('⭐ Co-hôte nommé', 'success');
+                              }} title={T.makeCoHost || 'Co-hôte'} style={{ padding: '5px 7px', fontSize: 11, background: 'rgba(52,152,219,0.12)', border: '1px solid rgba(52,152,219,0.3)', borderRadius: 7, color: '#3498DB', cursor: 'pointer', fontFamily: 'Poppins, sans-serif', fontWeight: 600 }}>⭐</button>
+                            )}
+                            <button onClick={async () => {
+                              if (!window.confirm(`Exclure ${p.userName} ?`)) return;
+                              await FirebaseMeetingService.sendHostCommand(meeting.id, user.uid, p.uid, 'kick');
+                              showToast('🚪 ' + p.userName + ' exclu', 'success');
+                            }} title={T.kickUser || 'Exclure'} style={{ padding: '5px 7px', fontSize: 11, background: 'rgba(231,76,60,0.12)', border: '1px solid rgba(231,76,60,0.3)', borderRadius: 7, color: '#E74C3C', cursor: 'pointer', fontFamily: 'Poppins, sans-serif', fontWeight: 600 }}>🚪</button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </MeetPanel>
+            )}
+          </div>
+        )}
+
+        {/* Kicked overlay */}
+        {kicked && (
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(12px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'all', zIndex: 99 }}>
+            <div style={{ fontSize: 56, marginBottom: 16 }}>🚪</div>
+            <h2 style={{ color: 'white', fontSize: 22, fontWeight: 800, margin: '0 0 8px', textAlign: 'center' }}>{T.kicked || 'Vous avez été exclu'}</h2>
+            <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, textAlign: 'center', maxWidth: 280, margin: '0 0 24px' }}>{T.kickedMsg || "L'hôte vous a retiré de cette réunion."}</p>
+            <button onClick={onExit} style={{ padding: '14px 32px', background: 'linear-gradient(135deg,#E74C3C,#8E44AD)', border: 'none', borderRadius: 16, color: 'white', fontWeight: 800, fontSize: 15, cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>
+              ← {T.back || 'Retour'}
+            </button>
           </div>
         )}
 
@@ -3472,19 +3617,19 @@ function SettingsPage({ T, prefs, dark, onUpdatePref, onBack, onPrivacy, onTerms
           borderRadius: 12, padding: '8px 14px', color: 'white', fontWeight: 700, fontSize: 13,
           cursor: 'pointer', fontFamily: 'Poppins, sans-serif',
         }}>←</button>
-        <h2 style={{ fontSize: 20, fontWeight: 700, color: 'white', margin: 0 }}>Paramètres</h2>
+        <h2 style={{ fontSize: 20, fontWeight: 700, color: 'white', margin: 0 }}>{T.settings}</h2>
       </div>
 
       <div style={{ padding: '20px 16px', maxWidth: 600, margin: '0 auto' }}>
 
         {/* RÉUNION */}
         <div style={{ marginBottom: 20 }}>
-          {sectionTitle('Réunion')}
+          {sectionTitle(T.meetingSettings)}
           <div style={settCard}>
-            {tileRow('📹', 'Caméra par défaut',
+            {tileRow('📹', T.defaultCam,
               <ToggleSwitch on={prefs.defaultCam} onChange={v => { onUpdatePref('defaultCam', v); showToast?.(v ? '📹 Caméra activée' : '📹 Caméra désactivée', 'success'); }} colorOn="#8E44AD" />,
               null, false)}
-            {tileRow('🎤', 'Micro par défaut',
+            {tileRow('🎤', T.defaultMic,
               <ToggleSwitch on={prefs.defaultMic} onChange={v => { onUpdatePref('defaultMic', v); showToast?.(v ? '🎤 Micro activé' : '🎤 Micro désactivé', 'success'); }} colorOn="#8E44AD" />)}
             {tileRow('🎬', 'Qualité vidéo',
               <button onClick={() => setShowQuality(true)} style={{
@@ -3498,7 +3643,7 @@ function SettingsPage({ T, prefs, dark, onUpdatePref, onBack, onPrivacy, onTerms
 
         {/* APPARENCE */}
         <div style={{ marginBottom: 20 }}>
-          {sectionTitle(T.language || 'Apparence')}
+          {sectionTitle(T.appearance || 'Apparence')}
           <div style={settCard}>
             {tileRow('🌙', T.darkMode,
               <ToggleSwitch on={!!prefs.darkMode} onChange={v => { onUpdatePref('darkMode', v); showToast?.(v ? '🌙 Mode sombre activé' : '☀️ Mode clair activé', 'success'); }} colorOn="#8E44AD" />,
@@ -3599,7 +3744,7 @@ function SettingsPage({ T, prefs, dark, onUpdatePref, onBack, onPrivacy, onTerms
 
         {/* LÉGAL */}
         <div style={{ marginBottom: 20 }}>
-          {sectionTitle('Légal')}
+          {sectionTitle(T.legal)}
           <div style={settCard}>
             {tileRow('🔐', T.privacyPolicy, <span style={{ color: '#8E44AD', fontSize: 16 }}>›</span>, onPrivacy, false)}
             {tileRow('📄', T.termsOfService, <span style={{ color: '#8E44AD', fontSize: 16 }}>›</span>, onTerms)}
@@ -3634,20 +3779,22 @@ function SettingsPage({ T, prefs, dark, onUpdatePref, onBack, onPrivacy, onTerms
       {/* Language dialog */}
       {showLang && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }} onClick={() => setShowLang(false)}>
-          <div style={{ background: dark ? '#1A0A2E' : 'white', borderRadius: 20, padding: '28px 24px', width: '100%', maxWidth: 340 }} onClick={e => e.stopPropagation()}>
-            <h3 style={{ fontSize: 16, fontWeight: 700, color: dark ? '#F0EAF8' : '#1A1A1A', margin: '0 0 16px' }}>Choisir la langue</h3>
-            {langs.map(l => (
-              <div key={l.code} onClick={() => { onUpdatePref('language', l.code); setShowLang(false); showToast?.('🌐 Langue modifiée', 'success'); }} style={{
-                padding: '14px 16px', borderRadius: 12, cursor: 'pointer', marginBottom: 4,
-                background: prefs.language === l.code ? (dark ? '#2D1050' : '#F5F3FF') : 'transparent',
-                border: prefs.language === l.code ? '1.5px solid #8E44AD' : `1.5px solid ${dark ? 'rgba(255,255,255,0.08)' : 'transparent'}`,
-                fontSize: 14, fontWeight: 500, color: dark ? '#F0EAF8' : '#1A1A1A',
-                display: 'flex', justifyContent: 'space-between',
-              }}>
-                {l.label}
-                {prefs.language === l.code && <span style={{ color: '#8E44AD', fontWeight: 700 }}>✓</span>}
-              </div>
-            ))}
+          <div style={{ background: dark ? '#1A0A2E' : 'white', borderRadius: 20, width: '100%', maxWidth: 340, maxHeight: 'min(75vh, 520px)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: dark ? '#F0EAF8' : '#1A1A1A', margin: 0, padding: '20px 20px 12px', flexShrink: 0 }}>{T.chooseLang || 'Choisir la langue'}</h3>
+            <div style={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: '0 12px 16px', flex: 1 }}>
+              {langs.map(l => (
+                <div key={l.code} onClick={() => { onUpdatePref('language', l.code); setShowLang(false); showToast?.('🌐 ' + (T.chooseLang || 'Langue modifiée'), 'success'); }} style={{
+                  padding: '13px 14px', borderRadius: 12, cursor: 'pointer', marginBottom: 4,
+                  background: prefs.language === l.code ? (dark ? '#2D1050' : '#F5F3FF') : 'transparent',
+                  border: prefs.language === l.code ? '1.5px solid #8E44AD' : `1.5px solid ${dark ? 'rgba(255,255,255,0.08)' : 'transparent'}`,
+                  fontSize: 14, fontWeight: 500, color: dark ? '#F0EAF8' : '#1A1A1A',
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                }}>
+                  {l.label}
+                  {prefs.language === l.code && <span style={{ color: '#8E44AD', fontWeight: 700 }}>✓</span>}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}

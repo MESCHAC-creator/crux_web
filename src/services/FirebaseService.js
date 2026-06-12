@@ -328,6 +328,46 @@ export const MeetingService = {
         });
     },
 
+    // ── HOST COMMANDS ─────────────────────────────────────────
+    async sendHostCommand(meetingId, fromId, targetId, type) {
+        // type: 'mute' | 'kick' | 'muteAll' | 'makeCoHost'
+        await setDoc(doc(db, 'meetings', meetingId, 'hostCommands', targetId === 'all' ? `muteAll_${Date.now()}` : targetId), {
+            type, fromId, targetId, timestamp: serverTimestamp(),
+        });
+    },
+
+    listenHostCommands(meetingId, userId, callback) {
+        return onSnapshot(doc(db, 'meetings', meetingId, 'hostCommands', userId), snap => {
+            if (snap.exists()) callback(snap.data());
+        });
+    },
+
+    async sendMuteAll(meetingId, fromId) {
+        await setDoc(doc(db, 'meetings', meetingId, 'hostCommands', '__muteAll__'), {
+            type: 'muteAll', fromId, timestamp: serverTimestamp(),
+        });
+    },
+
+    listenMuteAll(meetingId, callback) {
+        return onSnapshot(doc(db, 'meetings', meetingId, 'hostCommands', '__muteAll__'), snap => {
+            if (snap.exists()) callback(snap.data());
+        });
+    },
+
+    async setCoHosts(meetingId, coHostIds) {
+        await updateDoc(doc(db, 'meetings', meetingId), { coHosts: coHostIds });
+    },
+
+    async saveProfilePhoto(userId, photoDataUrl) {
+        // Store only a short identifier; full base64 is too large for Firestore
+        await updateDoc(doc(db, 'users', userId), { hasAvatar: true }).catch(() => {});
+    },
+
+    async getUserProfile(userId) {
+        const snap = await getDoc(doc(db, 'users', userId));
+        return snap.exists() ? snap.data() : null;
+    },
+
     // ── Q&A ───────────────────────────────────────────────
     async submitQuestion(meetingId, userId, userName, question) {
         return addDoc(collection(db, 'meetings', meetingId, 'qa'), {
