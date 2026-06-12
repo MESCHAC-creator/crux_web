@@ -1625,18 +1625,36 @@ function MeetingCard({ meeting, T, dark, onJoin }) {
 }
 
 // ============================================================
-// WAITING ROOM
+// WAITING ROOM — Google Meet style with camera preview
 // ============================================================
 function WaitingRoom({ meeting, user, T, prefs, onEnter, onLeave }) {
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const [camOn, setCamOn] = useState(true);
+  const [micOn, setMicOn] = useState(true);
   const [copied, setCopied] = useState(false);
-  const [glowPulse, setGlowPulse] = useState(false);
 
   useEffect(() => {
-    const t = setInterval(() => setGlowPulse(p => !p), 1800);
-    return () => clearInterval(t);
-  }, []);
-
-  const isHost = meeting.hostId === user.id || meeting.host === user.name;
+    let active = true;
+    if (camOn) {
+      navigator.mediaDevices?.getUserMedia({ video: { facingMode: 'user' }, audio: false })
+        .then(s => {
+          if (!active) { s.getTracks().forEach(t => t.stop()); return; }
+          streamRef.current = s;
+          if (videoRef.current) videoRef.current.srcObject = s;
+        })
+        .catch(() => {});
+    } else {
+      streamRef.current?.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+      if (videoRef.current) videoRef.current.srcObject = null;
+    }
+    return () => {
+      active = false;
+      streamRef.current?.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    };
+  }, [camOn]);
 
   const copyCode = () => {
     navigator.clipboard?.writeText(meeting.id).catch(() => {});
@@ -1644,128 +1662,67 @@ function WaitingRoom({ meeting, user, T, prefs, onEnter, onLeave }) {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleJoin = () => {
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
+    onEnter(micOn, camOn);
+  };
+
   return (
-    <div className="crux-fullscreen" style={{
-      fontFamily: 'Poppins, sans-serif',
-      background: 'linear-gradient(160deg, #1A1A2E 0%, #16213E 50%, #0F3460 100%)',
-      display: 'flex', flexDirection: 'column', alignItems: 'center',
-      justifyContent: 'center', padding: '24px 20px', position: 'relative', overflow: 'hidden',
-    }}>
-      {/* Back button */}
-      <button onClick={onLeave} style={{
-        position: 'absolute', top: 20, left: 20, zIndex: 10,
-        display: 'flex', alignItems: 'center', gap: 8,
-        padding: '10px 16px', background: 'rgba(255,255,255,0.10)',
-        backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.20)',
-        borderRadius: 12, color: 'white', fontWeight: 600, fontSize: 13,
-        cursor: 'pointer', fontFamily: 'Poppins, sans-serif',
-      }}>← Retour</button>
+    <div className="crux-fullscreen" style={{ minHeight: '100vh', background: '#202124', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Poppins, sans-serif', padding: 20 }}>
+      <div style={{ display: 'flex', gap: 40, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center', maxWidth: 940, width: '100%' }}>
 
-      {/* Host badge */}
-      {isHost && (
-        <div style={{
-          position: 'absolute', top: 20, right: 20, zIndex: 10,
-          background: 'linear-gradient(135deg, #E74C3C, #8E44AD)',
-          borderRadius: 20, padding: '6px 14px',
-          color: 'white', fontWeight: 700, fontSize: 12, letterSpacing: 0.5,
-        }}>HÔTE</div>
-      )}
-
-      {/* Meeting name title */}
-      <p style={{
-        color: 'rgba(255,255,255,0.60)', fontSize: 13, fontWeight: 500,
-        marginBottom: 8, marginTop: 0, letterSpacing: 0.3,
-      }}>{meeting.title}</p>
-
-      {/* Center card */}
-      <div style={{
-        background: 'rgba(255,255,255,0.05)',
-        border: '1px solid rgba(255,255,255,0.10)',
-        borderRadius: 24, padding: '40px 32px',
-        maxWidth: 400, width: '100%', textAlign: 'center',
-        boxShadow: '0 24px 60px rgba(0,0,0,0.40)',
-      }}>
-        {/* Gradient video icon circle with glow */}
-        <div style={{
-          width: 90, height: 90, borderRadius: '50%',
-          background: 'linear-gradient(135deg, #E74C3C, #8E44AD)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          margin: '0 auto 24px',
-          boxShadow: glowPulse
-            ? '0 0 0 16px rgba(231,76,60,0.12), 0 0 40px rgba(142,68,173,0.35)'
-            : '0 0 0 8px rgba(231,76,60,0.08), 0 0 20px rgba(142,68,173,0.20)',
-          transition: 'box-shadow 1.8s ease-in-out',
-        }}>
-          <svg width="38" height="38" viewBox="0 0 24 24" fill="white">
-            <path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4z"/>
-          </svg>
+        {/* Camera preview */}
+        <div style={{ position: 'relative', width: 480, maxWidth: '100%', aspectRatio: '16/9', background: '#3c4043', borderRadius: 16, overflow: 'hidden', flexShrink: 0 }}>
+          <video ref={videoRef} autoPlay muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)', display: camOn ? 'block' : 'none' }} />
+          {!camOn && (
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: 80, height: 80, borderRadius: '50%', background: '#5f6368', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36 }}>
+                {(user.name || user.email || 'U')[0].toUpperCase()}
+              </div>
+            </div>
+          )}
+          {/* Controls overlay */}
+          <div style={{ position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 12 }}>
+            <button onClick={() => setMicOn(v => !v)} title={micOn ? 'Couper le micro' : 'Activer le micro'} style={{ width: 48, height: 48, borderRadius: '50%', border: 'none', background: micOn ? 'rgba(255,255,255,0.18)' : '#EA4335', cursor: 'pointer', fontSize: 20, backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+              {micOn ? '🎤' : '🔇'}
+            </button>
+            <button onClick={() => setCamOn(v => !v)} title={camOn ? 'Éteindre la caméra' : 'Allumer la caméra'} style={{ width: 48, height: 48, borderRadius: '50%', border: 'none', background: camOn ? 'rgba(255,255,255,0.18)' : '#EA4335', cursor: 'pointer', fontSize: 20, backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+              {camOn ? '📷' : '🚫'}
+            </button>
+          </div>
         </div>
 
-        <h2 style={{ fontSize: 22, fontWeight: 700, color: 'white', margin: '0 0 6px' }}>Réunion prête</h2>
-        <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.55)', margin: '0 0 28px' }}>
-          Rejoignez dès maintenant
-        </p>
+        {/* Join card */}
+        <div style={{ textAlign: 'center', color: 'white', minWidth: 240 }}>
+          <h1 style={{ fontSize: 28, fontWeight: 400, marginBottom: 8, color: 'white' }}>Prêt à rejoindre ?</h1>
+          <p style={{ color: '#9aa0a6', fontSize: 14, marginBottom: 4 }}>{meeting.title}</p>
+          <p style={{ color: '#9aa0a6', fontSize: 13, marginBottom: 8 }}>Organisé par {meeting.creatorName || meeting.organizer || 'Hôte'}</p>
 
-        {/* Meeting ID chip */}
-        <button onClick={copyCode} style={{
-          display: 'inline-flex', alignItems: 'center', gap: 10,
-          background: copied ? 'rgba(39,174,96,0.15)' : 'rgba(255,255,255,0.08)',
-          border: copied ? '1px solid rgba(39,174,96,0.40)' : '1px solid rgba(255,255,255,0.15)',
-          borderRadius: 12, padding: '12px 20px',
-          color: copied ? '#27AE60' : 'rgba(255,255,255,0.85)',
-          fontSize: 15, fontWeight: 700, fontFamily: 'monospace',
-          letterSpacing: 2, cursor: 'pointer', marginBottom: 28,
-          transition: 'all 0.25s',
-        }}>
-          <span>{meeting.id}</span>
-          <span style={{ fontSize: 14, fontFamily: 'Poppins, sans-serif', fontWeight: 600, color: copied ? '#27AE60' : 'rgba(255,255,255,0.45)', letterSpacing: 0 }}>
-            {copied ? '✓ Copié' : '📋'}
-          </span>
-        </button>
+          {/* Meeting ID */}
+          <button onClick={copyCode} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: copied ? 'rgba(39,174,96,0.15)' : 'rgba(255,255,255,0.08)', border: copied ? '1px solid rgba(39,174,96,0.40)' : '1px solid rgba(255,255,255,0.15)', borderRadius: 8, padding: '8px 16px', color: copied ? '#4CAF50' : 'rgba(255,255,255,0.75)', fontSize: 13, fontFamily: 'monospace', letterSpacing: 1.5, cursor: 'pointer', marginBottom: 28, transition: 'all 0.25s' }}>
+            {meeting.id} {copied ? '✓' : '📋'}
+          </button>
 
-        {/* Join button */}
-        <button onClick={onEnter} style={{
-          width: '100%', height: 56,
-          background: '#E74C3C',
-          border: 'none', borderRadius: 16,
-          color: 'white', fontSize: 16, fontWeight: 700,
-          cursor: 'pointer', fontFamily: 'Poppins, sans-serif',
-          boxShadow: '0 8px 24px rgba(231,76,60,0.40)',
-          marginBottom: 14, transition: 'transform 0.15s, box-shadow 0.15s',
-        }}
-          onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 12px 32px rgba(231,76,60,0.50)'; }}
-          onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(231,76,60,0.40)'; }}
-        >
-          Rejoindre la réunion
-        </button>
-
-        {/* Quit text button */}
-        <button onClick={onLeave} style={{
-          background: 'none', border: 'none',
-          color: 'rgba(255,255,255,0.45)', fontSize: 14,
-          fontFamily: 'Poppins, sans-serif', cursor: 'pointer',
-          textDecoration: 'underline', padding: '4px 0',
-        }}>
-          Quitter sans rejoindre
-        </button>
+          <div>
+            <button onClick={handleJoin} style={{ padding: '14px 48px', background: '#1a73e8', border: 'none', borderRadius: 8, color: 'white', fontWeight: 600, fontSize: 16, cursor: 'pointer', fontFamily: 'Poppins, sans-serif', marginBottom: 16, display: 'block', width: '100%', transition: 'background 0.2s' }}
+              onMouseEnter={e => e.currentTarget.style.background = '#1557b0'}
+              onMouseLeave={e => e.currentTarget.style.background = '#1a73e8'}>
+              Rejoindre maintenant
+            </button>
+            <button onClick={() => {
+              const link = `${window.location.origin}${window.location.pathname}?join=${meeting.id}`;
+              navigator.clipboard?.writeText(link).catch(() => {});
+              showToast('🔗 Lien copié !', 'success');
+            }} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, padding: '10px 24px', color: 'rgba(255,255,255,0.75)', fontSize: 13, fontFamily: 'Poppins, sans-serif', cursor: 'pointer', display: 'block', width: '100%', marginBottom: 10 }}>
+              🔗 Copier le lien d'invitation
+            </button>
+            <button onClick={onLeave} style={{ background: 'none', border: 'none', color: '#9aa0a6', cursor: 'pointer', fontSize: 13, fontFamily: 'Poppins, sans-serif' }}>
+              Annuler
+            </button>
+          </div>
+        </div>
       </div>
-
-      {/* Copy invite link */}
-      <button onClick={() => {
-        const link = `${window.location.origin}${window.location.pathname}?join=${meeting.id}`;
-        navigator.clipboard?.writeText(link).catch(() => {});
-        showToast('🔗 Lien d\'invitation copié !', 'success');
-      }} style={{
-        marginTop: 20,
-        background: 'rgba(255,255,255,0.07)',
-        border: '1px solid rgba(255,255,255,0.15)',
-        borderRadius: 12, padding: '12px 24px',
-        color: 'rgba(255,255,255,0.70)', fontSize: 13,
-        fontFamily: 'Poppins, sans-serif', fontWeight: 600,
-        cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
-      }}>
-        🔗 Copier le lien d'invitation
-      </button>
     </div>
   );
 }
@@ -2031,7 +1988,7 @@ function PaymentWall({ user, meeting, onPaid, onExit }) {
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(13,0,32,0.96)', backdropFilter: 'blur(20px)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Poppins, sans-serif', padding: 20 }}>
       <div style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 24, padding: '40px 32px', maxWidth: 420, width: '100%', textAlign: 'center' }}>
         <div style={{ fontSize: 52, marginBottom: 12 }}>⏱️</div>
-        <h2 style={{ color: 'white', fontWeight: 800, fontSize: 22, margin: '0 0 8px' }}>{FREE_MINUTES} minutes écoulées</h2>
+        <h2 style={{ color: 'white', fontWeight: 800, fontSize: 22, margin: '0 0 8px' }}>{ProService.FREE_MINUTES} minutes écoulées</h2>
         <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, margin: '0 0 28px', lineHeight: 1.6 }}>
           La période gratuite est terminée. Choisissez un plan pour continuer <strong style={{ color: 'white' }}>{meeting.title}</strong>.
         </p>
