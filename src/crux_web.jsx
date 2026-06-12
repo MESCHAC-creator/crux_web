@@ -2495,21 +2495,38 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
   // Firestore Q&A
   useEffect(() => { return FirebaseMeetingService.listenQA(meeting.id, setQaQuestions); }, [meeting.id]);
 
-  // Firestore reactions (real-time floating emojis)
+  // Firestore reactions — ignore initial burst, only show NEW reactions after subscribe
+  const reactionsInitRef = useRef(false);
   useEffect(() => {
+    reactionsInitRef.current = false;
     return FirebaseMeetingService.listenReactions(meeting.id, newReactions => {
+      if (!reactionsInitRef.current) {
+        // Skip the first snapshot (historical reactions on load)
+        reactionsInitRef.current = true;
+        return;
+      }
       newReactions.forEach(r => {
         const id = r.id + '_' + Date.now();
-        const x = 20 + Math.random() * 60; // % from left
+        const x = 10 + Math.random() * 70;
         setFloatingReactions(prev => [...prev, { id, emoji: r.emoji, x }]);
         setTimeout(() => setFloatingReactions(prev => prev.filter(f => f.id !== id)), 3000);
       });
     });
   }, [meeting.id]);
 
+  const spawnLocalReaction = (emoji) => {
+    const id = 'local_' + Date.now();
+    const x = 10 + Math.random() * 70;
+    setFloatingReactions(prev => [...prev, { id, emoji, x }]);
+    setTimeout(() => setFloatingReactions(prev => prev.filter(f => f.id !== id)), 3000);
+  };
+
   const sendReaction = async (emoji) => {
     setShowReactions(false);
-    await FirebaseMeetingService.sendReaction(meeting.id, user.uid, user.name || user.email, emoji);
+    spawnLocalReaction(emoji); // instant local feedback
+    try {
+      await FirebaseMeetingService.sendReaction(meeting.id, user.uid, user.name || user.email, emoji);
+    } catch {}
     GamService.addReaction(user.uid);
   };
 
@@ -2702,9 +2719,7 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
             {/* Center: tool buttons — scrollable on mobile, no wrap */}
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 4, overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none', justifyContent: 'center', padding: '0 4px' }}>
               <SideBtn icon="😀" label="Réactions" onClick={() => { setShowReactions(v=>!v); setActivePanel(null); }} active={showReactions} color={C.accentOrange} />
-              <SideBtn icon="💬" label="Chat" onClick={() => togglePanel('chat')} active={activePanel==='chat'} badge={chatMessages.length > 0 ? chatMessages.length : 0} color={C.iceBlue} />
               <SideBtn icon="📊" label={T.polls} onClick={() => togglePanel('poll')} active={activePanel==='poll'} badge={activePoll?1:0} color={C.violet} />
-              <SideBtn icon="❓" label="Q&A" onClick={() => togglePanel('qa')} active={activePanel==='qa'} color={C.accentGolden} />
               <SideBtn icon="📝" label={T.notes} onClick={() => togglePanel('notes')} active={activePanel==='notes'} color={C.iceBlue} />
               <SideBtn icon="🎨" label="Tableau" onClick={() => togglePanel('whiteboard')} active={activePanel==='whiteboard'} color={C.accentOrange} />
               <SideBtn icon="🖥️" label={isSharingScreen ? 'Arrêter' : 'Partager'} onClick={startScreenShare} active={isSharingScreen} color={C.success} />
