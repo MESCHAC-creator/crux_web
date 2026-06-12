@@ -205,7 +205,7 @@ const T_MAP = {
     prepareDevices: 'Préparez vos appareils', camera: 'Caméra', mic: 'Microphone',
     joinMeeting: 'Rejoindre la réunion', leaveWaiting: "Quitter la salle d'attente",
     meetingTitle: 'Titre de la réunion', meetingDesc: 'Description (optionnel)',
-    meetingType: 'Type', temporary: 'Temporaire', persistent: 'Persistante',
+    meetingType: 'Type', temporary: 'Temporaire', persistent: 'Persistante', webinar: 'Webinaire (500+)',
     create: 'Créer', cancel: 'Annuler', join: 'Rejoindre',
     enterCode: "Entrer l'ID ou code de réunion",
     endMeeting: 'Terminer', confirmExit: 'Quitter la réunion ?',
@@ -303,7 +303,7 @@ const T_MAP = {
     prepareDevices: 'Prepare Your Devices', camera: 'Camera', mic: 'Microphone',
     joinMeeting: 'Join Meeting', leaveWaiting: 'Leave Waiting Room',
     meetingTitle: 'Meeting Title', meetingDesc: 'Description (optional)',
-    meetingType: 'Type', temporary: 'Temporary', persistent: 'Persistent',
+    meetingType: 'Type', temporary: 'Temporary', persistent: 'Persistent', webinar: 'Webinar (500+)',
     create: 'Create', cancel: 'Cancel', join: 'Join',
     enterCode: 'Enter meeting ID or code',
     endMeeting: 'End', confirmExit: 'Leave Meeting?',
@@ -1591,7 +1591,7 @@ function Dashboard({ user, T, dark, onJoin, onJoinByCode }) {
           <ModalHeader icon="📅" title={T.schedule} />
           <Field placeholder={T.meetingTitle} value={newTitle} onChange={setNewTitle} autoFocus />
           <div style={{ marginTop: 12 }}><textarea placeholder={T.meetingDesc} value={newDesc} onChange={e => setNewDesc(e.target.value)} rows={3} style={{ ...fieldStyle, resize: 'vertical' }} /></div>
-          <div style={{ marginTop: 12 }}><select value={newType} onChange={e => setNewType(e.target.value)} style={{ ...fieldStyle, cursor: 'pointer' }}><option value="temporary">{T.temporary}</option><option value="persistent">{T.persistent}</option></select></div>
+          <div style={{ marginTop: 12 }}><select value={newType} onChange={e => setNewType(e.target.value)} style={{ ...fieldStyle, cursor: 'pointer' }}><option value="temporary">{T.temporary}</option><option value="persistent">{T.persistent}</option><option value="webinar">{T.webinar || 'Webinaire (500+)'}</option></select></div>
           <ModalActions>
             <PrimaryBtn onClick={createScheduled} disabled={creating || !newTitle.trim()}>{creating ? '...' : T.create}</PrimaryBtn>
             <SecondaryBtn onClick={() => setShowSchedule(false)}>{T.cancel}</SecondaryBtn>
@@ -2599,6 +2599,7 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
 
     const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(appID, serverSecret, roomID, userID, userName);
     const zp = ZegoUIKitPrebuilt.create(kitToken);
+    const isWebinar = meeting.type === 'webinar';
 
     zp.joinRoom({
       container: zegoRef.current,
@@ -2606,10 +2607,12 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
         name: "Lien d'invitation",
         url: window.location.origin + window.location.pathname + '?join=' + meeting.id,
       }],
-      scenario: { mode: ZegoUIKitPrebuilt.VideoConference },
+      scenario: isWebinar
+        ? { mode: ZegoUIKitPrebuilt.LiveStreaming, config: { role: isHost ? ZegoUIKitPrebuilt.Host : ZegoUIKitPrebuilt.Audience } }
+        : { mode: ZegoUIKitPrebuilt.VideoConference },
       showPreJoinView: false,
-      turnOnMicrophoneWhenJoining: initMicRef.current,
-      turnOnCameraWhenJoining: initCamRef.current,
+      turnOnMicrophoneWhenJoining: isWebinar && !isHost ? false : initMicRef.current,
+      turnOnCameraWhenJoining: isWebinar && !isHost ? false : initCamRef.current,
       showMyMicrophoneToggleButton: true,
       showMyCameraToggleButton: true,
       showAudioVideoSettingsButton: true,
@@ -2617,7 +2620,7 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
       showTextChat: true,
       showUserList: true,
       showRoomTimer: false,
-      maxUsers: 100,
+      maxUsers: isWebinar ? 10000 : 500,
       layout: 'Auto',
       onLeaveRoom: () => {
         FirebaseMeetingService.leavePresence(meeting.id, user.uid);
