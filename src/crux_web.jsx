@@ -2407,7 +2407,6 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
   const [creatingPoll, setCreatingPoll] = useState(false);
   const [qaQuestions, setQaQuestions] = useState([]);
   const [qaInput, setQaInput] = useState('');
-  const [notes, setNotes] = useState(() => localStorage.getItem('crux_notes_' + meeting.id) || '');
   const [showReactions, setShowReactions] = useState(false);
   const [floatingReactions, setFloatingReactions] = useState([]);
   const [chatMessages, setChatMessages] = useState([]);
@@ -2415,10 +2414,7 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
   const [chatAnon, setChatAnon] = useState(false);
   const chatBottomRef = useRef(null);
   const [callFrozen, setCallFrozen] = useState(false);
-  const [netQuality, setNetQuality] = useState('good'); // good | fair | poor
-  const [isSharingScreen, setIsSharingScreen] = useState(false);
-  const [screenStream, setScreenStream] = useState(null);
-  const screenStreamRef = useRef(null);
+  const [netQuality, setNetQuality] = useState('good');
   const handsSeenRef = useRef(new Set());
   const pollsSeenRef = useRef(new Set());
   const [participants, setParticipants] = useState([]);
@@ -2445,23 +2441,75 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
     return () => clearInterval(t);
   }, []);
 
-  // Notes auto-save
+  // Background continuation — équivalent Flutter foreground service
+  // Keeps WebRTC audio alive when user switches apps or locks screen
   useEffect(() => {
-    localStorage.setItem('crux_notes_' + meeting.id, notes);
-    const t = setTimeout(() => {
-        FirebaseMeetingService.saveNote(meeting.id, user.uid, notes).catch(() => {});
-    }, 1000);
-    return () => clearTimeout(t);
-  }, [notes, meeting.id, user.uid]);
+    if (inPreJoin) return;
 
-  // Load notes from Firestore on mount
-  useEffect(() => {
-    FirebaseMeetingService.getNote(meeting.id, user.uid).then(content => {
-        if (content && !localStorage.getItem('crux_notes_' + meeting.id)) {
-            setNotes(content);
-        }
-    }).catch(() => {});
-  }, [meeting.id, user.uid]);
+    // 1. MediaSession API — registers as active audio session on OS level
+    //    Shows meeting controls on lock screen / notification shade
+    if ('mediaSession' in navigator) {
+      try {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: meeting.title || 'Réunion CRUX',
+          artist: 'CRUX',
+          album: '🎙️ En cours...',
+        });
+        navigator.mediaSession.playbackState = 'playing';
+        // Prevent OS from pausing/stopping the call
+        navigator.mediaSession.setActionHandler('pause', null);
+        navigator.mediaSession.setActionHandler('play', null);
+        navigator.mediaSession.setActionHandler('stop', () => onExit());
+        navigator.mediaSession.setActionHandler('hangup', () => onExit());
+      } catch {}
+    }
+
+    // 2. Silent audio loop — critical for iOS Safari to keep audio session active
+    //    iOS kills WebRTC if no HTMLAudioElement is playing
+    let silentAudio;
+    try {
+      // Minimal WAV: 44-byte RIFF header, 0 samples
+      silentAudio = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=');
+      silentAudio.loop = true;
+      silentAudio.volume = 0.001;
+      silentAudio.play().catch(() => {});
+    } catch {}
+
+    // 3. Web Locks API — prevents the browser from suspending background JS execution
+    let releaseLock;
+    if (navigator?.locks?.request) {
+      navigator.locks.request('crux-meeting', { mode: 'shared' }, () =>
+        new Promise(resolve => { releaseLock = resolve; })
+      ).catch(() => {});
+    }
+
+    // 4. Screen Wake Lock — keeps screen on during meeting (optional, user can override)
+    let wakeLock;
+    if (navigator?.wakeLock) {
+      navigator.wakeLock.request('screen').then(wl => { wakeLock = wl; }).catch(() => {});
+    }
+
+    // 5. visibilitychange — reclaim media session when returning to foreground
+    const onVisibility = () => {
+      if (!document.hidden && 'mediaSession' in navigator) {
+        try { navigator.mediaSession.playbackState = 'playing'; } catch {}
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      releaseLock?.();
+      wakeLock?.release?.().catch(() => {});
+      try { silentAudio?.pause(); } catch {}
+      document.removeEventListener('visibilitychange', onVisibility);
+      if ('mediaSession' in navigator) {
+        try {
+          navigator.mediaSession.metadata = null;
+          navigator.mediaSession.playbackState = 'none';
+        } catch {}
+      }
+    };
+  }, [inPreJoin]);
 
   // Pro paywall — freeze call after 30 minutes for free users
   useEffect(() => {
@@ -2605,41 +2653,10 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
     await FirebaseMeetingService.sendChatMessage(meeting.id, user.uid, user.name || user.email, msg, chatAnon);
   };
 
-  const startScreenShare = async () => {
-    if (isSharingScreen) {
-      screenStreamRef.current?.getTracks().forEach(t => t.stop());
-      screenStreamRef.current = null;
-      setIsSharingScreen(false);
-      setScreenStream(null);
-      return;
-    }
-    if (!navigator.mediaDevices?.getDisplayMedia) {
-      alert('Le partage d\'écran n\'est pas supporté sur cet appareil/navigateur.');
-      return;
-    }
-    try {
-      const stream = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: 'always' }, audio: false });
-      screenStreamRef.current = stream;
-      setIsSharingScreen(true);
-      setScreenStream(stream);
-      stream.getVideoTracks()[0].onended = () => {
-        setIsSharingScreen(false);
-        setScreenStream(null);
-        screenStreamRef.current = null;
-      };
-    } catch (e) {
-      if (e.name !== 'NotAllowedError' && e.name !== 'AbortError') console.error('Screen share error', e);
-    }
-  };
-
   const requestPiP = async () => {
     try {
       const video = zegoRef.current?.querySelector('video');
-      if (video) {
-        await video.requestPictureInPicture();
-      } else {
-        alert('Impossible de démarrer le mode mini-écran pour le moment.');
-      }
+      if (video) await video.requestPictureInPicture();
     } catch { }
   };
 
@@ -2753,15 +2770,6 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
           </div>
         )}
 
-        {/* Screen share preview inside Portal */}
-        {screenStream && (
-          <video
-            ref={el => { if (el) el.srcObject = screenStream; }}
-            autoPlay muted
-            style={{ position: 'absolute', top: 56, right: 12, width: 180, height: 100, borderRadius: 10, border: '2px solid #27AE60', zIndex: 4, objectFit: 'cover', boxShadow: '0 4px 20px rgba(0,0,0,0.6)', pointerEvents: 'none' }}
-          />
-        )}
-
         {/* Top toolbar — single compact row */}
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.82)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255,255,255,0.08)', pointerEvents: 'all', zIndex: 2 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px' }}>
@@ -2780,11 +2788,10 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 4, overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none', justifyContent: 'center', padding: '0 4px' }}>
               <SideBtn icon="😀" label={T.reactions} onClick={() => { setShowReactions(v=>!v); setActivePanel(null); }} active={showReactions} color={C.accentOrange} />
               <SideBtn icon="📊" label={T.polls} onClick={() => togglePanel('poll')} active={activePanel==='poll'} badge={activePoll?1:0} color={C.violet} />
-              <SideBtn icon="📝" label={T.notes} onClick={() => togglePanel('notes')} active={activePanel==='notes'} color={C.iceBlue} />
-              <SideBtn icon="🎨" label={T.whiteboard || 'Tableau'} onClick={() => togglePanel('whiteboard')} active={activePanel==='whiteboard'} color={C.accentOrange} />
-              <SideBtn icon="🖥️" label={isSharingScreen ? (T.stopSharing||'Arrêter') : (T.screenShare||'Partager')} onClick={startScreenShare} active={isSharingScreen} color={C.success} />
               <SideBtn icon="⊡" label={T.miniScreen || 'Mini-écran'} onClick={requestPiP} color={C.iceBlue} />
-              <SideBtn icon="👥" label={T.participants} onClick={() => togglePanel('participants')} active={activePanel==='participants'} badge={participants.length} color={C.violet} />
+              {(isHost || isCoHost) && (
+                <SideBtn icon="👑" label={T.hostControls || 'Contrôles'} onClick={() => togglePanel('hostControls')} active={activePanel==='hostControls'} color="#F57F17" />
+              )}
             </div>
           </div>
         </div>
@@ -2919,93 +2926,20 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
               </MeetPanel>
             )}
 
-            {/* NOTES */}
-            {activePanel === 'notes' && (
-              <MeetPanel title={T.notes} icon="📝" onClose={() => setActivePanel(null)}>
-                <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Vos notes..."
-                  style={{ flex: 1, padding: '10px 12px', border: 'none', resize: 'none', fontFamily: 'Poppins, sans-serif', fontSize: 12, color: C.textPrimary, background: 'transparent', outline: 'none', lineHeight: 1.6 }} />
-                <div style={{ padding: '4px 12px 6px', borderTop: '1px solid '+C.border, fontSize: 10, color: C.textTertiary, textAlign: 'center', flexShrink: 0 }}>💾 Sauvegardé</div>
-              </MeetPanel>
-            )}
-
-            {/* WHITEBOARD */}
-            {activePanel === 'whiteboard' && (
-              <MeetPanel title={T.whiteboard || 'Tableau'} icon="🎨" onClose={() => setActivePanel(null)}>
-                <CruxWhiteboard meetingId={meeting.id} userId={user.uid} />
-              </MeetPanel>
-            )}
-
-            {/* PARTICIPANTS + HOST CONTROLS */}
-            {activePanel === 'participants' && (
-              <MeetPanel title={T.participants} icon="👥" onClose={() => setActivePanel(null)}>
-                <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-                  {/* Mute All — hosts & co-hosts only */}
-                  {(isHost || isCoHost) && (
-                    <div style={{ padding: '10px 14px', borderBottom: '1px solid ' + C.border, flexShrink: 0 }}>
-                      <button onClick={async () => {
-                        await FirebaseMeetingService.sendMuteAll(meeting.id, user.uid);
-                        showToast('🔇 ' + (T.muteAllDone || 'Signal envoyé'), 'success');
-                      }} style={{ width: '100%', padding: '9px', background: 'linear-gradient(135deg,#E74C3C,#8E44AD)', border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>
-                        🔇 {T.muteAll}
-                      </button>
-                    </div>
-                  )}
-
-                  {participants.length === 0 ? (
-                    <div style={{ textAlign: 'center', paddingTop: 40, color: C.textTertiary }}>
-                      <div style={{ fontSize: 36 }}>👥</div>
-                      <p style={{ fontSize: 13 }}>{T.noParticipants || 'Aucun participant'}</p>
-                    </div>
-                  ) : participants.map(p => {
-                    const isMe = p.uid === user.uid;
-                    const isParticipantHost = p.uid === meeting.creatorId || p.uid === meeting.organizerId;
-                    const isParticipantCoHost = coHosts.includes(p.uid);
-                    const initials = (p.userName || 'U').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
-                    const avatarDataUrl = localStorage.getItem(`crux_avatar_${p.uid}`);
-                    return (
-                      <div key={p.uid} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: '1px solid ' + C.border }}>
-                        {/* Avatar */}
-                        {avatarDataUrl ? (
-                          <img src={avatarDataUrl} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-                        ) : (
-                          <div style={{ width: 36, height: 36, borderRadius: '50%', background: isParticipantHost ? 'linear-gradient(135deg,#E74C3C,#8E44AD)' : isParticipantCoHost ? 'linear-gradient(135deg,#3498DB,#8E44AD)' : 'linear-gradient(135deg,#8E44AD,#3498DB)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: 'white', flexShrink: 0 }}>{initials}</div>
-                        )}
-                        {/* Name + role */}
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: C.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {p.userName}{isMe ? ' (vous)' : ''}
-                          </p>
-                          {(isParticipantHost || isParticipantCoHost) && (
-                            <p style={{ margin: 0, fontSize: 10, color: isParticipantHost ? '#E74C3C' : '#3498DB', fontWeight: 600 }}>
-                              {isParticipantHost ? (T.hostBadge || 'Hôte') : (T.coHost || 'Co-hôte')}
-                            </p>
-                          )}
-                        </div>
-                        {/* Host action buttons */}
-                        {(isHost || isCoHost) && !isMe && !isParticipantHost && (
-                          <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                            <button onClick={async () => {
-                              await FirebaseMeetingService.sendHostCommand(meeting.id, user.uid, p.uid, 'mute');
-                              showToast('🔇 Signal envoyé', 'success');
-                            }} title={T.muteUser || 'Couper micro'} style={{ padding: '5px 7px', fontSize: 11, background: 'rgba(231,76,60,0.12)', border: '1px solid rgba(231,76,60,0.3)', borderRadius: 7, color: '#E74C3C', cursor: 'pointer', fontFamily: 'Poppins, sans-serif', fontWeight: 600 }}>🔇</button>
-                            {isHost && !isParticipantCoHost && (
-                              <button onClick={async () => {
-                                const newCoHosts = [...new Set([...coHosts, p.uid])];
-                                setCoHosts(newCoHosts);
-                                await FirebaseMeetingService.sendHostCommand(meeting.id, user.uid, p.uid, 'makeCoHost');
-                                showToast('⭐ Co-hôte nommé', 'success');
-                              }} title={T.makeCoHost || 'Co-hôte'} style={{ padding: '5px 7px', fontSize: 11, background: 'rgba(52,152,219,0.12)', border: '1px solid rgba(52,152,219,0.3)', borderRadius: 7, color: '#3498DB', cursor: 'pointer', fontFamily: 'Poppins, sans-serif', fontWeight: 600 }}>⭐</button>
-                            )}
-                            <button onClick={async () => {
-                              if (!window.confirm(`Exclure ${p.userName} ?`)) return;
-                              await FirebaseMeetingService.sendHostCommand(meeting.id, user.uid, p.uid, 'kick');
-                              showToast('🚪 ' + p.userName + ' exclu', 'success');
-                            }} title={T.kickUser || 'Exclure'} style={{ padding: '5px 7px', fontSize: 11, background: 'rgba(231,76,60,0.12)', border: '1px solid rgba(231,76,60,0.3)', borderRadius: 7, color: '#E74C3C', cursor: 'pointer', fontFamily: 'Poppins, sans-serif', fontWeight: 600 }}>🚪</button>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+            {/* HOST CONTROLS — visible only to host / co-host */}
+            {activePanel === 'hostControls' && (isHost || isCoHost) && (
+              <MeetPanel title={T.hostControls || 'Contrôles hôte'} icon="👑" onClose={() => setActivePanel(null)}>
+                <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {/* Mute All */}
+                  <button onClick={async () => {
+                    await FirebaseMeetingService.sendMuteAll(meeting.id, user.uid);
+                    showToast('🔇 ' + (T.muteAllDone || 'Signal envoyé aux participants'), 'success');
+                  }} style={{ padding: '12px', background: 'linear-gradient(135deg,#E74C3C,#8E44AD)', border: 'none', borderRadius: 12, color: 'white', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'Poppins, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                    🔇 {T.muteAll || 'Couper tous les micros'}
+                  </button>
+                  <p style={{ fontSize: 11, color: C.textTertiary, textAlign: 'center', margin: 0 }}>
+                    Pour couper / exclure un participant individuel, utilisez la liste de participants native de ZegoCloud (icône 👥 en bas de l'écran vidéo).
+                  </p>
                 </div>
               </MeetPanel>
             )}
