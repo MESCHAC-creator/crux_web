@@ -1227,31 +1227,34 @@ function ForgotPasswordModal({ T, onClose }) {
 }
 
 // ============================================================
-// AUTH PAGE — réplique exacte Flutter (login_screen + signup_screen)
+// AUTH PAGE — Google-style clean card
 // ============================================================
 function GlassTextField({ icon, type = 'text', placeholder, label, value, onChange, suffix, autoFocus }) {
   return (
-    <div style={{ position: 'relative', marginBottom: 0 }}>
-      {icon && <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 15, opacity: 0.7, pointerEvents: 'none', zIndex: 1 }}>{icon}</span>}
-      <input
-        type={type} placeholder={placeholder || label} value={value}
-        onChange={e => onChange(e.target.value)} autoFocus={autoFocus}
-        style={{
-          width: '100%', boxSizing: 'border-box',
-          padding: '15px 14px', paddingLeft: icon ? 44 : 14, paddingRight: suffix ? 52 : 14,
-          background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.25)',
-          borderRadius: 14, color: 'white', fontSize: 15,
-          outline: 'none', fontFamily: 'Poppins, sans-serif',
-        }}
-        onFocus={e => { e.target.style.border = '1.5px solid #FF4081'; }}
-        onBlur={e => { e.target.style.border = '1px solid rgba(255,255,255,0.25)'; }}
-      />
-      {suffix && <span style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', zIndex: 1 }}>{suffix}</span>}
+    <div style={{ marginBottom: 0 }}>
+      <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#3C4043', marginBottom: 6 }}>{label || placeholder}</label>
+      <div style={{ position: 'relative' }}>
+        {icon && <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 16, pointerEvents: 'none', zIndex: 1 }}>{icon}</span>}
+        <input
+          type={type} placeholder={placeholder} value={value}
+          onChange={e => onChange(e.target.value)} autoFocus={autoFocus}
+          style={{
+            width: '100%', boxSizing: 'border-box',
+            padding: '12px 14px', paddingLeft: icon ? 40 : 14, paddingRight: suffix ? 48 : 14,
+            background: '#fff', border: '1.5px solid #DADCE0',
+            borderRadius: 8, color: '#202124', fontSize: 15,
+            outline: 'none', fontFamily: 'Poppins, sans-serif', transition: 'border-color 0.2s',
+          }}
+          onFocus={e => { e.target.style.borderColor = '#1A73E8'; e.target.style.boxShadow = '0 0 0 3px rgba(26,115,232,0.12)'; }}
+          onBlur={e => { e.target.style.borderColor = '#DADCE0'; e.target.style.boxShadow = 'none'; }}
+        />
+        {suffix && <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', zIndex: 1 }}>{suffix}</span>}
+      </div>
     </div>
   );
 }
 
-// Floating circle for auth background (Flutter _FloatingCircle)
+// Floating circle for auth background (kept for potential reuse)
 function FloatingAuthCircle({ size, top, left, right, bottom, color, dur, delay }) {
   return (
     <div style={{
