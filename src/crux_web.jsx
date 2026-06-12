@@ -2,6 +2,7 @@ import { ZegoUIKitPrebuilt } from '@zegocloud/zego-uikit-prebuilt';
 import { AuthService, MeetingService } from './services/LocalStorageService';
 import { PaymentService, MeetingService as FirebaseMeetingService } from './services/FirebaseService';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import ReactDOM from 'react-dom';
 
 // ============================================================
 // LOGO — caméra vidéo dans carré arrondi (identique crux_new_final)
@@ -1506,111 +1507,93 @@ function Dashboard({ user, T, dark, onJoin, onJoinByCode }) {
     onJoinByCode(code); setJoinCode(''); setShowJoinDialog(false);
   };
 
-  return (
-    <div style={{ background: dark ? '#0D0020' : '#F5F3FF', minHeight: 'calc(100vh - 64px)', fontFamily: 'Poppins, sans-serif' }}>
-      {/* Gradient Header — Flutter SliverAppBar */}
-      <div style={{
-        background: 'linear-gradient(135deg, #E74C3C, #8E44AD)',
-        padding: '24px 20px 28px',
-      }}>
-        <p style={{ fontSize: 18, fontWeight: 600, color: 'white', margin: '0 0 2px' }}>
-          {T.welcome}, {user.name.split(' ')[0]} 👋
-        </p>
-        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', margin: 0 }}>
-          Prêt pour votre prochaine réunion ?
-        </p>
-      </div>
+  const bg = dark ? '#0D0020' : '#F8F8F8';
+  const cardBg = dark ? '#1A0A2E' : '#FFFFFF';
+  const textPri = dark ? '#F0EAF8' : '#1A1A1A';
+  const textSec = dark ? '#C0A8E0' : '#555';
+  const border = dark ? 'rgba(255,255,255,0.1)' : '#EBEBEB';
 
-      <div style={{ padding: '20px 16px', maxWidth: 600, margin: '0 auto' }}>
-        {/* Create Meeting Card */}
-        <div style={{
-          background: 'linear-gradient(135deg, #E74C3C, #9B59B6, #8E44AD)',
-          borderRadius: 24, padding: 22, marginBottom: 28,
-          boxShadow: '0 8px 20px rgba(231,76,60,0.35)',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>📹</div>
-            <span style={{ fontSize: 18, fontWeight: 700, color: 'white' }}>Nouvelle réunion</span>
-          </div>
-          <input
-            value={meetingName}
-            onChange={e => setMeetingName(e.target.value)}
-            placeholder="Nom de la réunion..."
-            onKeyDown={e => e.key === 'Enter' && createMeeting()}
-            style={{
-              width: '100%', boxSizing: 'border-box', padding: '13px 16px',
-              background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)',
-              borderRadius: 14, color: 'white', fontSize: 15,
-              outline: 'none', fontFamily: 'Poppins, sans-serif', marginBottom: 14,
-            }}
-          />
-          <button onClick={createMeeting} disabled={creating} style={{
-            width: '100%', height: 50, background: 'white', border: 'none', borderRadius: 14,
-            color: '#E74C3C', fontWeight: 700, fontSize: 15, cursor: 'pointer',
-            fontFamily: 'Poppins, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-          }}>
-            {creating
-              ? <div style={{ width: 22, height: 22, borderRadius: '50%', border: '2.5px solid #E74C3C30', borderTopColor: '#E74C3C', animation: 'spin 0.9s linear infinite' }} />
-              : <><span>🚀</span> Démarrer la réunion</>
-            }
+  const quickBtnStyle = (gradient, textColor = 'white') => ({
+    flex: 1, padding: '16px 12px', background: gradient, border: 'none', borderRadius: 16,
+    cursor: 'pointer', fontFamily: 'Poppins, sans-serif', color: textColor,
+    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+    boxShadow: '0 2px 8px rgba(0,0,0,0.12)', transition: 'transform 0.15s, box-shadow 0.15s',
+    minWidth: 0,
+  });
+
+  return (
+    <div className="crux-scroll" style={{ background: bg, minHeight: 'calc(100vh - 64px)', fontFamily: 'Poppins, sans-serif' }}>
+      <div style={{ maxWidth: 640, margin: '0 auto', padding: '32px 20px 48px' }}>
+
+        {/* Greeting */}
+        <p style={{ fontSize: 22, fontWeight: 700, color: textPri, margin: '0 0 4px' }}>
+          Bonjour, {user.name.split(' ')[0]} 👋
+        </p>
+        <p style={{ fontSize: 14, color: textSec, margin: '0 0 28px' }}>Prêt pour votre prochaine réunion ?</p>
+
+        {/* Primary action buttons — Zoom-style row */}
+        <div style={{ display: 'flex', gap: 12, marginBottom: 32 }}>
+          <button style={quickBtnStyle('linear-gradient(135deg,#E74C3C,#C0392B)')}
+            onClick={createMeeting} disabled={creating}
+            onMouseEnter={e => { e.currentTarget.style.transform='translateY(-2px)'; e.currentTarget.style.boxShadow='0 8px 20px rgba(231,76,60,0.4)'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform=''; e.currentTarget.style.boxShadow='0 2px 8px rgba(0,0,0,0.12)'; }}>
+            <span style={{ fontSize: 28 }}>📹</span>
+            <span style={{ fontSize: 13, fontWeight: 700 }}>{creating ? '...' : 'Nouvelle réunion'}</span>
+          </button>
+          <button style={quickBtnStyle(dark ? '#2D1050' : 'white', dark ? '#F0EAF8' : '#1A1A1A')}
+            onClick={() => setShowJoinDialog(true)}
+            onMouseEnter={e => { e.currentTarget.style.transform='translateY(-2px)'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform=''; }}>
+            <span style={{ fontSize: 28 }}>🔗</span>
+            <span style={{ fontSize: 13, fontWeight: 700 }}>Rejoindre</span>
+          </button>
+          <button style={quickBtnStyle(dark ? '#2D1050' : 'white', dark ? '#F0EAF8' : '#1A1A1A')}
+            onClick={() => setShowSchedule(true)}
+            onMouseEnter={e => { e.currentTarget.style.transform='translateY(-2px)'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform=''; }}>
+            <span style={{ fontSize: 28 }}>📅</span>
+            <span style={{ fontSize: 13, fontWeight: 700 }}>Planifier</span>
+          </button>
+          <button style={quickBtnStyle(dark ? '#2D1050' : 'white', dark ? '#F0EAF8' : '#1A1A1A')}
+            onClick={() => window._cruxGoProfile?.()}
+            onMouseEnter={e => { e.currentTarget.style.transform='translateY(-2px)'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform=''; }}>
+            <span style={{ fontSize: 28 }}>👤</span>
+            <span style={{ fontSize: 13, fontWeight: 700 }}>Profil</span>
           </button>
         </div>
 
-        {/* Actions rapides */}
-        <p style={{ fontSize: 17, fontWeight: 800, color: dark ? '#F0EAF8' : '#1A1A1A', margin: '0 0 14px' }}>Actions rapides</p>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 28 }}>
-          <ActionCard icon="👥" title="Rejoindre" subtitle="Via un ID" gradient="linear-gradient(135deg,#8E44AD,#6C3483)" onTap={() => setShowJoinDialog(true)} />
-          <ActionCard icon="📅" title="Planifier" subtitle="Créer" gradient="linear-gradient(135deg,#3498DB,#2980B9)" onTap={() => setShowSchedule(true)} />
-          <ActionCard icon="👤" title="Mon Profil" subtitle="Compte" gradient="linear-gradient(135deg,#FF9800,#E65100)" onTap={() => window._cruxGoProfile?.()} />
-          <ActionCard icon="📞" title={T.dialIn} subtitle="Appeler" gradient="linear-gradient(135deg,#27AE60,#1E8449)" onTap={() => { window.location.href = 'tel:+33123456789'; }} />
-        </div>
-
-        {/* Meetings list */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-          <p style={{ fontSize: 17, fontWeight: 800, color: dark ? '#F0EAF8' : '#1A1A1A', margin: 0 }}>
-            {T.recentMeetings} {!loadingMeetings && `(${meetings.length})`}
+        {/* Recent meetings */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <p style={{ fontSize: 15, fontWeight: 700, color: textPri, margin: 0 }}>
+            Réunions récentes {!loadingMeetings && meetings.length > 0 && <span style={{ fontSize: 12, fontWeight: 400, color: textSec }}>({meetings.length})</span>}
           </p>
-          <button onClick={() => setShowSchedule(true)} style={{
-            padding: '8px 16px', background: 'linear-gradient(135deg,#E74C3C,#8E44AD)',
-            color: 'white', border: 'none', borderRadius: 10, fontWeight: 700,
-            fontSize: 12, cursor: 'pointer', fontFamily: 'Poppins, sans-serif',
-          }}>+ {T.newMeeting}</button>
         </div>
 
         {loadingMeetings ? (
-          <div style={{ textAlign: 'center', padding: 40, color: '#999' }}>⏳ {T.loading}</div>
+          <div style={{ textAlign: 'center', padding: 48, color: textSec }}>
+            <div style={{ width: 28, height: 28, borderRadius: '50%', border: `3px solid ${dark?'rgba(255,255,255,0.1)':'#EEE'}`, borderTopColor: '#E74C3C', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
+          </div>
         ) : meetings.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '48px 24px', background: dark ? '#1A0A2E' : 'white', borderRadius: 20, border: `2px dashed ${dark ? '#3A1A5E' : '#DDD'}` }}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>📅</div>
-            <p style={{ fontWeight: 700, color: dark ? '#F0EAF8' : '#1A1A1A', margin: '0 0 6px' }}>{T.noMeetings}</p>
-            <p style={{ color: dark ? '#7060A0' : '#999', fontSize: 13 }}>{T.noMeetingsHint}</p>
-            <button onClick={createMeeting} style={{ marginTop: 18, padding: '11px 24px', background: 'linear-gradient(135deg,#E74C3C,#8E44AD)', color: 'white', border: 'none', borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>
-              🚀 Démarrer maintenant
+          <div style={{ textAlign: 'center', padding: '48px 24px', background: cardBg, borderRadius: 20, border: `1.5px dashed ${border}` }}>
+            <div style={{ fontSize: 44, marginBottom: 12 }}>📅</div>
+            <p style={{ fontWeight: 600, color: textPri, margin: '0 0 6px' }}>{T.noMeetings}</p>
+            <p style={{ color: textSec, fontSize: 13, margin: '0 0 20px' }}>{T.noMeetingsHint}</p>
+            <button onClick={createMeeting} style={{ padding: '11px 28px', background: 'linear-gradient(135deg,#E74C3C,#8E44AD)', color: 'white', border: 'none', borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>
+              🚀 Démarrer une réunion
             </button>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {meetings.map(m => <MeetingCard key={m.id} meeting={m} T={T} dark={dark} onJoin={() => onJoin(m)} />)}
           </div>
         )}
-
-        {/* Info banner */}
-        <div style={{
-          background: 'rgba(142,68,173,0.08)', border: '1px solid rgba(142,68,173,0.25)',
-          borderRadius: 16, padding: '14px 16px', marginTop: 24,
-          display: 'flex', alignItems: 'flex-start', gap: 12,
-        }}>
-          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(142,68,173,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>ℹ️</div>
-          <p style={{ fontSize: 12, color: dark ? '#C0A8E0' : '#555', margin: 0, lineHeight: 1.5 }}>
-            Les réunions s'ouvrent directement dans CRUX via <strong>ZegoCloud</strong> — technologie WebRTC sécurisée, durée illimitée, jusqu'à 100 participants.
-          </p>
-        </div>
       </div>
 
       {/* Dialogs */}
       {showJoinDialog && (
         <CruxModal onClose={() => setShowJoinDialog(false)}>
-          <ModalHeader icon="🔗" title="Rejoindre" />
+          <ModalHeader icon="🔗" title="Rejoindre une réunion" />
           <p style={{ color: C.textSecondary, fontSize: 13, margin: '0 0 14px' }}>Entrez l'ID de la réunion partagé par l'hôte</p>
           <Field placeholder={T.enterCode} value={joinCode} onChange={setJoinCode} autoFocus onKeyDown={e => e.key === 'Enter' && joinByCode()} />
           <ModalActions>
@@ -1655,43 +1638,31 @@ function MeetingCard({ meeting, T, dark, onJoin }) {
   const statusLabels = { scheduled: T.statusScheduled, ongoing: T.statusOngoing, ended: T.statusEnded };
   const statusColor = statusColors[status] || C.textTertiary;
   const isEnded = status === 'ended';
-  const DT = th(dark);
+  const cardBg = dark ? '#1A0A2E' : '#FFFFFF';
+  const textPri = dark ? '#F0EAF8' : '#1A1A1A';
+  const textSec = dark ? '#C0A8E0' : '#666';
+  const border = dark ? 'rgba(255,255,255,0.08)' : '#F0F0F0';
   return (
-    <div style={{ background: DT.bgCard, borderRadius: 16, padding: 20, border: `1.5px solid ${DT.border}`, transition: 'all 0.22s', boxShadow: DT.shadow, fontFamily: 'Poppins, sans-serif', opacity: isEnded ? 0.7 : 1 }}
-      onMouseEnter={e => { if (!isEnded) { e.currentTarget.style.boxShadow = `0 8px 28px ${C.violetGlow}`; e.currentTarget.style.borderColor = C.violetLight; } }}
-      onMouseLeave={e => { e.currentTarget.style.boxShadow = DT.shadow; e.currentTarget.style.borderColor = DT.border; }}
+    <div style={{ background: cardBg, borderRadius: 14, padding: '16px 18px', border: `1px solid ${border}`, display: 'flex', alignItems: 'center', gap: 14, fontFamily: 'Poppins, sans-serif', opacity: isEnded ? 0.6 : 1, transition: 'background 0.15s' }}
+      onMouseEnter={e => !isEnded && (e.currentTarget.style.background = dark ? '#210C40' : '#FAFAFA')}
+      onMouseLeave={e => (e.currentTarget.style.background = cardBg)}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-        <div style={{ flex: 1, marginRight: 8 }}>
-          <h4 style={{ fontSize: 15, fontWeight: 700, color: DT.textPri, margin: '0 0 4px' }}>
-            {meeting.isLocked && <span style={{ marginRight: 6 }}>🔒</span>}
-            {meeting.title}
-          </h4>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: `${statusColor}18`, color: statusColor }}>
-              ● {statusLabels[status] || status}
-            </span>
-            {meeting.isRecording && (
-              <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: `${C.error}18`, color: C.error, animation: 'recPulse 2s infinite' }}>
-                ⏺ REC
-              </span>
-            )}
-          </div>
-        </div>
-        <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 20, background: isPersistent ? `${C.violet}15` : `${C.flamePrimary}12`, color: isPersistent ? C.violet : C.flamePrimary, flexShrink: 0 }}>
-          {isPersistent ? '📌' : '⏱'} {isPersistent ? T.persistent : T.temporary}
-        </span>
+      <div style={{ width: 42, height: 42, borderRadius: 12, background: 'linear-gradient(135deg,#E74C3C,#8E44AD)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>📹</div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ fontSize: 14, fontWeight: 700, color: textPri, margin: '0 0 3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {meeting.isLocked && '🔒 '}{meeting.title}
+        </p>
+        <p style={{ fontSize: 12, color: textSec, margin: 0 }}>
+          <span style={{ color: statusColors[status] || textSec }}>● {statusLabels[status]}</span>
+          <span style={{ margin: '0 6px', opacity: 0.4 }}>·</span>
+          {ago > 0 ? `Il y a ${ago} min` : "À l'instant"}
+        </p>
       </div>
-      {meeting.description && <p style={{ fontSize: 13, color: DT.textSec, margin: '0 0 12px', lineHeight: 1.5 }}>{meeting.description}</p>}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 20, background: `${C.success}15`, color: C.success }}>👥 {meeting.participantCount || 1}</span>
-          <span style={{ fontSize: 12, color: DT.textMuted }}>{ago > 0 ? `${ago}min` : "À l'instant"}</span>
-        </div>
-        {!isEnded && (
-          <button onClick={onJoin} style={{ padding: '8px 16px', background: C.primaryGradient, color: 'white', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'Poppins, sans-serif', boxShadow: `0 4px 12px ${C.fireGlow}` }}>{T.joinMeeting} →</button>
-        )}
-      </div>
+      {!isEnded && (
+        <button onClick={onJoin} style={{ padding: '8px 18px', background: 'linear-gradient(135deg,#E74C3C,#8E44AD)', color: 'white', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'Poppins, sans-serif', flexShrink: 0 }}>
+          Rejoindre
+        </button>
+      )}
     </div>
   );
 }
@@ -2411,207 +2382,215 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
     setPollQuestion(''); setPollOptions(['', '']); setCreatingPoll(false);
   };
 
-  const submitQuestion = async () => {
+  const submitQuestion = async (anonymous = false) => {
     if (!qaInput.trim()) return;
-    await FirebaseMeetingService.submitQuestion(meeting.id, user.uid, user.name, qaInput.trim());
+    const name = anonymous ? 'Anonyme' : (user.name || user.email);
+    await FirebaseMeetingService.submitQuestion(meeting.id, user.uid, name, qaInput.trim());
     setQaInput('');
   };
 
   const activePoll = polls.find(p => p.active);
 
+  // Portal helper — renders into document.body, above ZegoCloud's entire DOM
+  const Portal = ({ children }) => ReactDOM.createPortal(
+    <div style={{ position: 'fixed', inset: 0, zIndex: 99999, pointerEvents: 'none', fontFamily: 'Poppins, sans-serif' }}>
+      {children}
+    </div>,
+    document.body
+  );
+
   return (
-    <div style={{ width: '100vw', height: '100vh', position: 'relative', fontFamily: 'Poppins, sans-serif', overflow: 'hidden', background: '#111' }}>
-
+    <div style={{ width: '100vw', height: '100vh', background: '#111' }}>
       {/* ZegoCloud video — fills entire screen */}
-      <div ref={zegoRef} style={{ position: 'absolute', inset: 0, zIndex: 1 }} />
+      <div ref={zegoRef} style={{ position: 'absolute', inset: 0 }} />
 
-      {/* Live captions */}
-      {captionsOn && captionText && (
-        <div style={{ position: 'absolute', bottom: 90, left: '50%', transform: 'translateX(-50%)', zIndex: 50, maxWidth: '65%', textAlign: 'center', background: 'rgba(0,0,0,0.82)', color: 'white', fontSize: 16, fontWeight: 600, padding: '10px 20px', borderRadius: 12, pointerEvents: 'none' }}>
-          {captionText}
+      <Portal>
+        {/* Timer */}
+        <div style={{ position: 'absolute', top: 12, left: 12, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)', borderRadius: 8, padding: '5px 12px', color: 'white', fontSize: 12, fontWeight: 600, border: '1px solid rgba(255,255,255,0.15)' }}>
+          🕐 {fmt(elapsed)}
         </div>
-      )}
 
-      {/* Timer chip */}
-      <div style={{ position: 'absolute', top: 12, left: 12, zIndex: 20, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)', borderRadius: 8, padding: '4px 12px', color: 'white', fontSize: 12, fontWeight: 600, pointerEvents: 'none', border: '1px solid rgba(255,255,255,0.15)' }}>
-        🕐 {fmt(elapsed)}
-      </div>
-
-      {/* Floating emoji reactions */}
-      {floatingReactions.map(r => (
-        <div key={r.id} style={{
-          position: 'absolute', bottom: 100, left: `${r.x}%`, zIndex: 60,
-          fontSize: 40, pointerEvents: 'none', userSelect: 'none',
-          animation: 'floatUp 3s ease-out forwards',
-        }}>{r.emoji}</div>
-      ))}
-
-      {/* Reaction picker popup */}
-      {showReactions && (
-        <div style={{
-          position: 'absolute', bottom: 90, left: '50%', transform: 'translateX(-50%)',
-          zIndex: 50, background: 'rgba(20,20,20,0.95)', borderRadius: 16,
-          padding: '12px 16px', display: 'flex', gap: 12, boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
-          border: '1px solid rgba(255,255,255,0.1)',
-        }}>
-          {['👍','❤️','😂','😮','👏','🙌'].map(emoji => (
-            <button key={emoji} onClick={() => sendReaction(emoji)} style={{
-              background: 'none', border: 'none', cursor: 'pointer', fontSize: 32,
-              padding: 6, borderRadius: 10, transition: 'transform 0.15s',
-            }} onMouseEnter={e => e.target.style.transform = 'scale(1.35)'}
-               onMouseLeave={e => e.target.style.transform = 'scale(1)'}
-            >{emoji}</button>
-          ))}
+        {/* Network quality */}
+        <div style={{ position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)', borderRadius: 8, padding: '5px 10px', border: '1px solid rgba(255,255,255,0.15)' }}>
+          {[0,1,2].map(i => {
+            const lit = (netQuality==='good') || (netQuality==='fair'&&i<2) || (netQuality==='poor'&&i<1);
+            const col = netQuality==='good'?'#4CAF50':netQuality==='fair'?'#FFC107':'#E74C3C';
+            return <div key={i} style={{ width: 4, height: 8+i*4, borderRadius: 2, background: lit?col:'rgba(255,255,255,0.25)' }} />;
+          })}
+          <span style={{ color: 'white', fontSize: 10, fontWeight: 600, marginLeft: 4 }}>{netQuality==='good'?'HD':netQuality==='fair'?'SD':'Faible'}</span>
         </div>
-      )}
 
-      {/* Network quality indicator */}
-      <div style={{ position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', zIndex: 20, display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)', borderRadius: 8, padding: '4px 10px', pointerEvents: 'none', border: '1px solid rgba(255,255,255,0.15)' }}>
-        {[0,1,2].map(i => <div key={i} style={{ width: 4, height: 8 + i * 4, borderRadius: 2, background: netQuality === 'poor' && i > 0 ? 'rgba(255,255,255,0.3)' : netQuality === 'fair' && i > 1 ? 'rgba(255,255,255,0.3)' : (netQuality === 'good' ? '#4CAF50' : netQuality === 'fair' ? '#FFC107' : '#E74C3C') }} />)}
-        <span style={{ color: 'white', fontSize: 10, fontWeight: 600, marginLeft: 4 }}>{netQuality === 'good' ? 'HD' : netQuality === 'fair' ? 'SD' : 'Faible'}</span>
-      </div>
-
-      {/* Pro paywall frozen overlay */}
-      {callFrozen && (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(12px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: 'Poppins, sans-serif' }}>
-          <div style={{ fontSize: 56, marginBottom: 16 }}>⏱️</div>
-          <h2 style={{ color: 'white', fontSize: 22, fontWeight: 800, margin: '0 0 8px', textAlign: 'center' }}>Limite gratuite atteinte</h2>
-          <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, textAlign: 'center', maxWidth: 280, margin: '0 0 24px' }}>La version gratuite est limitée à {ProService.FREE_MINUTES} minutes. Passez à Pro pour des réunions illimitées.</p>
-          <button onClick={() => ProService.openPayment()} style={{ padding: '14px 32px', background: 'linear-gradient(135deg,#F57F17,#FF8F00)', border: 'none', borderRadius: 16, color: 'white', fontWeight: 800, fontSize: 15, cursor: 'pointer', fontFamily: 'Poppins, sans-serif', boxShadow: '0 8px 24px rgba(245,127,23,0.5)', marginBottom: 12 }}>
-            ⭐ Activer Pro — {ProService.PRICE_XOF.toLocaleString()} XOF
-          </button>
-          <button onClick={() => { setCallFrozen(false); onExit(); }} style={{ background: 'none', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 12, padding: '10px 24px', color: 'rgba(255,255,255,0.7)', fontSize: 13, cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>
-            Quitter la réunion
-          </button>
-        </div>
-      )}
-
-      {/* CRUX right sidebar — only CRUX-exclusive features */}
-      <div style={{ position: 'absolute', right: activePanel ? 348 : 12, top: '50%', transform: 'translateY(-50%)', zIndex: 30, display: 'flex', flexDirection: 'column', gap: 10, transition: 'right 0.3s ease' }}>
-        <SideBtn icon="😀" label={T.reactions} onClick={() => setShowReactions(v => !v)} active={showReactions} color={C.accentOrange} />
-        <SideBtn icon="📊" label={T.polls} onClick={() => togglePanel('poll')} active={activePanel === 'poll'} badge={activePoll ? 1 : 0} color={C.violet} />
-        <SideBtn icon="❓" label="Q&A" onClick={() => togglePanel('qa')} active={activePanel === 'qa'} color={C.accentGolden} />
-        <SideBtn icon="📝" label={T.notes} onClick={() => togglePanel('notes')} active={activePanel === 'notes'} color={C.iceBlue} />
-        <SideBtn icon="🎨" label="Tableau blanc" onClick={() => togglePanel('whiteboard')} active={activePanel === 'whiteboard'} color={C.accentOrange} />
-        <SideBtn icon="🎤" label={captionsOn ? 'Désactiver sous-titres' : 'Activer sous-titres'} onClick={() => setCaptionsOn(v => !v)} active={captionsOn} color={C.success} />
-      </div>
-
-      {/* ── POLLS PANEL ── */}
-      {activePanel === 'poll' && (
-        <MeetPanel title={T.polls} icon="📊" onClose={() => setActivePanel(null)}>
-          <div style={{ padding: 16 }}>
-            {polls.length === 0 && !creatingPoll && (
-              <div style={{ textAlign: 'center', paddingTop: 32 }}>
-                <div style={{ fontSize: 48, marginBottom: 12 }}>📊</div>
-                <button onClick={() => setCreatingPoll(true)} style={{ ...primBtn, fontSize: 13 }}>{T.createPoll}</button>
-              </div>
-            )}
-            {creatingPoll && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <input placeholder={T.pollQuestion} value={pollQuestion} onChange={e => setPollQuestion(e.target.value)} style={{ ...fieldStyle, fontSize: 13 }} />
-                {pollOptions.map((o, i) => (
-                  <input key={i} placeholder={T.pollOption + ' ' + (i + 1)} value={o}
-                    onChange={e => { const n = [...pollOptions]; n[i] = e.target.value; setPollOptions(n); }}
-                    style={{ ...fieldStyle, fontSize: 13 }} />
-                ))}
-                {pollOptions.length < 5 && (
-                  <button onClick={() => setPollOptions(p => [...p, ''])} style={{ ...secBtn, fontSize: 13 }}>+ {T.addOption}</button>
-                )}
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button onClick={launchPoll} style={{ ...primBtn, fontSize: 13, flex: 1 }}>{T.launchPoll}</button>
-                  <button onClick={() => setCreatingPoll(false)} style={{ ...secBtn, fontSize: 13, flex: 1 }}>{T.cancel}</button>
-                </div>
-              </div>
-            )}
-            {polls.map(poll => {
-              const total = poll.options.reduce((s, o) => s + (o.votes?.length || 0), 0);
-              return (
-                <div key={poll.id} style={{ background: C.lightBg, borderRadius: 14, padding: 14, marginBottom: 12, border: '1.5px solid ' + (poll.active ? C.violet : C.border) }}>
-                  <p style={{ fontWeight: 700, fontSize: 14, color: C.textPrimary, margin: '0 0 12px', lineHeight: 1.4 }}>{poll.question}</p>
-                  {poll.options.map((o, i) => {
-                    const pct = total > 0 ? Math.round((o.votes?.length || 0) / total * 100) : 0;
-                    const myVote = o.votes?.includes(user.uid);
-                    return (
-                      <div key={i}
-                        onClick={() => poll.active && FirebaseMeetingService.votePoll(meeting.id, poll.id, i, user.uid)}
-                        style={{ marginBottom: 8, cursor: poll.active ? 'pointer' : 'default', padding: '10px 14px', borderRadius: 10, border: '2px solid ' + (myVote ? C.violet : C.border), background: myVote ? C.violet + '08' : 'white', position: 'relative', overflow: 'hidden' }}>
-                        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: pct + '%', background: C.violet + '15', transition: 'width 0.4s' }} />
-                        <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ fontSize: 13, fontWeight: myVote ? 700 : 500, color: C.textPrimary }}>{myVote ? '✓ ' : ''}{o.text}</span>
-                          <span style={{ fontSize: 12, fontWeight: 700, color: C.violet }}>{pct}%</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  <p style={{ fontSize: 12, color: C.textTertiary, textAlign: 'center', margin: '4px 0 10px' }}>{total} vote(s)</p>
-                  {poll.active && poll.userId === user.uid && (
-                    <button onClick={() => FirebaseMeetingService.closePoll(meeting.id, poll.id)} style={{ ...secBtn, fontSize: 12, width: '100%' }}>{T.closePoll}</button>
-                  )}
-                </div>
-              );
-            })}
-            {!creatingPoll && (
-              <button onClick={() => setCreatingPoll(true)} style={{ ...primBtn, fontSize: 13, width: '100%', marginTop: 8 }}>{T.createPoll}</button>
-            )}
+        {/* Live captions */}
+        {captionsOn && captionText && (
+          <div style={{ position: 'absolute', bottom: 90, left: '50%', transform: 'translateX(-50%)', maxWidth: '65%', textAlign: 'center', background: 'rgba(0,0,0,0.82)', color: 'white', fontSize: 16, fontWeight: 600, padding: '10px 20px', borderRadius: 12 }}>
+            {captionText}
           </div>
-        </MeetPanel>
-      )}
+        )}
 
-      {/* ── Q&A PANEL ── */}
-      {activePanel === 'qa' && (
-        <MeetPanel title="Questions & Réponses" icon="❓" onClose={() => setActivePanel(null)}>
-          <div style={{ padding: '12px 16px', borderBottom: '1px solid ' + C.border, display: 'flex', gap: 8, flexShrink: 0 }}>
-            <input value={qaInput} onChange={e => setQaInput(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && submitQuestion()}
-              placeholder="Posez votre question..."
-              style={{ ...fieldStyle, flex: 1, fontSize: 13, padding: '10px 14px' }} />
-            <button onClick={submitQuestion} style={{ padding: '10px 14px', background: C.accentGolden, color: 'white', border: 'none', borderRadius: 10, cursor: 'pointer', fontWeight: 700, fontSize: 14, flexShrink: 0 }}>➤</button>
-          </div>
-          <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {qaQuestions.length === 0 ? (
-              <div style={{ textAlign: 'center', paddingTop: 40, color: C.textTertiary, fontSize: 13 }}>
-                <div style={{ fontSize: 36, marginBottom: 8 }}>❓</div>Aucune question
-              </div>
-            ) : qaQuestions.map(q => (
-              <div key={q.id} style={{ background: q.answered ? C.success + '08' : C.lightBg, borderRadius: 12, padding: '12px 14px', border: '1.5px solid ' + (q.answered ? C.success : C.border) }}>
-                <p style={{ fontSize: 13, fontWeight: 600, color: C.textPrimary, margin: '0 0 8px', lineHeight: 1.5 }}>{q.question}</p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 11, color: C.textTertiary }}>{q.userName}</span>
-                  {q.answered && <span style={{ fontSize: 11, color: C.success, fontWeight: 700 }}>✓ Répondu</span>}
-                  <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
-                    <button onClick={() => FirebaseMeetingService.toggleUpvote(meeting.id, q.id, user.uid)}
-                      style={{ background: q.upvotes?.includes(user.uid) ? C.accentGolden + '20' : 'rgba(0,0,0,0.05)', border: '1px solid ' + (q.upvotes?.includes(user.uid) ? C.accentGolden : 'transparent'), borderRadius: 8, padding: '3px 8px', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: q.upvotes?.includes(user.uid) ? C.accentGolden : C.textTertiary, fontFamily: 'Poppins, sans-serif' }}>
-                      👍 {q.upvotes?.length || 0}
-                    </button>
-                    {meeting.creatorId === user.uid && !q.answered && (
-                      <button onClick={() => FirebaseMeetingService.markAnswered(meeting.id, q.id)}
-                        style={{ background: C.success + '15', border: '1px solid ' + C.success, borderRadius: 8, padding: '3px 8px', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: C.success, fontFamily: 'Poppins, sans-serif' }}>
-                        ✓ Répondu
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
+        {/* Floating emoji reactions */}
+        {floatingReactions.map(r => (
+          <div key={r.id} style={{ position: 'absolute', bottom: 100, left: `${r.x}%`, fontSize: 40, userSelect: 'none', animation: 'floatUp 3s ease-out forwards' }}>{r.emoji}</div>
+        ))}
+
+        {/* Reaction picker */}
+        {showReactions && (
+          <div style={{ position: 'absolute', bottom: 90, left: '50%', transform: 'translateX(-50%)', background: 'rgba(15,15,20,0.97)', borderRadius: 20, padding: '14px 18px', display: 'flex', gap: 8, boxShadow: '0 8px 32px rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.12)', pointerEvents: 'all' }}>
+            {['👍','❤️','😂','😮','👏','🙌'].map(emoji => (
+              <button key={emoji} onClick={() => sendReaction(emoji)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 34, padding: 8, borderRadius: 12, transition: 'transform 0.15s', lineHeight: 1 }}
+                onMouseEnter={e => e.currentTarget.style.transform='scale(1.4)'}
+                onMouseLeave={e => e.currentTarget.style.transform='scale(1)'}
+              >{emoji}</button>
             ))}
           </div>
-        </MeetPanel>
-      )}
+        )}
 
-      {/* ── NOTES PANEL ── */}
-      {activePanel === 'notes' && (
-        <MeetPanel title={T.notes} icon="📝" onClose={() => setActivePanel(null)}>
-          <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder={T.notesPlaceholder}
-            style={{ flex: 1, padding: '14px 16px', border: 'none', resize: 'none', fontFamily: 'Poppins, sans-serif', fontSize: 13, color: C.textPrimary, background: 'transparent', outline: 'none', lineHeight: 1.7 }} />
-          <div style={{ padding: '8px 16px', borderTop: '1px solid ' + C.border, fontSize: 11, color: C.textTertiary, textAlign: 'center', flexShrink: 0 }}>💾 Sauvegardé automatiquement</div>
-        </MeetPanel>
-      )}
+        {/* Right sidebar buttons */}
+        <div style={{ position: 'absolute', right: activePanel ? 352 : 12, top: '50%', transform: 'translateY(-50%)', display: 'flex', flexDirection: 'column', gap: 10, transition: 'right 0.3s ease', pointerEvents: 'all' }}>
+          <SideBtn icon="😀" label="Réactions" onClick={() => { setShowReactions(v=>!v); setActivePanel(null); }} active={showReactions} color={C.accentOrange} />
+          <SideBtn icon="📊" label={T.polls} onClick={() => togglePanel('poll')} active={activePanel==='poll'} badge={activePoll?1:0} color={C.violet} />
+          <SideBtn icon="❓" label="Q&A" onClick={() => togglePanel('qa')} active={activePanel==='qa'} color={C.accentGolden} />
+          <SideBtn icon="📝" label={T.notes} onClick={() => togglePanel('notes')} active={activePanel==='notes'} color={C.iceBlue} />
+          <SideBtn icon="🎨" label="Tableau blanc" onClick={() => togglePanel('whiteboard')} active={activePanel==='whiteboard'} color={C.accentOrange} />
+          <SideBtn icon="🎤" label={captionsOn ? 'Stop sous-titres' : 'Sous-titres'} onClick={() => setCaptionsOn(v=>!v)} active={captionsOn} color={C.success} />
+        </div>
 
-      {/* ── WHITEBOARD PANEL ── */}
-      {activePanel === 'whiteboard' && (
-        <MeetPanel title="Tableau blanc" icon="🎨" onClose={() => setActivePanel(null)}>
-          <iframe src="https://excalidraw.com/" style={{ flex: 1, border: 'none', width: '100%' }} title="Tableau blanc" allow="clipboard-write" />
-        </MeetPanel>
-      )}
+        {/* Side panel container */}
+        {activePanel && (
+          <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 340, pointerEvents: 'all' }}>
+
+            {/* POLLS */}
+            {activePanel === 'poll' && (
+              <MeetPanel title={T.polls} icon="📊" onClose={() => setActivePanel(null)}>
+                <div style={{ padding: 16, overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {creatingPoll ? (
+                    <>
+                      <input placeholder={T.pollQuestion} value={pollQuestion} onChange={e => setPollQuestion(e.target.value)} style={{ ...fieldStyle, fontSize: 13 }} />
+                      {pollOptions.map((o, i) => (
+                        <input key={i} placeholder={`${T.pollOption} ${i+1}`} value={o}
+                          onChange={e => { const n=[...pollOptions]; n[i]=e.target.value; setPollOptions(n); }}
+                          style={{ ...fieldStyle, fontSize: 13 }} />
+                      ))}
+                      {pollOptions.length < 5 && <button onClick={() => setPollOptions(p=>[...p,''])} style={{ ...secBtn, fontSize: 13 }}>+ {T.addOption}</button>}
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button onClick={launchPoll} style={{ ...primBtn, fontSize: 13, flex: 1 }}>{T.launchPoll}</button>
+                        <button onClick={() => setCreatingPoll(false)} style={{ ...secBtn, fontSize: 13, flex: 1 }}>{T.cancel}</button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {polls.length === 0 && <div style={{ textAlign: 'center', padding: '32px 0', color: C.textTertiary }}><div style={{ fontSize: 40 }}>📊</div><p style={{ fontSize: 13 }}>Aucun sondage actif</p></div>}
+                      {polls.map(poll => {
+                        const total = poll.options.reduce((s,o) => s+(o.votes?.length||0), 0);
+                        return (
+                          <div key={poll.id} style={{ background: C.lightBg, borderRadius: 14, padding: 14, border: '1.5px solid '+(poll.active?C.violet:C.border) }}>
+                            <p style={{ fontWeight: 700, fontSize: 14, color: C.textPrimary, margin: '0 0 10px' }}>{poll.question}</p>
+                            {poll.options.map((o,i) => {
+                              const pct = total>0?Math.round((o.votes?.length||0)/total*100):0;
+                              const myVote = o.votes?.includes(user.uid);
+                              return (
+                                <div key={i} onClick={() => poll.active && FirebaseMeetingService.votePoll(meeting.id,poll.id,i,user.uid)}
+                                  style={{ marginBottom: 8, cursor: poll.active?'pointer':'default', padding: '10px 14px', borderRadius: 10, border: '2px solid '+(myVote?C.violet:C.border), background: myVote?C.violet+'12':'white', position: 'relative', overflow: 'hidden' }}>
+                                  <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: pct+'%', background: C.violet+'18', transition: 'width 0.4s' }} />
+                                  <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between' }}>
+                                    <span style={{ fontSize: 13, fontWeight: myVote?700:500, color: C.textPrimary }}>{myVote?'✓ ':''}{o.text}</span>
+                                    <span style={{ fontSize: 12, fontWeight: 700, color: C.violet }}>{pct}%</span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                            <p style={{ fontSize: 12, color: C.textTertiary, textAlign: 'center', margin: '4px 0 8px' }}>{total} vote(s)</p>
+                            {poll.active && poll.userId===user.uid && <button onClick={() => FirebaseMeetingService.closePoll(meeting.id,poll.id)} style={{ ...secBtn, fontSize: 12, width: '100%' }}>{T.closePoll}</button>}
+                          </div>
+                        );
+                      })}
+                      <button onClick={() => setCreatingPoll(true)} style={{ ...primBtn, fontSize: 13, width: '100%' }}>{T.createPoll}</button>
+                    </>
+                  )}
+                </div>
+              </MeetPanel>
+            )}
+
+            {/* Q&A */}
+            {activePanel === 'qa' && (
+              <MeetPanel title="Questions & Réponses" icon="❓" onClose={() => setActivePanel(null)}>
+                <div style={{ padding: '12px 16px', borderBottom: '1px solid '+C.border, flexShrink: 0 }}>
+                  <input value={qaInput} onChange={e => setQaInput(e.target.value)}
+                    onKeyDown={e => e.key==='Enter' && submitQuestion(false)}
+                    placeholder="Posez votre question..."
+                    style={{ ...fieldStyle, fontSize: 13, marginBottom: 8 }} />
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={() => submitQuestion(false)} style={{ flex: 1, padding: '9px', background: C.accentGolden, color: 'white', border: 'none', borderRadius: 10, cursor: 'pointer', fontWeight: 700, fontSize: 13, fontFamily: 'Poppins, sans-serif' }}>✉️ Envoyer</button>
+                    <button onClick={() => submitQuestion(true)} style={{ flex: 1, padding: '9px', background: 'rgba(0,0,0,0.06)', color: C.textSecondary, border: '1px solid '+C.border, borderRadius: 10, cursor: 'pointer', fontWeight: 600, fontSize: 13, fontFamily: 'Poppins, sans-serif' }}>🕵️ Anonyme</button>
+                  </div>
+                </div>
+                <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {qaQuestions.length === 0 ? (
+                    <div style={{ textAlign: 'center', paddingTop: 40, color: C.textTertiary }}>
+                      <div style={{ fontSize: 36, marginBottom: 8 }}>❓</div>
+                      <p style={{ fontSize: 13 }}>Aucune question pour le moment</p>
+                      <p style={{ fontSize: 12 }}>Soyez le premier à poser une question !</p>
+                    </div>
+                  ) : qaQuestions.map(q => (
+                    <div key={q.id} style={{ background: q.answered?C.success+'08':C.lightBg, borderRadius: 12, padding: '12px 14px', border: '1.5px solid '+(q.answered?C.success:C.border) }}>
+                      <p style={{ fontSize: 13, fontWeight: 600, color: C.textPrimary, margin: '0 0 8px', lineHeight: 1.5 }}>{q.question}</p>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 11, color: C.textTertiary, fontStyle: q.userName==='Anonyme'?'italic':'normal' }}>
+                          {q.userName==='Anonyme'?'🕵️ Anonyme':`👤 ${q.userName}`}
+                        </span>
+                        {q.answered && <span style={{ fontSize: 11, color: C.success, fontWeight: 700 }}>✓ Répondu</span>}
+                        <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+                          <button onClick={() => FirebaseMeetingService.toggleUpvote(meeting.id,q.id,user.uid)}
+                            style={{ background: q.upvotes?.includes(user.uid)?C.accentGolden+'20':'rgba(0,0,0,0.05)', border: '1px solid '+(q.upvotes?.includes(user.uid)?C.accentGolden:'transparent'), borderRadius: 8, padding: '4px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: q.upvotes?.includes(user.uid)?C.accentGolden:C.textTertiary, fontFamily: 'Poppins, sans-serif' }}>
+                            👍 {q.upvotes?.length||0}
+                          </button>
+                          {(meeting.creatorId===user.uid||meeting.organizerId===user.uid) && !q.answered && (
+                            <button onClick={() => FirebaseMeetingService.markAnswered(meeting.id,q.id)}
+                              style={{ background: C.success+'15', border: '1px solid '+C.success, borderRadius: 8, padding: '4px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: C.success, fontFamily: 'Poppins, sans-serif' }}>
+                              ✓ Répondu
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </MeetPanel>
+            )}
+
+            {/* NOTES */}
+            {activePanel === 'notes' && (
+              <MeetPanel title={T.notes} icon="📝" onClose={() => setActivePanel(null)}>
+                <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Vos notes de réunion..."
+                  style={{ flex: 1, padding: '14px 16px', border: 'none', resize: 'none', fontFamily: 'Poppins, sans-serif', fontSize: 13, color: C.textPrimary, background: 'transparent', outline: 'none', lineHeight: 1.7 }} />
+                <div style={{ padding: '8px 16px', borderTop: '1px solid '+C.border, fontSize: 11, color: C.textTertiary, textAlign: 'center', flexShrink: 0 }}>💾 Sauvegardé automatiquement</div>
+              </MeetPanel>
+            )}
+
+            {/* WHITEBOARD */}
+            {activePanel === 'whiteboard' && (
+              <MeetPanel title="Tableau blanc" icon="🎨" onClose={() => setActivePanel(null)}>
+                <iframe src="https://excalidraw.com/" style={{ flex: 1, border: 'none', width: '100%' }} title="Tableau blanc" allow="clipboard-write" />
+              </MeetPanel>
+            )}
+          </div>
+        )}
+
+        {/* Pro paywall */}
+        {callFrozen && (
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(12px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'all' }}>
+            <div style={{ fontSize: 56, marginBottom: 16 }}>⏱️</div>
+            <h2 style={{ color: 'white', fontSize: 22, fontWeight: 800, margin: '0 0 8px', textAlign: 'center' }}>Limite gratuite atteinte</h2>
+            <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, textAlign: 'center', maxWidth: 280, margin: '0 0 24px' }}>Passez à Pro pour des réunions illimitées.</p>
+            <button onClick={() => ProService.openPayment()} style={{ padding: '14px 32px', background: 'linear-gradient(135deg,#F57F17,#FF8F00)', border: 'none', borderRadius: 16, color: 'white', fontWeight: 800, fontSize: 15, cursor: 'pointer', fontFamily: 'Poppins, sans-serif', marginBottom: 12 }}>
+              ⭐ Activer Pro — {ProService.PRICE_XOF.toLocaleString()} XOF
+            </button>
+            <button onClick={() => { setCallFrozen(false); onExit(); }} style={{ background: 'none', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 12, padding: '10px 24px', color: 'rgba(255,255,255,0.7)', fontSize: 13, cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>
+              Quitter la réunion
+            </button>
+          </div>
+        )}
+      </Portal>
     </div>
   );
 }
