@@ -274,6 +274,26 @@ const T_MAP = {
     scheduleMeeting: 'Planifier une réunion',
     joinViaCode: 'Rejoindre via un code',
     noRecentMeetings: 'Aucune réunion récente',
+    captions: 'Sous-titres',
+    captionsOn: 'Sous-titres activés',
+    captionsOff: 'Sous-titres désactivés',
+    captionsUnsupported: 'Non supporté sur ce navigateur',
+    notes: 'Notes',
+    notesPlaceholder: 'Vos notes ici...',
+    saved: 'Sauvegardé',
+    invite: 'Inviter',
+    meetingInfo: 'Infos réunion',
+    copyLink: 'Copier le lien',
+    copyId: "Copier l'ID",
+    linkCopied: 'Lien copié !',
+    idCopied: 'ID copié !',
+    securityPanel: 'Sécurité',
+    lockMeetingOn: 'Réunion verrouillée — plus personne ne peut rejoindre',
+    waitingRoomToggle: 'Salle d\'attente',
+    endMeetingForAll: 'Terminer pour tous',
+    endMeetingConfirm: 'Terminer la réunion pour tous les participants ?',
+    bgBlur: 'Flou arrière-plan',
+    noiseCancel: 'Réduction du bruit',
     message: 'Message',
     appearance: 'Apparence',
     chooseLang: 'Choisir la langue',
@@ -376,6 +396,26 @@ const T_MAP = {
     scheduleMeeting: 'Schedule Meeting',
     joinViaCode: 'Join via Code',
     noRecentMeetings: 'No recent meetings',
+    captions: 'Captions',
+    captionsOn: 'Captions on',
+    captionsOff: 'Captions off',
+    captionsUnsupported: 'Not supported on this browser',
+    notes: 'Notes',
+    notesPlaceholder: 'Your notes here...',
+    saved: 'Saved',
+    invite: 'Invite',
+    meetingInfo: 'Meeting info',
+    copyLink: 'Copy link',
+    copyId: 'Copy ID',
+    linkCopied: 'Link copied!',
+    idCopied: 'ID copied!',
+    securityPanel: 'Security',
+    lockMeetingOn: 'Meeting locked — no one else can join',
+    waitingRoomToggle: 'Waiting room',
+    endMeetingForAll: 'End for all',
+    endMeetingConfirm: 'End the meeting for all participants?',
+    bgBlur: 'Background blur',
+    noiseCancel: 'Noise cancellation',
     message: 'Message',
     appearance: 'Appearance',
     chooseLang: 'Choose Language',
@@ -2422,6 +2462,15 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
   const [kicked, setKicked] = useState(false);
   const muteAllSeenRef = useRef(null);
 
+  const [captionsOn, setCaptionsOn] = useState(false);
+  const [captionText, setCaptionText] = useState('');
+  const recognitionRef = useRef(null);
+  const [notes, setNotes] = useState(() => localStorage.getItem('crux_notes_' + meeting.id) || '');
+  const [showNotesModal, setShowNotesModal] = useState(false);
+  const [notesSaved, setNotesSaved] = useState(true);
+  const notesSaveTimer = useRef(null);
+  const [showInfoPanel, setShowInfoPanel] = useState(false);
+
   const isHost = meeting.creatorId === user.uid || meeting.organizerId === user.uid;
   const isCoHost = coHosts.includes(user.uid);
 
@@ -2564,6 +2613,46 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
     return unsub;
   }, [meeting.id, user.uid]);
 
+  // Live captions — Web Speech API
+  const toggleCaptions = () => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { showToast(T.captionsUnsupported || 'Non supporté', 'error'); return; }
+    if (captionsOn) {
+      recognitionRef.current?.stop();
+      recognitionRef.current = null;
+      setCaptionsOn(false);
+      setCaptionText('');
+      return;
+    }
+    const langMap = { fr:'fr-FR', en:'en-US', es:'es-ES', de:'de-DE', ru:'ru-RU', pt:'pt-BR', it:'it-IT', ar:'ar-SA', zh:'zh-CN', ja:'ja-JP', ko:'ko-KR' };
+    const rec = new SR();
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.lang = langMap[prefs?.language] || 'fr-FR';
+    rec.onresult = e => {
+      const text = Array.from(e.results).map(r => r[0].transcript).join(' ');
+      setCaptionText(text);
+    };
+    rec.onerror = () => { setCaptionsOn(false); setCaptionText(''); };
+    rec.onend = () => { if (recognitionRef.current) { try { rec.start(); } catch {} } };
+    recognitionRef.current = rec;
+    rec.start();
+    setCaptionsOn(true);
+    showToast('🖊️ ' + (T.captionsOn || 'Sous-titres activés'), 'success');
+  };
+
+  // Notes auto-save (debounced)
+  useEffect(() => {
+    setNotesSaved(false);
+    clearTimeout(notesSaveTimer.current);
+    notesSaveTimer.current = setTimeout(() => {
+      localStorage.setItem('crux_notes_' + meeting.id, notes);
+      FirebaseMeetingService.saveNote(meeting.id, user.uid, notes).catch(() => {});
+      setNotesSaved(true);
+    }, 800);
+    return () => clearTimeout(notesSaveTimer.current);
+  }, [notes, meeting.id, user.uid]);
+
   // Notification : main levée (hôte uniquement)
   useEffect(() => {
     if (!isHost) return;
@@ -2700,6 +2789,11 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
         FirebaseMeetingService.leavePresence(meeting.id, user.uid);
         onExit();
       },
+      onRoomStateChanged: (state) => {
+        if (state === 'DISCONNECTED') {
+          FirebaseMeetingService.leavePresence(meeting.id, user.uid);
+        }
+      },
     });
 
     return () => { try { zp?.destroy?.(); } catch { } };
@@ -2770,6 +2864,57 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
           </div>
         )}
 
+        {/* Live captions overlay — bottom of screen, Google Meet style */}
+        {captionsOn && captionText && (
+          <div style={{ position: 'absolute', bottom: 80, left: '50%', transform: 'translateX(-50%)', maxWidth: '90vw', background: 'rgba(0,0,0,0.82)', color: 'white', borderRadius: 10, padding: '8px 16px', fontSize: 15, fontWeight: 500, textAlign: 'center', pointerEvents: 'none', zIndex: 5, lineHeight: 1.5, backdropFilter: 'blur(8px)' }}>
+            {captionText.split(' ').slice(-12).join(' ')}
+          </div>
+        )}
+
+        {/* Meeting info / invite panel */}
+        {showInfoPanel && (
+          <div style={{ position: 'absolute', top: 52, right: 0, width: 'min(100vw, 320px)', bottom: 0, pointerEvents: 'all', zIndex: 3 }}>
+            <MeetPanel title={T.meetingInfo || 'Infos réunion'} icon="🔗" onClose={() => setShowInfoPanel(false)}>
+              <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {/* Meeting title */}
+                <div style={{ background: C.lightBg, borderRadius: 12, padding: '12px 14px' }}>
+                  <p style={{ margin: '0 0 2px', fontSize: 11, color: C.textTertiary, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.8 }}>Réunion</p>
+                  <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: C.textPrimary }}>{meeting.title || 'Réunion CRUX'}</p>
+                </div>
+                {/* Meeting ID */}
+                <div style={{ background: C.lightBg, borderRadius: 12, padding: '12px 14px' }}>
+                  <p style={{ margin: '0 0 4px', fontSize: 11, color: C.textTertiary, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.8 }}>ID de réunion</p>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                    <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: C.textPrimary, letterSpacing: 1 }}>{meeting.id?.slice(0,6).toUpperCase()}</p>
+                    <button onClick={() => { navigator.clipboard?.writeText(meeting.id || '').then(() => showToast('📋 ' + (T.idCopied || 'ID copié !'), 'success')); }} style={{ padding: '5px 10px', background: C.violet + '20', border: '1px solid ' + C.violet + '40', borderRadius: 8, color: C.violet, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>{T.copyId || 'Copier'}</button>
+                  </div>
+                </div>
+                {/* Invite link */}
+                <div style={{ background: C.lightBg, borderRadius: 12, padding: '12px 14px' }}>
+                  <p style={{ margin: '0 0 4px', fontSize: 11, color: C.textTertiary, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.8 }}>Lien d'invitation</p>
+                  <p style={{ margin: '0 0 8px', fontSize: 11, color: C.textSecondary, wordBreak: 'break-all' }}>{window.location.origin + '/crux_web?join=' + meeting.id}</p>
+                  <button onClick={() => {
+                    const url = window.location.origin + '/crux_web?join=' + meeting.id;
+                    navigator.clipboard?.writeText(url).then(() => showToast('🔗 ' + (T.linkCopied || 'Lien copié !'), 'success'));
+                  }} style={{ width: '100%', padding: '10px', background: 'linear-gradient(135deg,#8E44AD,#3498DB)', border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>
+                    📋 {T.copyLink || 'Copier le lien'}
+                  </button>
+                  <button onClick={() => navigator.share?.({ title: 'Rejoins ma réunion CRUX', url: window.location.origin + '/crux_web?join=' + meeting.id }).catch(() => {})} style={{ width: '100%', padding: '10px', marginTop: 6, background: 'transparent', border: '1px solid ' + C.border, borderRadius: 10, color: C.textSecondary, fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>
+                    🔗 Partager via...
+                  </button>
+                </div>
+                {/* QR code text fallback */}
+                <div style={{ background: C.lightBg, borderRadius: 12, padding: '12px 14px', textAlign: 'center' }}>
+                  <p style={{ margin: '0 0 6px', fontSize: 11, color: C.textTertiary, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.8 }}>Code réunion</p>
+                  <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: 6, color: C.violet, fontFamily: 'monospace' }}>
+                    {meeting.id?.slice(0,6).toUpperCase()}
+                  </div>
+                </div>
+              </div>
+            </MeetPanel>
+          </div>
+        )}
+
         {/* Top toolbar — single compact row */}
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.82)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255,255,255,0.08)', pointerEvents: 'all', zIndex: 2 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px' }}>
@@ -2786,11 +2931,14 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
             </div>
             {/* Center: tool buttons — scrollable on mobile, no wrap */}
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 4, overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none', justifyContent: 'center', padding: '0 4px' }}>
-              <SideBtn icon="😀" label={T.reactions} onClick={() => { setShowReactions(v=>!v); setActivePanel(null); }} active={showReactions} color={C.accentOrange} />
-              <SideBtn icon="📊" label={T.polls} onClick={() => togglePanel('poll')} active={activePanel==='poll'} badge={activePoll?1:0} color={C.violet} />
+              <SideBtn icon="😀" label={T.reactions} onClick={() => { setShowReactions(v=>!v); setActivePanel(null); setShowInfoPanel(false); }} active={showReactions} color={C.accentOrange} />
+              <SideBtn icon="📊" label={T.polls} onClick={() => { togglePanel('poll'); setShowInfoPanel(false); }} active={activePanel==='poll'} badge={activePoll?1:0} color={C.violet} />
+              <SideBtn icon="📝" label={T.notes || 'Notes'} onClick={() => { setShowNotesModal(true); setActivePanel(null); setShowInfoPanel(false); }} active={showNotesModal} color={C.iceBlue} />
+              <SideBtn icon="🖊️" label={T.captions || 'Sous-titres'} onClick={toggleCaptions} active={captionsOn} color={captionsOn ? '#27AE60' : C.textTertiary} />
+              <SideBtn icon="🔗" label={T.invite || 'Inviter'} onClick={() => { setShowInfoPanel(v=>!v); setActivePanel(null); }} active={showInfoPanel} color={C.violet} />
               <SideBtn icon="⊡" label={T.miniScreen || 'Mini-écran'} onClick={requestPiP} color={C.iceBlue} />
               {(isHost || isCoHost) && (
-                <SideBtn icon="👑" label={T.hostControls || 'Contrôles'} onClick={() => togglePanel('hostControls')} active={activePanel==='hostControls'} color="#F57F17" />
+                <SideBtn icon="👑" label={T.hostControls || 'Contrôles'} onClick={() => { togglePanel('hostControls'); setShowInfoPanel(false); }} active={activePanel==='hostControls'} color="#F57F17" />
               )}
             </div>
           </div>
@@ -2956,6 +3104,36 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
               ← {T.back || 'Retour'}
             </button>
           </div>
+        )}
+
+        {/* Notes full-screen modal — Google Meet style, no keyboard issues */}
+        {showNotesModal && ReactDOM.createPortal(
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 999999, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', fontFamily: 'Poppins, sans-serif' }} onClick={() => setShowNotesModal(false)}>
+            <div style={{ width: '100%', maxWidth: 600, background: '#1A1A2E', borderRadius: '20px 20px 0 0', padding: '0 0 env(safe-area-inset-bottom, 0)', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+              {/* Header */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px 12px', borderBottom: '1px solid rgba(255,255,255,0.1)', flexShrink: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 18 }}>📝</span>
+                  <span style={{ fontWeight: 700, fontSize: 15, color: 'white' }}>{T.notes || 'Notes'}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 11, color: notesSaved ? '#4CAF50' : 'rgba(255,255,255,0.4)' }}>
+                    {notesSaved ? '✓ ' + (T.saved || 'Sauvegardé') : '…'}
+                  </span>
+                  <button onClick={() => setShowNotesModal(false)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 8, width: 30, height: 30, color: 'white', fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                </div>
+              </div>
+              {/* Textarea — full height, no focus issues */}
+              <textarea
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                placeholder={T.notesPlaceholder || 'Vos notes ici...'}
+                autoFocus
+                style={{ flex: 1, padding: '16px 20px', background: 'transparent', border: 'none', color: 'white', fontSize: 14, lineHeight: 1.7, fontFamily: 'Poppins, sans-serif', resize: 'none', outline: 'none', minHeight: 200 }}
+              />
+            </div>
+          </div>,
+          document.body
         )}
 
         {/* Pro paywall */}
