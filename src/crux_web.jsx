@@ -1,4 +1,4 @@
-// ZegoCloud removed — replaced by Jitsi Meet (free, 500+ participants)
+import AgoraRTC from 'agora-rtc-sdk-ng';
 import { AuthService, MeetingService } from './services/LocalStorageService';
 import { PaymentService, MeetingService as FirebaseMeetingService } from './services/FirebaseService';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -2432,9 +2432,49 @@ function PreJoinRoom({ meeting, user, onJoin, onLeave }) {
   );
 }
 
+function AgoraVideoTile({ track, audioTrack, name, isLocal, micOn, camOn }) {
+  const divRef = React.useRef(null);
+  React.useEffect(() => {
+    if (track && divRef.current) {
+      track.play(divRef.current);
+      return () => { try { track.stop(); } catch {} };
+    }
+  }, [track]);
+  React.useEffect(() => {
+    if (audioTrack) {
+      audioTrack.play();
+      return () => { try { audioTrack.stop(); } catch {} };
+    }
+  }, [audioTrack]);
+  const showVideo = isLocal ? camOn !== false : !!track;
+  return (
+    <div style={{ position: 'relative', background: '#0f0f1a', borderRadius: 12, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 120 }}>
+      <div ref={divRef} style={{ position: 'absolute', inset: 0, display: showVideo ? 'block' : 'none' }} />
+      {!showVideo && (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, zIndex: 1 }}>
+          <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'linear-gradient(135deg,#8E44AD,#3498DB)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 700, color: 'white' }}>
+            {(name || '?')[0].toUpperCase()}
+          </div>
+          <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', fontFamily: 'Poppins, sans-serif' }}>{name}</span>
+        </div>
+      )}
+      <div style={{ position: 'absolute', bottom: 6, left: 8, display: 'flex', alignItems: 'center', gap: 4, zIndex: 2 }}>
+        <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.85)', fontFamily: 'Poppins, sans-serif', background: 'rgba(0,0,0,0.5)', borderRadius: 6, padding: '2px 6px' }}>
+          {isLocal ? '(Vous)' : name}
+        </span>
+        {(isLocal ? micOn === false : !audioTrack) && <span style={{ fontSize: 11 }}>🔇</span>}
+      </div>
+    </div>
+  );
+}
+
 function MeetingRoom({ meeting, user, T, prefs, onExit }) {
-  const jitsiContainerRef = useRef(null);
-  const jitsiApiRef = useRef(null);
+  const agoraClientRef = useRef(null);
+  const localTracksRef = useRef({ audio: null, video: null });
+  const [remoteUsers, setRemoteUsers] = useState([]);
+  const [localMicOn, setLocalMicOn] = useState(true);
+  const [localCamOn, setLocalCamOn] = useState(true);
+  const [agoraJoined, setAgoraJoined] = useState(false);
   const [inPreJoin, setInPreJoin] = useState(true);
   const initMicRef = useRef(true);
   const initCamRef = useRef(true);
@@ -2745,97 +2785,104 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
 
   const requestPiP = async () => {
     try {
-      const video = jitsiContainerRef.current?.querySelector('video');
+      const video = document.querySelector('[data-crux-local-video] video, [data-crux-remote-video] video');
       if (video) await video.requestPictureInPicture();
     } catch { }
   };
 
+  const toggleMic = async () => {
+    const track = localTracksRef.current.audio;
+    if (!track) return;
+    const next = !localMicOn;
+    await track.setMuted(!next);
+    setLocalMicOn(next);
+  };
 
-  // Jitsi Meet — free, no API key, 500+ participants
+  const toggleCam = async () => {
+    const track = localTracksRef.current.video;
+    if (!track) return;
+    const next = !localCamOn;
+    await track.setMuted(!next);
+    setLocalCamOn(next);
+  };
+
+  const leaveAgora = async () => {
+    localTracksRef.current.audio?.close();
+    localTracksRef.current.video?.close();
+    localTracksRef.current = { audio: null, video: null };
+    await agoraClientRef.current?.leave();
+    FirebaseMeetingService.leavePresence(meeting.id, user.uid);
+    onExit();
+  };
+
+
+  // Agora RTC — embedded video, no external window, free 10k min/month
   useEffect(() => {
     if (inPreJoin) return;
-    if (!jitsiContainerRef.current) return;
+    const AGORA_APP_ID = process.env.REACT_APP_AGORA_APP_ID;
+    if (!AGORA_APP_ID) {
+      showToast('⚠️ Clé Agora manquante — ajoutez REACT_APP_AGORA_APP_ID dans .env', 'error');
+      return;
+    }
 
-    const loadJitsi = () => new Promise(resolve => {
-      if (window.JitsiMeetExternalAPI) { resolve(); return; }
-      const s = document.createElement('script');
-      s.src = 'https://meet.jit.si/external_api.js';
-      s.onload = resolve;
-      s.onerror = resolve; // fail gracefully
-      document.head.appendChild(s);
-    });
-
-    const langMap = { fr:'fr', en:'en', es:'es', de:'de', ru:'ru', pt:'ptBR', it:'it', ar:'ar', zh:'zhCN', ja:'ja', ko:'ko', tr:'tr', vi:'vi', pl:'pl', nl:'nl', sv:'sv', uk:'uk' };
     const isWebinar = meeting.type === 'webinar';
-    const roomName = 'CRUX' + (meeting.id || 'room').replace(/[^a-zA-Z0-9]/g, '').slice(0, 32).toUpperCase();
+    const channelName = 'crux_' + (meeting.id || 'room').replace(/[^a-zA-Z0-9]/g, '').slice(0, 64);
+    const uid = user.uid.replace(/[^a-zA-Z0-9]/g, '').slice(0, 32) || 'user';
 
-    loadJitsi().then(() => {
-      if (!window.JitsiMeetExternalAPI || !jitsiContainerRef.current) return;
+    AgoraRTC.setLogLevel(4); // errors only
+    const client = AgoraRTC.createClient({ mode: isWebinar ? 'live' : 'rtc', codec: 'vp8' });
+    if (isWebinar) client.setClientRole(isHost ? 'host' : 'audience');
+    agoraClientRef.current = client;
 
-      const api = new window.JitsiMeetExternalAPI('meet.jit.si', {
-        roomName,
-        width: '100%',
-        height: '100%',
-        parentNode: jitsiContainerRef.current,
-        userInfo: {
-          displayName: user.name || user.email || 'Utilisateur',
-          email: user.email || '',
-        },
-        configOverwrite: {
-          startWithAudioMuted: !initMicRef.current,
-          startWithVideoMuted: !initCamRef.current,
-          prejoinPageEnabled: false,
-          disableDeepLinking: true,
-          enableWelcomePage: false,
-          enableClosePage: false,
-          defaultLanguage: langMap[prefs?.language] || 'fr',
-          subject: meeting.title || 'Réunion CRUX',
-          disableInviteFunctions: false,
-          // Webinar: disable video for non-presenters
-          startSilent: isWebinar && !isHost,
-          disableVideo: isWebinar && !isHost,
-          // Performance
-          p2p: { enabled: true },
-          maxFullResolutionParticipants: 2,
-          constraints: { video: { height: { ideal: 720, max: 1080, min: 240 } } },
-        },
-        interfaceConfigOverwrite: {
-          SHOW_JITSI_WATERMARK: false,
-          SHOW_WATERMARK_FOR_GUESTS: false,
-          MOBILE_APP_PROMO: false,
-          HIDE_INVITE_MORE_HEADER: false,
-          DEFAULT_REMOTE_DISPLAY_NAME: 'Participant',
-          TOOLBAR_BUTTONS: [
-            'microphone', 'camera', 'closedcaptions', 'desktop',
-            'fullscreen', 'fodeviceselection', 'hangup', 'chat',
-            'raisehand', 'videoquality', 'filmstrip', 'feedback',
-            'stats', 'shortcuts', 'tileview', 'videobackgroundblur',
-            'download', 'help', 'mute-everyone', 'security',
-            ...(isHost ? ['mute-everyone', 'kick-participant'] : []),
-          ],
-        },
+    const handleUserPublished = async (remoteUser, mediaType) => {
+      await client.subscribe(remoteUser, mediaType);
+      setRemoteUsers(prev => {
+        const exists = prev.find(u => u.uid === remoteUser.uid);
+        return exists ? prev.map(u => u.uid === remoteUser.uid ? remoteUser : u) : [...prev, remoteUser];
       });
+      FirebaseMeetingService.joinPresence(meeting.id, String(remoteUser.uid), 'Participant');
+    };
 
-      jitsiApiRef.current = api;
+    const handleUserUnpublished = (remoteUser) => {
+      setRemoteUsers(prev => prev.map(u => u.uid === remoteUser.uid ? remoteUser : u));
+    };
 
-      api.addEventListener('videoConferenceLeft', () => {
-        FirebaseMeetingService.leavePresence(meeting.id, user.uid);
-        onExit();
-      });
-      api.addEventListener('readyToClose', () => {
-        FirebaseMeetingService.leavePresence(meeting.id, user.uid);
-        onExit();
-      });
-      api.addEventListener('participantJoined', p => {
-        FirebaseMeetingService.joinPresence(meeting.id, p.id, p.displayName || 'Participant');
-      });
-      api.addEventListener('participantLeft', p => {
-        FirebaseMeetingService.leavePresence(meeting.id, p.id);
-      });
-    });
+    const handleUserLeft = (remoteUser) => {
+      setRemoteUsers(prev => prev.filter(u => u.uid !== remoteUser.uid));
+      FirebaseMeetingService.leavePresence(meeting.id, String(remoteUser.uid));
+    };
+
+    client.on('user-published', handleUserPublished);
+    client.on('user-unpublished', handleUserUnpublished);
+    client.on('user-left', handleUserLeft);
+
+    const start = async () => {
+      await client.join(AGORA_APP_ID, channelName, null, uid);
+      const tracks = [];
+      if (initMicRef.current && !(isWebinar && !isHost)) {
+        const audio = await AgoraRTC.createMicrophoneAudioTrack().catch(() => null);
+        if (audio) { localTracksRef.current.audio = audio; tracks.push(audio); }
+      }
+      if (initCamRef.current && !(isWebinar && !isHost)) {
+        const video = await AgoraRTC.createCameraVideoTrack({ encoderConfig: '720p_2' }).catch(() => null);
+        if (video) { localTracksRef.current.video = video; tracks.push(video); }
+      }
+      if (tracks.length) await client.publish(tracks);
+      setLocalMicOn(!!localTracksRef.current.audio);
+      setLocalCamOn(!!localTracksRef.current.video);
+      setAgoraJoined(true);
+    };
+
+    start().catch(e => showToast('❌ Erreur connexion: ' + e.message, 'error'));
 
     return () => {
-      try { jitsiApiRef.current?.dispose(); jitsiApiRef.current = null; } catch {}
+      client.off('user-published', handleUserPublished);
+      client.off('user-unpublished', handleUserUnpublished);
+      client.off('user-left', handleUserLeft);
+      localTracksRef.current.audio?.close();
+      localTracksRef.current.video?.close();
+      localTracksRef.current = { audio: null, video: null };
+      client.leave().catch(() => {});
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inPreJoin]);
@@ -2866,8 +2913,54 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
 
   return (
     <div style={{ width: '100vw', height: '100vh', background: '#202124' }}>
-      {/* Jitsi Meet container — always mounted so ref is ready, hidden during pre-join */}
-      <div ref={jitsiContainerRef} style={{ position: 'absolute', inset: 0, visibility: inPreJoin ? 'hidden' : 'visible', pointerEvents: inPreJoin ? 'none' : 'all' }} />
+      {/* Agora video grid — shown once pre-join is complete */}
+      {!inPreJoin && (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
+          {/* Video tiles */}
+          <div style={{
+            flex: 1,
+            display: 'grid',
+            gridTemplateColumns: remoteUsers.length === 0 ? '1fr' : remoteUsers.length <= 1 ? '1fr 1fr' : remoteUsers.length <= 3 ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)',
+            gap: 4,
+            padding: '56px 4px 74px',
+            overflow: 'hidden',
+            background: '#0d0d1a',
+          }}>
+            <AgoraVideoTile
+              track={localTracksRef.current.video}
+              name={user.displayName || user.email?.split('@')[0] || 'Vous'}
+              isLocal
+              micOn={localMicOn}
+              camOn={localCamOn}
+            />
+            {remoteUsers.map(u => (
+              <AgoraVideoTile
+                key={u.uid}
+                track={u.videoTrack}
+                audioTrack={u.audioTrack}
+                name={'Participant ' + String(u.uid).slice(0, 4)}
+              />
+            ))}
+          </div>
+          {/* Bottom control bar */}
+          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 70, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, paddingBottom: 'env(safe-area-inset-bottom, 0px)', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+            <button onClick={toggleMic} style={{ width: 50, height: 50, borderRadius: '50%', border: 'none', background: localMicOn ? 'rgba(255,255,255,0.12)' : '#E74C3C', cursor: 'pointer', fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s' }}>
+              {localMicOn ? '🎤' : '🔇'}
+            </button>
+            <button onClick={toggleCam} style={{ width: 50, height: 50, borderRadius: '50%', border: 'none', background: localCamOn ? 'rgba(255,255,255,0.12)' : '#E74C3C', cursor: 'pointer', fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s' }}>
+              {localCamOn ? '📷' : '🚫'}
+            </button>
+            <button onClick={() => { togglePanel('chat'); }} style={{ width: 50, height: 50, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.12)', cursor: 'pointer', fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>💬</button>
+            <button onClick={leaveAgora} style={{ width: 50, height: 50, borderRadius: '50%', border: 'none', background: '#E74C3C', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>📵</button>
+          </div>
+          {!agoraJoined && (
+            <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12, zIndex: 10 }}>
+              <div style={{ fontSize: 36 }}>⏳</div>
+              <p style={{ color: 'white', fontFamily: 'Poppins, sans-serif', fontSize: 14, margin: 0 }}>Connexion à la réunion...</p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Pre-join waiting room */}
       {inPreJoin && (
