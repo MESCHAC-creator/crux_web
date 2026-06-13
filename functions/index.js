@@ -1,5 +1,9 @@
 const functions = require('firebase-functions');
 const crypto = require('crypto');
+const { RtcTokenBuilder, RtcRole } = require('agora-access-token');
+
+const AGORA_APP_ID = process.env.AGORA_APP_ID || '';
+const AGORA_APP_CERTIFICATE = process.env.AGORA_APP_CERTIFICATE || '';
 
 const APP_ID = 2042049519;
 const SERVER_SECRET = '41fb869d2bbcb148571a22b1ad4840ae';
@@ -40,6 +44,34 @@ function generateZegoToken(appId, userId, roomId, secret, expireSeconds = 3600) 
   const tokenBuf = Buffer.concat([version, hashLen, hash, payloadLen, payloadBuf]);
   return '04' + tokenBuf.toString('base64');
 }
+
+exports.agoraToken = functions.https.onRequest((req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+
+  const { uid, channelName, role } = req.body || {};
+  if (!channelName) {
+    res.status(400).json({ error: 'channelName is required' });
+    return;
+  }
+  if (!AGORA_APP_ID || !AGORA_APP_CERTIFICATE) {
+    res.status(500).json({ error: 'Agora credentials not configured' });
+    return;
+  }
+
+  try {
+    const expireAt = Math.floor(Date.now() / 1000) + 3600;
+    const rtcRole = role === 'subscriber' ? RtcRole.SUBSCRIBER : RtcRole.PUBLISHER;
+    const token = RtcTokenBuilder.buildTokenWithUid(
+      AGORA_APP_ID, AGORA_APP_CERTIFICATE, channelName, uid || 0, rtcRole, expireAt
+    );
+    res.json({ token });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 exports.zegoToken = functions.https.onRequest((req, res) => {
   // CORS

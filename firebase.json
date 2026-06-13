@@ -8,6 +8,7 @@
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [
       { "source": "/api/zegoToken", "function": "zegoToken" },
+      { "source": "/api/agoraToken", "function": "agoraToken" },
       { "source": "**", "destination": "/index.html" }
     ]
   }

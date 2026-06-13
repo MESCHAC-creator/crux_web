@@ -15,13 +15,18 @@
     "web-vitals": "^2.1.4"
   },
   "devDependencies": {
+    "buffer": "^6.0.3",
     "cross-env": "^7.0.3",
+    "crypto-browserify": "^3.12.1",
     "gh-pages": "^6.3.0",
-    "sharp": "^0.34.5"
+    "process": "^0.11.10",
+    "react-app-rewired": "^2.2.1",
+    "sharp": "^0.34.5",
+    "stream-browserify": "^3.0.0"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "cross-env CI=false react-scripts build",
+    "start": "react-app-rewired start",
+    "build": "cross-env CI=false react-app-rewired build",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d build",
     "test": "react-scripts test",

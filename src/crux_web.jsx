@@ -1,4 +1,5 @@
 import AgoraRTC from 'agora-rtc-sdk-ng';
+import { RtcTokenBuilder, RtcRole } from 'agora-access-token';
 import { AuthService, MeetingService } from './services/LocalStorageService';
 import { PaymentService, MeetingService as FirebaseMeetingService } from './services/FirebaseService';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -2856,8 +2857,23 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
     client.on('user-unpublished', handleUserUnpublished);
     client.on('user-left', handleUserLeft);
 
+    const buildToken = () => {
+      const cert = process.env.REACT_APP_AGORA_APP_CERTIFICATE;
+      if (!cert || cert === 'YOUR_AGORA_APP_CERTIFICATE_HERE') {
+        showToast('⚠️ App Certificate Agora manquant — ajoutez REACT_APP_AGORA_APP_CERTIFICATE dans .env', 'error', 6000);
+        return null;
+      }
+      try {
+        const expireAt = Math.floor(Date.now() / 1000) + 3600;
+        const role = (isWebinar && !isHost) ? RtcRole.SUBSCRIBER : RtcRole.PUBLISHER;
+        return RtcTokenBuilder.buildTokenWithUid(AGORA_APP_ID, cert, channelName, 0, role, expireAt);
+      } catch (e) { console.error('Token build error:', e); return null; }
+    };
+
     const start = async () => {
-      await client.join(AGORA_APP_ID, channelName, null, uid);
+      const token = buildToken();
+      if (!token) return;
+      await client.join(AGORA_APP_ID, channelName, token, uid);
       const tracks = [];
       if (initMicRef.current && !(isWebinar && !isHost)) {
         const audio = await AgoraRTC.createMicrophoneAudioTrack().catch(() => null);
