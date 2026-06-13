@@ -2753,6 +2753,8 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
   // ZegoCloud video — initialise when pre-join is done
   useEffect(() => {
     if (inPreJoin) return;
+    let zp;
+    (async () => {
     if (!zegoRef.current) return;
     const appID = Number(process.env.REACT_APP_ZEGO_APP_ID);
     const serverSecret = process.env.REACT_APP_ZEGO_SERVER_SECRET;
@@ -2760,8 +2762,24 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
     const userID = user.uid.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 36);
     const userName = user.name || user.email || 'Utilisateur';
 
-    const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(appID, serverSecret, roomID, userID, userName);
-    const zp = ZegoUIKitPrebuilt.create(kitToken);
+    // Use production token endpoint when available, fallback to test token
+    let kitToken;
+    try {
+      const resp = await fetch('https://us-central1-crux-4e826.cloudfunctions.net/zegoToken', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: userID, roomId: roomID, userName }),
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        kitToken = data.token;
+      }
+    } catch {}
+    // Fallback to test token if Cloud Function not reachable
+    if (!kitToken) {
+      kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(appID, serverSecret, roomID, userID, userName);
+    }
+    zp = ZegoUIKitPrebuilt.create(kitToken);
     const isWebinar = meeting.type === 'webinar';
 
     zp.joinRoom({
@@ -2795,7 +2813,7 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
         }
       },
     });
-
+    })(); // end async IIFE
     return () => { try { zp?.destroy?.(); } catch { } };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inPreJoin]);
