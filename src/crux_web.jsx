@@ -2481,7 +2481,7 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
   const [elapsed, setElapsed] = useState(0);
   const [activePanel, setActivePanel] = useState(null);
 
-  // CRUX-exclusive features (ZegoCloud handles video/audio/chat/hands/reactions natively)
+  // CRUX features — chat, polls, reactions, Q&A, captions, notes (Agora handles video/audio)
   const [polls, setPolls] = useState([]);
   const [pollQuestion, setPollQuestion] = useState('');
   const [pollOptions, setPollOptions] = useState(['', '']);
@@ -2903,7 +2903,7 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
 
   const activePoll = polls.find(p => p.active);
 
-  // Portal helper — renders into document.body, above ZegoCloud's entire DOM
+  // Portal helper — renders into document.body, above the Agora video grid
   const Portal = ({ children }) => ReactDOM.createPortal(
     <div style={{ position: 'fixed', inset: 0, zIndex: 99999, pointerEvents: 'none', fontFamily: 'Poppins, sans-serif' }}>
       {children}
@@ -3210,7 +3210,7 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
             {/* HOST CONTROLS — visible only to host / co-host */}
             {activePanel === 'hostControls' && (isHost || isCoHost) && (
               <MeetPanel title={T.hostControls || 'Contrôles hôte'} icon="👑" onClose={() => setActivePanel(null)}>
-                <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto', flex: 1 }}>
                   {/* Mute All */}
                   <button onClick={async () => {
                     await FirebaseMeetingService.sendMuteAll(meeting.id, user.uid);
@@ -3218,9 +3218,50 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
                   }} style={{ padding: '12px', background: 'linear-gradient(135deg,#E74C3C,#8E44AD)', border: 'none', borderRadius: 12, color: 'white', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'Poppins, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                     🔇 {T.muteAll || 'Couper tous les micros'}
                   </button>
-                  <p style={{ fontSize: 11, color: C.textTertiary, textAlign: 'center', margin: 0 }}>
-                    Pour couper / exclure un participant individuel, utilisez la liste de participants native de ZegoCloud (icône 👥 en bas de l'écran vidéo).
+
+                  {/* Participant list with individual controls */}
+                  <p style={{ fontSize: 11, color: C.textTertiary, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, margin: '4px 0 0' }}>
+                    Participants ({participants.length})
                   </p>
+                  {participants.filter(p => p.uid !== user.uid).map(p => {
+                    const isAlreadyCoHost = coHosts.includes(p.uid);
+                    return (
+                      <div key={p.uid} style={{ background: C.lightBg, borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg,#8E44AD,#3498DB)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 700, fontSize: 13, flexShrink: 0 }}>
+                          {(p.name || '?')[0].toUpperCase()}
+                        </div>
+                        <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: C.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {p.name || 'Participant'}
+                          {isAlreadyCoHost && <span style={{ marginLeft: 4, fontSize: 10, color: C.violet }}>co-hôte</span>}
+                        </span>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          {/* Mute individual */}
+                          <button title="Couper le micro" onClick={async () => {
+                            await FirebaseMeetingService.sendHostCommand(meeting.id, user.uid, p.uid, 'mute');
+                            showToast('🔇 Signal envoyé à ' + (p.name || 'Participant'), 'success');
+                          }} style={{ width: 28, height: 28, borderRadius: 8, border: 'none', background: '#E74C3C20', color: '#E74C3C', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🔇</button>
+                          {/* Promote/remove co-host */}
+                          {isHost && (
+                            <button title={isAlreadyCoHost ? 'Retirer co-hôte' : 'Nommer co-hôte'} onClick={async () => {
+                              const newCoHosts = isAlreadyCoHost ? coHosts.filter(id => id !== p.uid) : [...coHosts, p.uid];
+                              setCoHosts(newCoHosts);
+                              await FirebaseMeetingService.setCoHosts(meeting.id, newCoHosts);
+                              if (!isAlreadyCoHost) await FirebaseMeetingService.sendHostCommand(meeting.id, user.uid, p.uid, 'makeCoHost');
+                              showToast(isAlreadyCoHost ? '✅ Co-hôte retiré' : '⭐ Co-hôte nommé', 'success');
+                            }} style={{ width: 28, height: 28, borderRadius: 8, border: 'none', background: isAlreadyCoHost ? C.violet + '20' : '#FFC10720', color: isAlreadyCoHost ? C.violet : '#F57F17', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>⭐</button>
+                          )}
+                          {/* Kick */}
+                          <button title="Exclure de la réunion" onClick={async () => {
+                            await FirebaseMeetingService.sendHostCommand(meeting.id, user.uid, p.uid, 'kick');
+                            showToast('🚪 ' + (p.name || 'Participant') + ' exclu', 'success');
+                          }} style={{ width: 28, height: 28, borderRadius: 8, border: 'none', background: '#E74C3C20', color: '#E74C3C', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🚪</button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {participants.filter(p => p.uid !== user.uid).length === 0 && (
+                    <p style={{ fontSize: 12, color: C.textTertiary, textAlign: 'center', padding: '12px 0', margin: 0 }}>Aucun autre participant</p>
+                  )}
                 </div>
               </MeetPanel>
             )}
