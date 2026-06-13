@@ -1,4 +1,4 @@
-import { ZegoUIKitPrebuilt } from '@zegocloud/zego-uikit-prebuilt';
+// ZegoCloud removed — replaced by Jitsi Meet (free, 500+ participants)
 import { AuthService, MeetingService } from './services/LocalStorageService';
 import { PaymentService, MeetingService as FirebaseMeetingService } from './services/FirebaseService';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -2433,7 +2433,8 @@ function PreJoinRoom({ meeting, user, onJoin, onLeave }) {
 }
 
 function MeetingRoom({ meeting, user, T, prefs, onExit }) {
-  const zegoRef = useRef(null);
+  const jitsiContainerRef = useRef(null);
+  const jitsiApiRef = useRef(null);
   const [inPreJoin, setInPreJoin] = useState(true);
   const initMicRef = useRef(true);
   const initCamRef = useRef(true);
@@ -2744,77 +2745,98 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
 
   const requestPiP = async () => {
     try {
-      const video = zegoRef.current?.querySelector('video');
+      const video = jitsiContainerRef.current?.querySelector('video');
       if (video) await video.requestPictureInPicture();
     } catch { }
   };
 
 
-  // ZegoCloud video — initialise when pre-join is done
+  // Jitsi Meet — free, no API key, 500+ participants
   useEffect(() => {
     if (inPreJoin) return;
-    let zp;
-    (async () => {
-    if (!zegoRef.current) return;
-    const appID = Number(process.env.REACT_APP_ZEGO_APP_ID);
-    const serverSecret = process.env.REACT_APP_ZEGO_SERVER_SECRET;
-    const roomID = (meeting.roomId || meeting.id).replace(/[^a-zA-Z0-9]/g, '').slice(0, 36) || 'room1';
-    const userID = user.uid.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 36);
-    const userName = user.name || user.email || 'Utilisateur';
+    if (!jitsiContainerRef.current) return;
 
-    // Use production token endpoint when available, fallback to test token
-    let kitToken;
-    try {
-      const resp = await fetch('https://us-central1-crux-4e826.cloudfunctions.net/zegoToken', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: userID, roomId: roomID, userName }),
-      });
-      if (resp.ok) {
-        const data = await resp.json();
-        kitToken = data.token;
-      }
-    } catch {}
-    // Fallback to test token if Cloud Function not reachable
-    if (!kitToken) {
-      kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(appID, serverSecret, roomID, userID, userName);
-    }
-    zp = ZegoUIKitPrebuilt.create(kitToken);
+    const loadJitsi = () => new Promise(resolve => {
+      if (window.JitsiMeetExternalAPI) { resolve(); return; }
+      const s = document.createElement('script');
+      s.src = 'https://meet.jit.si/external_api.js';
+      s.onload = resolve;
+      s.onerror = resolve; // fail gracefully
+      document.head.appendChild(s);
+    });
+
+    const langMap = { fr:'fr', en:'en', es:'es', de:'de', ru:'ru', pt:'ptBR', it:'it', ar:'ar', zh:'zhCN', ja:'ja', ko:'ko', tr:'tr', vi:'vi', pl:'pl', nl:'nl', sv:'sv', uk:'uk' };
     const isWebinar = meeting.type === 'webinar';
+    const roomName = 'CRUX' + (meeting.id || 'room').replace(/[^a-zA-Z0-9]/g, '').slice(0, 32).toUpperCase();
 
-    zp.joinRoom({
-      container: zegoRef.current,
-      sharedLinks: [{
-        name: "Lien d'invitation",
-        url: window.location.origin + window.location.pathname + '?join=' + meeting.id,
-      }],
-      scenario: isWebinar
-        ? { mode: ZegoUIKitPrebuilt.LiveStreaming, config: { role: isHost ? ZegoUIKitPrebuilt.Host : ZegoUIKitPrebuilt.Audience } }
-        : { mode: ZegoUIKitPrebuilt.VideoConference },
-      showPreJoinView: false,
-      turnOnMicrophoneWhenJoining: isWebinar && !isHost ? false : initMicRef.current,
-      turnOnCameraWhenJoining: isWebinar && !isHost ? false : initCamRef.current,
-      showMyMicrophoneToggleButton: true,
-      showMyCameraToggleButton: true,
-      showAudioVideoSettingsButton: true,
-      showScreenSharingButton: true,
-      showTextChat: true,
-      showUserList: true,
-      showRoomTimer: false,
-      maxUsers: isWebinar ? 10000 : 500,
-      layout: 'Auto',
-      onLeaveRoom: () => {
+    loadJitsi().then(() => {
+      if (!window.JitsiMeetExternalAPI || !jitsiContainerRef.current) return;
+
+      const api = new window.JitsiMeetExternalAPI('meet.jit.si', {
+        roomName,
+        width: '100%',
+        height: '100%',
+        parentNode: jitsiContainerRef.current,
+        userInfo: {
+          displayName: user.name || user.email || 'Utilisateur',
+          email: user.email || '',
+        },
+        configOverwrite: {
+          startWithAudioMuted: !initMicRef.current,
+          startWithVideoMuted: !initCamRef.current,
+          prejoinPageEnabled: false,
+          disableDeepLinking: true,
+          enableWelcomePage: false,
+          enableClosePage: false,
+          defaultLanguage: langMap[prefs?.language] || 'fr',
+          subject: meeting.title || 'Réunion CRUX',
+          disableInviteFunctions: false,
+          // Webinar: disable video for non-presenters
+          startSilent: isWebinar && !isHost,
+          disableVideo: isWebinar && !isHost,
+          // Performance
+          p2p: { enabled: true },
+          maxFullResolutionParticipants: 2,
+          constraints: { video: { height: { ideal: 720, max: 1080, min: 240 } } },
+        },
+        interfaceConfigOverwrite: {
+          SHOW_JITSI_WATERMARK: false,
+          SHOW_WATERMARK_FOR_GUESTS: false,
+          MOBILE_APP_PROMO: false,
+          HIDE_INVITE_MORE_HEADER: false,
+          DEFAULT_REMOTE_DISPLAY_NAME: 'Participant',
+          TOOLBAR_BUTTONS: [
+            'microphone', 'camera', 'closedcaptions', 'desktop',
+            'fullscreen', 'fodeviceselection', 'hangup', 'chat',
+            'raisehand', 'videoquality', 'filmstrip', 'feedback',
+            'stats', 'shortcuts', 'tileview', 'videobackgroundblur',
+            'download', 'help', 'mute-everyone', 'security',
+            ...(isHost ? ['mute-everyone', 'kick-participant'] : []),
+          ],
+        },
+      });
+
+      jitsiApiRef.current = api;
+
+      api.addEventListener('videoConferenceLeft', () => {
         FirebaseMeetingService.leavePresence(meeting.id, user.uid);
         onExit();
-      },
-      onRoomStateChanged: (state) => {
-        if (state === 'DISCONNECTED') {
-          FirebaseMeetingService.leavePresence(meeting.id, user.uid);
-        }
-      },
+      });
+      api.addEventListener('readyToClose', () => {
+        FirebaseMeetingService.leavePresence(meeting.id, user.uid);
+        onExit();
+      });
+      api.addEventListener('participantJoined', p => {
+        FirebaseMeetingService.joinPresence(meeting.id, p.id, p.displayName || 'Participant');
+      });
+      api.addEventListener('participantLeft', p => {
+        FirebaseMeetingService.leavePresence(meeting.id, p.id);
+      });
     });
-    })(); // end async IIFE
-    return () => { try { zp?.destroy?.(); } catch { } };
+
+    return () => {
+      try { jitsiApiRef.current?.dispose(); jitsiApiRef.current = null; } catch {}
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inPreJoin]);
 
@@ -2843,9 +2865,9 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
   );
 
   return (
-    <div style={{ width: '100vw', height: '100vh', background: '#111' }}>
-      {/* ZegoCloud video — always mounted so ref is ready, hidden during pre-join */}
-      <div ref={zegoRef} style={{ position: 'absolute', inset: 0, visibility: inPreJoin ? 'hidden' : 'visible', pointerEvents: inPreJoin ? 'none' : 'all' }} />
+    <div style={{ width: '100vw', height: '100vh', background: '#202124' }}>
+      {/* Jitsi Meet container — always mounted so ref is ready, hidden during pre-join */}
+      <div ref={jitsiContainerRef} style={{ position: 'absolute', inset: 0, visibility: inPreJoin ? 'hidden' : 'visible', pointerEvents: inPreJoin ? 'none' : 'all' }} />
 
       {/* Pre-join waiting room */}
       {inPreJoin && (
