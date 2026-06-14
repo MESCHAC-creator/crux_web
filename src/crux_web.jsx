@@ -2852,20 +2852,6 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
               style={{ height: '100%' }}
             >
               <VideoConference />
-              {/* Custom panel toggles floating over the LiveKit UI */}
-              <div style={{ position: 'absolute', bottom: 80, right: 12, display: 'flex', flexDirection: 'column', gap: 8, zIndex: 10 }}>
-                {[
-                  { key: 'chat', icon: '💬', label: 'Chat' },
-                  { key: 'polls', icon: '📊', label: 'Sondages' },
-                  { key: 'qa', icon: '❓', label: 'Q&R' },
-                  { key: 'participants', icon: '👥', label: 'Participants' },
-                ].map(({ key, icon, label }) => (
-                  <button key={key} onClick={() => togglePanel(key)} title={label}
-                    style={{ width: 42, height: 42, borderRadius: '50%', border: 'none', background: activePanel === key ? '#8E44AD' : 'rgba(0,0,0,0.65)', backdropFilter: 'blur(8px)', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.4)', transition: 'background 0.2s' }}>
-                    {icon}
-                  </button>
-                ))}
-              </div>
             </LiveKitRoom>
           ) : (
             <div style={{ position: 'absolute', inset: 0, background: '#0d0d1a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
