@@ -1785,7 +1785,7 @@ function WaitingRoom({ meeting, user, T, prefs, onEnter, onLeave }) {
   };
 
   return (
-    <div className="crux-fullscreen" style={{ minHeight: '100vh', background: '#202124', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Poppins, sans-serif', padding: 20 }}>
+    <div className="crux-fullscreen" style={{ minHeight: '100vh', minHeight: '-webkit-fill-available', background: '#202124', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Poppins, sans-serif', padding: 20 }}>
       <div style={{ display: 'flex', gap: 40, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center', maxWidth: 940, width: '100%' }}>
 
         {/* Camera preview */}
@@ -2696,7 +2696,7 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
     rec.onerror = () => { setCaptionsOn(false); setCaptionText(''); };
     rec.onend = () => { if (recognitionRef.current) { try { rec.start(); } catch {} } };
     recognitionRef.current = rec;
-    rec.start();
+    try { rec.start(); } catch {}
     setCaptionsOn(true);
     showToast('🖊️ ' + (T.captionsOn || 'Sous-titres activés'), 'success');
   };
@@ -2882,7 +2882,7 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
   );
 
   return (
-    <div style={{ width: '100vw', height: '100vh', background: '#202124' }}>
+    <div style={{ position: 'fixed', inset: 0, background: '#202124' }}>
       {/* LiveKit video grid — SFU, supports 100+ participants */}
       {!inPreJoin && (
         <div style={{ position: 'absolute', inset: 0 }}>
@@ -3005,7 +3005,7 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
         )}
 
         {/* Floating CRUX buttons — bottom-right, above LiveKit control bar */}
-        <div style={{ position: 'absolute', bottom: 80, right: 12, display: 'flex', flexDirection: 'column', gap: 8, pointerEvents: 'all', zIndex: 10 }}>
+        <div style={{ position: 'absolute', bottom: 'calc(80px + env(safe-area-inset-bottom, 0px))', right: 'calc(12px + env(safe-area-inset-right, 0px))', display: 'flex', flexDirection: 'column', gap: 8, pointerEvents: 'all', zIndex: 10 }}>
           <button onClick={() => { setShowReactions(v=>!v); setActivePanel(null); setShowInfoPanel(false); }}
             title="Réactions"
             style={{ width: 42, height: 42, borderRadius: '50%', border: 'none', background: showReactions ? C.accentOrange : 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', cursor: 'pointer', fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.4)', transition: 'background 0.2s' }}>
