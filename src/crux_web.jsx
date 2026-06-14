@@ -2962,7 +2962,7 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
 
         {/* Meeting info / invite panel */}
         {showInfoPanel && (
-          <div style={{ position: 'absolute', top: 52, right: 0, width: 'min(100vw, 320px)', bottom: 0, pointerEvents: 'all', zIndex: 3 }}>
+          <div style={{ position: 'absolute', top: 0, right: 0, width: 'min(100vw, 320px)', bottom: 0, pointerEvents: 'all', zIndex: 3 }}>
             <MeetPanel title={T.meetingInfo || 'Infos réunion'} icon="🔗" onClose={() => setShowInfoPanel(false)}>
               <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {/* Meeting title */}
@@ -3004,35 +3004,30 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
           </div>
         )}
 
-        {/* Top toolbar — single compact row */}
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.82)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255,255,255,0.08)', pointerEvents: 'all', zIndex: 2 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px' }}>
-            {/* Left: timer + network */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 100 }}>
-              <div style={{ color: 'white', fontSize: 11, fontWeight: 600 }}>🕐 {fmt(elapsed)}</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                {[0,1,2].map(i => {
-                  const lit = (netQuality==='good') || (netQuality==='fair'&&i<2) || (netQuality==='poor'&&i<1);
-                  const col = netQuality==='good'?'#4CAF50':netQuality==='fair'?'#FFC107':'#E74C3C';
-                  return <div key={i} style={{ width: 3, height: 6+i*3, borderRadius: 2, background: lit?col:'rgba(255,255,255,0.25)' }} />;
-                })}
-              </div>
-            </div>
-            {/* Center: tool buttons — scrollable on mobile, no wrap */}
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 4, overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none', justifyContent: 'center', padding: '0 4px' }}>
-              <SideBtn icon="😀" label={T.reactions} onClick={() => { setShowReactions(v=>!v); setActivePanel(null); setShowInfoPanel(false); }} active={showReactions} color={C.accentOrange} />
-              <SideBtn icon={myHandRaised ? '✋' : '🖐️'} label={myHandRaised ? 'Main levée' : 'Lever la main'} onClick={toggleHand} active={myHandRaised} color="#F57F17" />
-              <SideBtn icon="🔗" label={T.invite || 'Inviter'} onClick={() => { setShowInfoPanel(v=>!v); setActivePanel(null); }} active={showInfoPanel} color={C.violet} />
-              {(isHost || isCoHost) && (
-                <SideBtn icon="👑" label="Contrôles" onClick={() => { togglePanel('hostControls'); setShowInfoPanel(false); }} active={activePanel==='hostControls'} color="#F57F17" />
-              )}
-            </div>
-          </div>
+        {/* Floating CRUX buttons — bottom-right, above LiveKit control bar */}
+        <div style={{ position: 'absolute', bottom: 80, right: 12, display: 'flex', flexDirection: 'column', gap: 8, pointerEvents: 'all', zIndex: 10 }}>
+          <button onClick={() => { setShowReactions(v=>!v); setActivePanel(null); setShowInfoPanel(false); }}
+            title="Réactions"
+            style={{ width: 42, height: 42, borderRadius: '50%', border: 'none', background: showReactions ? C.accentOrange : 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', cursor: 'pointer', fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.4)', transition: 'background 0.2s' }}>
+            😀
+          </button>
+          <button onClick={toggleHand}
+            title={myHandRaised ? 'Baisser la main' : 'Lever la main'}
+            style={{ width: 42, height: 42, borderRadius: '50%', border: 'none', background: myHandRaised ? '#F57F17' : 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', cursor: 'pointer', fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.4)', transition: 'background 0.2s' }}>
+            {myHandRaised ? '✋' : '🖐️'}
+          </button>
+          {(isHost || isCoHost) && (
+            <button onClick={() => { togglePanel('hostControls'); setShowInfoPanel(false); }}
+              title="Contrôles hôte"
+              style={{ width: 42, height: 42, borderRadius: '50%', border: 'none', background: activePanel === 'hostControls' ? '#F57F17' : 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', cursor: 'pointer', fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.4)', transition: 'background 0.2s' }}>
+              👑
+            </button>
+          )}
         </div>
 
-        {/* Panel — slides from right, below top toolbar, keyboard-aware via env() */}
+        {/* Panel — slides from right */}
         {activePanel && (
-          <div style={{ position: 'absolute', right: 0, top: 52, bottom: 0, width: 'min(100vw, 320px)', pointerEvents: 'all', zIndex: 3 }}>
+          <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 'min(100vw, 320px)', pointerEvents: 'all', zIndex: 3 }}>
 
             {/* CHAT */}
             {activePanel === 'chat' && (
