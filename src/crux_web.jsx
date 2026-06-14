@@ -2,6 +2,8 @@ import { AuthService, MeetingService } from './services/LocalStorageService';
 import { PaymentService, MeetingService as FirebaseMeetingService } from './services/FirebaseService';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ReactDOM from 'react-dom';
+import { LiveKitRoom, VideoConference } from '@livekit/components-react';
+import '@livekit/components-styles';
 
 // ============================================================
 // LOGO — caméra vidéo dans carré arrondi (identique crux_new_final)
@@ -2431,41 +2433,31 @@ function PreJoinRoom({ meeting, user, onJoin, onLeave }) {
   );
 }
 
-function VideoTile({ stream, name, isLocal, micOn, camOn }) {
-  const videoRef = React.useRef(null);
-  React.useEffect(() => {
-    if (videoRef.current) videoRef.current.srcObject = stream || null;
-  }, [stream]);
-  const hasVideo = !!stream?.getVideoTracks().find(t => t.enabled && t.readyState === 'live');
-  const showVideo = isLocal ? (camOn !== false && hasVideo) : hasVideo;
-  return (
-    <div style={{ position: 'relative', background: '#0f0f1a', borderRadius: 12, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 120 }}>
-      <video ref={videoRef} autoPlay playsInline muted={isLocal} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: showVideo ? 'block' : 'none' }} />
-      {!showVideo && (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, zIndex: 1 }}>
-          <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'linear-gradient(135deg,#8E44AD,#3498DB)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 700, color: 'white' }}>
-            {(name || '?')[0].toUpperCase()}
-          </div>
-          <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', fontFamily: 'Poppins, sans-serif' }}>{name}</span>
-        </div>
-      )}
-      <div style={{ position: 'absolute', bottom: 6, left: 8, display: 'flex', alignItems: 'center', gap: 4, zIndex: 2 }}>
-        <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.85)', fontFamily: 'Poppins, sans-serif', background: 'rgba(0,0,0,0.5)', borderRadius: 6, padding: '2px 6px' }}>
-          {isLocal ? '(Vous)' : name}
-        </span>
-        {(isLocal ? micOn === false : false) && <span style={{ fontSize: 11 }}>🔇</span>}
-      </div>
-    </div>
-  );
+// LiveKit JWT token — signed client-side with Web Crypto API (HS256)
+async function generateLiveKitToken(apiKey, apiSecret, roomName, identity, displayName) {
+  const b64url = s => btoa(typeof s === 'string' ? s : JSON.stringify(s))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  const now = Math.floor(Date.now() / 1000);
+  const header = b64url({ alg: 'HS256', typ: 'JWT' });
+  const payload = b64url({
+    iss: apiKey, sub: identity,
+    iat: now, exp: now + 7200, nbf: now - 10,
+    jti: Math.random().toString(36).slice(2),
+    name: displayName || identity,
+    video: { roomJoin: true, room: roomName, canPublish: true, canSubscribe: true, canPublishData: true },
+  });
+  const signingInput = `${header}.${payload}`;
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(apiSecret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(signingInput)));
+  const sigB64 = btoa(String.fromCharCode(...sig)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  return `${signingInput}.${sigB64}`;
 }
 
 function MeetingRoom({ meeting, user, T, prefs, onExit }) {
-  const peerConnectionsRef = useRef({});
-  const localStreamRef = useRef(null);
-  const [remoteStreams, setRemoteStreams] = useState([]); // [{ peerId, stream, name }]
+  const [lkToken, setLkToken] = useState(null);
+  const lkRoomRef = useRef(null);
   const [localMicOn, setLocalMicOn] = useState(true);
   const [localCamOn, setLocalCamOn] = useState(true);
-  const [rtcJoined, setRtcJoined] = useState(false);
   const [inPreJoin, setInPreJoin] = useState(true);
   const initMicRef = useRef(true);
   const initCamRef = useRef(true);
@@ -2617,20 +2609,9 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
 
   // Firestore presence + participant list
   useEffect(() => {
-    FirebaseMeetingService.joinPresence(meeting.id, user.uid, user.name || user.email);
     const unsub = FirebaseMeetingService.listenPresence(meeting.id, setParticipants);
-    return () => { FirebaseMeetingService.leavePresence(meeting.id, user.uid); unsub(); };
-  }, [meeting.id, user.uid, user.name, user.email]);
-
-  // Sync remote stream names from presence list
-  useEffect(() => {
-    if (remoteStreams.length === 0 || participants.length === 0) return;
-    setRemoteStreams(prev => prev.map(s => {
-      const p = participants.find(p => p.uid === s.peerId);
-      return p ? { ...s, name: p.userName || p.name || 'Participant' } : s;
-    }));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [participants]);
+    return unsub;
+  }, [meeting.id]);
 
   // Listen for host commands targeting me
   useEffect(() => {
@@ -2791,181 +2772,42 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
     } catch { }
   };
 
-  const toggleMic = () => {
-    const track = localStreamRef.current?.getAudioTracks()[0];
-    if (!track) return;
-    track.enabled = !track.enabled;
-    setLocalMicOn(track.enabled);
+  const toggleMic = async () => {
+    const room = lkRoomRef.current;
+    if (!room) return;
+    const next = !localMicOn;
+    await room.localParticipant.setMicrophoneEnabled(next);
+    setLocalMicOn(next);
   };
 
-  const toggleCam = () => {
-    const track = localStreamRef.current?.getVideoTracks()[0];
-    if (!track) return;
-    track.enabled = !track.enabled;
-    setLocalCamOn(track.enabled);
+  const toggleCam = async () => {
+    const room = lkRoomRef.current;
+    if (!room) return;
+    const next = !localCamOn;
+    await room.localParticipant.setCameraEnabled(next);
+    setLocalCamOn(next);
   };
 
   const leaveCall = async () => {
-    Object.values(peerConnectionsRef.current).forEach(pc => { try { pc.close(); } catch {} });
-    peerConnectionsRef.current = {};
-    localStreamRef.current?.getTracks().forEach(t => t.stop());
-    localStreamRef.current = null;
+    await lkRoomRef.current?.disconnect();
     FirebaseMeetingService.leavePresence(meeting.id, user.uid);
-    FirebaseMeetingService.clearRtcSignals(meeting.id, user.uid).catch(() => {});
     onExit();
   };
 
 
-  // WebRTC mesh — native browser API, Firebase Firestore signaling, no external service
+  // Generate LiveKit token when pre-join completes
   useEffect(() => {
     if (inPreJoin) return;
-
-    const ICE_SERVERS = [
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-      { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-      { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
-    ];
-
-    const myUid = user.uid;
-    const pcs = peerConnectionsRef.current;
-    let localStream = null;
-    let stopped = false;
-    let unsubSignals = null;
-    let unsubCandidates = null;
-    let unsubPresence = null;
-    const pendingCandidates = {}; // peerId -> [candidate]
-
-    const createPC = (peerId) => {
-      if (pcs[peerId]) return pcs[peerId];
-      const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-      pcs[peerId] = pc;
-      pendingCandidates[peerId] = pendingCandidates[peerId] || [];
-
-      pc.onicecandidate = e => {
-        if (e.candidate && !stopped) {
-          FirebaseMeetingService.addRtcCandidate(meeting.id, myUid, peerId, e.candidate.toJSON()).catch(() => {});
-        }
-      };
-
-      pc.ontrack = e => {
-        const stream = e.streams[0];
-        if (stream && !stopped) {
-          setRemoteStreams(prev => {
-            const exists = prev.find(s => s.peerId === peerId);
-            if (exists) return prev.map(s => s.peerId === peerId ? { ...s, stream } : s);
-            return [...prev, { peerId, stream, name: 'Participant' }];
-          });
-        }
-      };
-
-      pc.onconnectionstatechange = () => {
-        if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
-          setRemoteStreams(prev => prev.filter(s => s.peerId !== peerId));
-          delete pcs[peerId];
-        }
-      };
-
-      if (localStream) localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
-      return pc;
-    };
-
-    const drainCandidates = async (pc, peerId) => {
-      const queue = pendingCandidates[peerId] || [];
-      pendingCandidates[peerId] = [];
-      for (const c of queue) {
-        try { await pc.addIceCandidate(new RTCIceCandidate(c)); } catch {}
-      }
-    };
-
-    const handleSignal = async (signal) => {
-      if (stopped) return;
-      const { from, type, sdp } = signal;
-      if (from === myUid) return;
-      const pc = createPC(from);
-      if (type === 'offer') {
-        await pc.setRemoteDescription({ type: 'offer', sdp });
-        await drainCandidates(pc, from);
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-        await FirebaseMeetingService.sendRtcSignal(meeting.id, myUid, from, 'answer', answer.sdp);
-      } else if (type === 'answer' && pc.signalingState !== 'stable') {
-        await pc.setRemoteDescription({ type: 'answer', sdp });
-        await drainCandidates(pc, from);
-      }
-    };
-
-    const handleCandidate = async (data) => {
-      if (stopped) return;
-      const { from, candidate } = data;
-      if (from === myUid) return;
-      const pc = pcs[from];
-      if (pc && pc.remoteDescription) {
-        try { await pc.addIceCandidate(new RTCIceCandidate(candidate)); } catch {}
-      } else {
-        if (!pendingCandidates[from]) pendingCandidates[from] = [];
-        pendingCandidates[from].push(candidate);
-      }
-    };
-
-    const setupWebRTC = async () => {
-      const isWebinar = meeting.type === 'webinar';
-      const wantVideo = initCamRef.current && !(isWebinar && !isHost);
-      const wantAudio = initMicRef.current && !(isWebinar && !isHost);
-
-      try {
-        localStream = await navigator.mediaDevices.getUserMedia({
-          audio: wantAudio,
-          video: wantVideo ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false,
-        });
-      } catch {
-        try { localStream = await navigator.mediaDevices.getUserMedia({ audio: wantAudio, video: false }); } catch {}
-        if (!localStream) localStream = new MediaStream();
-      }
-      localStreamRef.current = localStream;
-      const audioTracks = localStream.getAudioTracks();
-      const videoTracks = localStream.getVideoTracks();
-      setLocalMicOn(audioTracks.length > 0);
-      setLocalCamOn(videoTracks.length > 0);
-
-      await FirebaseMeetingService.joinPresence(meeting.id, myUid, user.name || user.email || 'Participant');
-
-      unsubSignals = FirebaseMeetingService.listenRtcSignals(meeting.id, myUid, handleSignal);
-      unsubCandidates = FirebaseMeetingService.listenRtcCandidates(meeting.id, myUid, handleCandidate);
-
-      const offeredTo = new Set();
-      unsubPresence = FirebaseMeetingService.listenPresence(meeting.id, async (presenceList) => {
-        if (stopped) return;
-        for (const p of presenceList) {
-          if (p.uid === myUid || offeredTo.has(p.uid)) continue;
-          if (myUid < p.uid) {
-            offeredTo.add(p.uid);
-            const pc = createPC(p.uid);
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-            await FirebaseMeetingService.sendRtcSignal(meeting.id, myUid, p.uid, 'offer', offer.sdp);
-          }
-        }
-      });
-
-      setRtcJoined(true);
-    };
-
-    setupWebRTC().catch(e => showToast('❌ Erreur WebRTC: ' + e.message, 'error'));
-
-    return () => {
-      stopped = true;
-      unsubSignals?.();
-      unsubCandidates?.();
-      unsubPresence?.();
-      Object.values(pcs).forEach(pc => { try { pc.close(); } catch {} });
-      peerConnectionsRef.current = {};
-      localStreamRef.current?.getTracks().forEach(t => t.stop());
-      localStreamRef.current = null;
-      FirebaseMeetingService.leavePresence(meeting.id, myUid);
-      FirebaseMeetingService.clearRtcSignals(meeting.id, myUid).catch(() => {});
-    };
+    const apiKey = process.env.REACT_APP_LIVEKIT_API_KEY;
+    const apiSecret = process.env.REACT_APP_LIVEKIT_API_SECRET;
+    const roomName = 'crux_' + meeting.id.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64);
+    const identity = user.uid;
+    const displayName = user.name || user.displayName || user.email?.split('@')[0] || 'Participant';
+    generateLiveKitToken(apiKey, apiSecret, roomName, identity, displayName)
+      .then(setLkToken)
+      .catch(e => showToast('❌ Erreur token: ' + e.message, 'error'));
+    FirebaseMeetingService.joinPresence(meeting.id, user.uid, displayName);
+    return () => { FirebaseMeetingService.leavePresence(meeting.id, user.uid); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inPreJoin]);
 
@@ -2995,49 +2837,38 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
 
   return (
     <div style={{ width: '100vw', height: '100vh', background: '#202124' }}>
-      {/* WebRTC video grid — shown once pre-join is complete */}
+      {/* LiveKit video grid — SFU, supports 100+ participants */}
       {!inPreJoin && (
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
-          {/* Video tiles */}
-          <div style={{
-            flex: 1,
-            display: 'grid',
-            gridTemplateColumns: remoteStreams.length === 0 ? '1fr' : remoteStreams.length <= 1 ? '1fr 1fr' : remoteStreams.length <= 3 ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)',
-            gap: 4,
-            padding: '56px 4px 74px',
-            overflow: 'hidden',
-            background: '#0d0d1a',
-          }}>
-            <VideoTile
-              stream={localStreamRef.current}
-              name={user.displayName || user.name || user.email?.split('@')[0] || 'Vous'}
-              isLocal
-              micOn={localMicOn}
-              camOn={localCamOn}
-            />
-            {remoteStreams.map(({ peerId, stream, name }) => (
-              <VideoTile
-                key={peerId}
-                stream={stream}
-                name={name || 'Participant'}
-                micOn={true}
-                camOn={true}
-              />
-            ))}
-          </div>
-          {/* Bottom control bar */}
-          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 70, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, paddingBottom: 'env(safe-area-inset-bottom, 0px)', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-            <button onClick={toggleMic} style={{ width: 50, height: 50, borderRadius: '50%', border: 'none', background: localMicOn ? 'rgba(255,255,255,0.12)' : '#E74C3C', cursor: 'pointer', fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s' }}>
-              {localMicOn ? '🎤' : '🔇'}
-            </button>
-            <button onClick={toggleCam} style={{ width: 50, height: 50, borderRadius: '50%', border: 'none', background: localCamOn ? 'rgba(255,255,255,0.12)' : '#E74C3C', cursor: 'pointer', fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s' }}>
-              {localCamOn ? '📷' : '🚫'}
-            </button>
-            <button onClick={() => { togglePanel('chat'); }} style={{ width: 50, height: 50, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.12)', cursor: 'pointer', fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>💬</button>
-            <button onClick={leaveCall} style={{ width: 50, height: 50, borderRadius: '50%', border: 'none', background: '#E74C3C', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>📵</button>
-          </div>
-          {!rtcJoined && (
-            <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12, zIndex: 10 }}>
+        <div style={{ position: 'absolute', inset: 0 }}>
+          {lkToken ? (
+            <LiveKitRoom
+              serverUrl={process.env.REACT_APP_LIVEKIT_URL}
+              token={lkToken}
+              connect={true}
+              audio={initMicRef.current}
+              video={initCamRef.current}
+              onDisconnected={onExit}
+              onConnected={room => { lkRoomRef.current = room; }}
+              style={{ height: '100%' }}
+            >
+              <VideoConference />
+              {/* Custom panel toggles floating over the LiveKit UI */}
+              <div style={{ position: 'absolute', bottom: 80, right: 12, display: 'flex', flexDirection: 'column', gap: 8, zIndex: 10 }}>
+                {[
+                  { key: 'chat', icon: '💬', label: 'Chat' },
+                  { key: 'polls', icon: '📊', label: 'Sondages' },
+                  { key: 'qa', icon: '❓', label: 'Q&R' },
+                  { key: 'participants', icon: '👥', label: 'Participants' },
+                ].map(({ key, icon, label }) => (
+                  <button key={key} onClick={() => togglePanel(key)} title={label}
+                    style={{ width: 42, height: 42, borderRadius: '50%', border: 'none', background: activePanel === key ? '#8E44AD' : 'rgba(0,0,0,0.65)', backdropFilter: 'blur(8px)', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.4)', transition: 'background 0.2s' }}>
+                    {icon}
+                  </button>
+                ))}
+              </div>
+            </LiveKitRoom>
+          ) : (
+            <div style={{ position: 'absolute', inset: 0, background: '#0d0d1a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
               <div style={{ fontSize: 36 }}>⏳</div>
               <p style={{ color: 'white', fontFamily: 'Poppins, sans-serif', fontSize: 14, margin: 0 }}>Connexion à la réunion...</p>
             </div>
