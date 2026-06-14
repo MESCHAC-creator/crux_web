@@ -2,7 +2,8 @@ import { AuthService, MeetingService } from './services/LocalStorageService';
 import { PaymentService, MeetingService as FirebaseMeetingService } from './services/FirebaseService';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ReactDOM from 'react-dom';
-import { LiveKitRoom, VideoConference } from '@livekit/components-react';
+import { LiveKitRoom, GridLayout, ParticipantTile, RoomAudioRenderer, ControlBar, useTracks } from '@livekit/components-react';
+import { Track } from 'livekit-client';
 import '@livekit/components-styles';
 
 // ============================================================
@@ -2472,6 +2473,24 @@ async function generateLiveKitToken(apiKey, apiSecret, roomName, identity, displ
   return `${signingInput}.${sigB64}`;
 }
 
+function CruxVideoGrid() {
+  const tracks = useTracks(
+    [{ source: Track.Source.Camera, withPlaceholder: true }],
+    { onlySubscribed: false },
+  );
+  return (
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: '#0d0d1a' }}>
+      <GridLayout tracks={tracks} style={{ flex: 1 }}>
+        <ParticipantTile />
+      </GridLayout>
+      <ControlBar
+        controls={{ microphone: true, camera: true, screenShare: false, chat: false, leave: true, settings: false }}
+      />
+      <RoomAudioRenderer />
+    </div>
+  );
+}
+
 function MeetingRoom({ meeting, user, T, prefs, onExit }) {
   const [lkToken, setLkToken] = useState(null);
   const lkRoomRef = useRef(null);
@@ -2870,7 +2889,7 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
               onConnected={room => { lkRoomRef.current = room; }}
               style={{ height: '100%' }}
             >
-              <VideoConference />
+              <CruxVideoGrid />
             </LiveKitRoom>
           ) : (
             <div style={{ position: 'absolute', inset: 0, background: '#0d0d1a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
