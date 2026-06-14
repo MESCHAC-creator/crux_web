@@ -3000,14 +3000,7 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
             {/* Center: tool buttons — scrollable on mobile, no wrap */}
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 4, overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none', justifyContent: 'center', padding: '0 4px' }}>
               <SideBtn icon="😀" label={T.reactions} onClick={() => { setShowReactions(v=>!v); setActivePanel(null); setShowInfoPanel(false); }} active={showReactions} color={C.accentOrange} />
-              <SideBtn icon="📊" label={T.polls} onClick={() => { togglePanel('poll'); setShowInfoPanel(false); }} active={activePanel==='poll'} badge={activePoll?1:0} color={C.violet} />
-              <SideBtn icon="📝" label={T.notes || 'Notes'} onClick={() => { setShowNotesModal(true); setActivePanel(null); setShowInfoPanel(false); }} active={showNotesModal} color={C.iceBlue} />
-              <SideBtn icon="🖊️" label={T.captions || 'Sous-titres'} onClick={toggleCaptions} active={captionsOn} color={captionsOn ? '#27AE60' : C.textTertiary} />
               <SideBtn icon="🔗" label={T.invite || 'Inviter'} onClick={() => { setShowInfoPanel(v=>!v); setActivePanel(null); }} active={showInfoPanel} color={C.violet} />
-              <SideBtn icon="⊡" label={T.miniScreen || 'Mini-écran'} onClick={requestPiP} color={C.iceBlue} />
-              {(isHost || isCoHost) && (
-                <SideBtn icon="👑" label={T.hostControls || 'Contrôles'} onClick={() => { togglePanel('hostControls'); setShowInfoPanel(false); }} active={activePanel==='hostControls'} color="#F57F17" />
-              )}
             </div>
           </div>
         </div>
