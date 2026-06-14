@@ -2399,7 +2399,7 @@ function PreJoinRoom({ meeting, user, onJoin, onLeave }) {
   useEffect(() => {
     let active = true;
     if (camOn) {
-      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
+      navigator.mediaDevices?.getUserMedia({ video: { facingMode: 'user' }, audio: false })
         .then(s => {
           if (!active) { s.getTracks().forEach(t => t.stop()); return; }
           streamRef.current = s;
@@ -2806,7 +2806,7 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
   const requestPiP = async () => {
     try {
       const video = document.querySelector('[data-crux-local-video] video, [data-crux-remote-video] video');
-      if (video) await video.requestPictureInPicture();
+      if (video && video.requestPictureInPicture) await video.requestPictureInPicture();
     } catch { }
   };
 
@@ -4198,6 +4198,7 @@ async function getMediaStream(video = true, audio = true) {
       sampleRate: 44100,
     } : false,
   };
+  if (!navigator.mediaDevices?.getUserMedia) throw new Error('Caméra/micro non supporté sur cet appareil');
   return navigator.mediaDevices.getUserMedia(constraints);
 }
 
