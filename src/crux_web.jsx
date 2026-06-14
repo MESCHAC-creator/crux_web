@@ -973,12 +973,31 @@ export default function CruxApp() {
   }, [user, pendingJoinCode, page]); // eslint-disable-line
 
   const handleJoinByCode = async (code, u) => {
-    const trimmed = code.trim();
+    let trimmed = code.trim();
+    // If a full URL was pasted, extract the join= parameter
+    if (trimmed.includes('://')) {
+      try {
+        const url = new URL(trimmed);
+        trimmed = url.searchParams.get('join') || trimmed;
+      } catch {}
+    }
     if (!trimmed) return;
+
+    // Try Firestore first (cross-device meetings)
+    try {
+      const firestoreMeeting = await FirebaseMeetingService.getMeeting(trimmed);
+      if (firestoreMeeting) {
+        if (firestoreMeeting.isLocked) { showToast('🔒 Cette réunion est verrouillée.', 'error'); return; }
+        await FirebaseMeetingService.joinMeeting(firestoreMeeting.id, u.uid).catch(() => {});
+        goMeeting({ ...firestoreMeeting, createdAt: firestoreMeeting.createdAt instanceof Date ? firestoreMeeting.createdAt : new Date() });
+        return;
+      }
+    } catch {}
+
+    // Fallback: local meeting
     const all = JSON.parse(localStorage.getItem('crux_meetings') || '[]');
     let found = all.find(m => m.id === trimmed || m.roomId === trimmed);
     if (!found) {
-      // Cross-device join: meeting exists on another device — join via Zego directly
       found = {
         id: trimmed, roomId: trimmed,
         title: 'Réunion CRUX',
@@ -2500,7 +2519,7 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
 
   const sendNotif = (title, body, icon = '📹') => {
     if (!prefs.notifications) return;
-    if (Notification.permission === 'granted') {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
       new Notification(title, { body, icon: '/crux_web/logo192.png', silent: false });
     }
   };
@@ -2602,7 +2621,7 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
 
   // Demande permission notifications au montage
   useEffect(() => {
-    if (prefs.notifications && Notification.permission === 'default') {
+    if (prefs.notifications && typeof Notification !== 'undefined' && Notification.permission === 'default') {
       Notification.requestPermission();
     }
   }, [prefs.notifications]);
