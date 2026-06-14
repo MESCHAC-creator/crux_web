@@ -2888,15 +2888,8 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
     client.on('user-left', handleUserLeft);
 
     const start = async () => {
-      const cert = process.env.REACT_APP_AGORA_APP_CERTIFICATE;
-      let token = null;
-      if (cert && cert !== 'YOUR_AGORA_APP_CERTIFICATE_HERE') {
-        try {
-          const isPublisher = !(isWebinar && !isHost);
-          token = await buildAgoraToken(AGORA_APP_ID, cert, channelName, 0, isPublisher);
-        } catch (e) { console.error('Agora token error:', e); }
-      }
-      await client.join(AGORA_APP_ID, channelName, token, uid);
+      // Pass null token — requires App Certificate DISABLED in Agora console (Testing mode)
+      await client.join(AGORA_APP_ID, channelName, null, uid);
       const tracks = [];
       if (initMicRef.current && !(isWebinar && !isHost)) {
         const audio = await AgoraRTC.createMicrophoneAudioTrack().catch(() => null);
