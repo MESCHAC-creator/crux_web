@@ -2508,6 +2508,7 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
   const [qaInput, setQaInput] = useState('');
   const [showReactions, setShowReactions] = useState(false);
   const [floatingReactions, setFloatingReactions] = useState([]);
+  const [raisedHands, setRaisedHands] = useState([]);
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
   const [chatAnon, setChatAnon] = useState(false);
@@ -2519,6 +2520,7 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
   const [participants, setParticipants] = useState([]);
   const [coHosts, setCoHosts] = useState(meeting.coHosts || []);
   const [kicked, setKicked] = useState(false);
+  const [myHandRaised, setMyHandRaised] = useState(false);
   const muteAllSeenRef = useRef(null);
 
   const [captionsOn, setCaptionsOn] = useState(false);
@@ -2711,17 +2713,18 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
     return () => clearTimeout(notesSaveTimer.current);
   }, [notes, meeting.id, user.uid]);
 
-  // Notification : main levée (hôte uniquement)
+  // Mains levées — visibles par tous, notification pour l'hôte
   useEffect(() => {
-    if (!isHost) return;
     return FirebaseMeetingService.listenHands(meeting.id, hands => {
+      setRaisedHands(hands);
+      if (!isHost) return;
       hands.forEach(h => {
         if (!handsSeenRef.current.has(h.uid)) {
           handsSeenRef.current.add(h.uid);
           sendNotif('✋ Main levée', `${h.userName} a levé la main`, '✋');
+          showToast(`✋ ${h.userName} a levé la main`, 'info');
         }
       });
-      // Si une main est baissée, retirer de seen pour la notifier à nouveau si relevée
       const raisedUids = new Set(hands.map(h => h.uid));
       handsSeenRef.current.forEach(uid => { if (!raisedUids.has(uid)) handsSeenRef.current.delete(uid); });
     });
@@ -2771,6 +2774,14 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
     const x = 10 + Math.random() * 70;
     setFloatingReactions(prev => [...prev, { id, emoji, x }]);
     setTimeout(() => setFloatingReactions(prev => prev.filter(f => f.id !== id)), 3000);
+  };
+
+  const toggleHand = async () => {
+    const next = !myHandRaised;
+    setMyHandRaised(next);
+    try {
+      await FirebaseMeetingService.setHandRaised(meeting.id, user.uid, user.name || user.email, next);
+    } catch {}
   };
 
   const sendReaction = async (emoji) => {
@@ -2932,6 +2943,16 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
           </div>
         )}
 
+        {/* Raised hands indicator — visible to everyone */}
+        {raisedHands.length > 0 && (
+          <div style={{ position: 'absolute', top: 56, left: '50%', transform: 'translateX(-50%)', background: 'rgba(245,127,23,0.92)', borderRadius: 20, padding: '6px 14px', display: 'flex', alignItems: 'center', gap: 8, pointerEvents: 'none', zIndex: 4, backdropFilter: 'blur(8px)' }}>
+            <span style={{ fontSize: 16 }}>✋</span>
+            <span style={{ fontSize: 12, color: 'white', fontFamily: 'Poppins, sans-serif', fontWeight: 700 }}>
+              {raisedHands.map(h => h.userName || 'Participant').join(', ')}
+            </span>
+          </div>
+        )}
+
         {/* Live captions overlay — bottom of screen, Google Meet style */}
         {captionsOn && captionText && (
           <div style={{ position: 'absolute', bottom: 80, left: '50%', transform: 'translateX(-50%)', maxWidth: '90vw', background: 'rgba(0,0,0,0.82)', color: 'white', borderRadius: 10, padding: '8px 16px', fontSize: 15, fontWeight: 500, textAlign: 'center', pointerEvents: 'none', zIndex: 5, lineHeight: 1.5, backdropFilter: 'blur(8px)' }}>
@@ -3000,7 +3021,11 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
             {/* Center: tool buttons — scrollable on mobile, no wrap */}
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 4, overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none', justifyContent: 'center', padding: '0 4px' }}>
               <SideBtn icon="😀" label={T.reactions} onClick={() => { setShowReactions(v=>!v); setActivePanel(null); setShowInfoPanel(false); }} active={showReactions} color={C.accentOrange} />
+              <SideBtn icon={myHandRaised ? '✋' : '🖐️'} label={myHandRaised ? 'Main levée' : 'Lever la main'} onClick={toggleHand} active={myHandRaised} color="#F57F17" />
               <SideBtn icon="🔗" label={T.invite || 'Inviter'} onClick={() => { setShowInfoPanel(v=>!v); setActivePanel(null); }} active={showInfoPanel} color={C.violet} />
+              {(isHost || isCoHost) && (
+                <SideBtn icon="👑" label="Contrôles" onClick={() => { togglePanel('hostControls'); setShowInfoPanel(false); }} active={activePanel==='hostControls'} color="#F57F17" />
+              )}
             </div>
           </div>
         </div>
@@ -3139,6 +3164,19 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
             {activePanel === 'hostControls' && (isHost || isCoHost) && (
               <MeetPanel title={T.hostControls || 'Contrôles hôte'} icon="👑" onClose={() => setActivePanel(null)}>
                 <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto', flex: 1 }}>
+                  {/* Raised hands */}
+                  {raisedHands.length > 0 && (
+                    <div style={{ background: '#F57F1715', borderRadius: 12, padding: '10px 12px' }}>
+                      <p style={{ fontSize: 11, color: '#F57F17', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, margin: '0 0 6px' }}>✋ Mains levées</p>
+                      {raisedHands.map(h => (
+                        <div key={h.uid} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                          <span style={{ fontSize: 13, color: C.textPrimary }}>{h.userName || 'Participant'}</span>
+                          <button onClick={() => FirebaseMeetingService.lowerHand(meeting.id, h.uid)} style={{ fontSize: 11, padding: '3px 8px', border: 'none', borderRadius: 6, background: '#F57F1730', color: '#F57F17', cursor: 'pointer', fontFamily: 'Poppins, sans-serif' }}>Baisser</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   {/* Mute All */}
                   <button onClick={async () => {
                     await FirebaseMeetingService.sendMuteAll(meeting.id, user.uid);
