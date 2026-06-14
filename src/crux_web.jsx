@@ -2483,9 +2483,6 @@ function CruxVideoGrid() {
       <GridLayout tracks={tracks} style={{ flex: 1 }}>
         <ParticipantTile />
       </GridLayout>
-      <ControlBar
-        controls={{ microphone: true, camera: true, screenShare: false, chat: false, leave: true, settings: false }}
-      />
       <RoomAudioRenderer />
     </div>
   );
@@ -2889,7 +2886,7 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
               onConnected={room => { lkRoomRef.current = room; }}
               style={{ height: '100%' }}
             >
-              <CruxVideoGrid />
+              <VideoConference />
             </LiveKitRoom>
           ) : (
             <div style={{ position: 'absolute', inset: 0, background: '#0d0d1a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
