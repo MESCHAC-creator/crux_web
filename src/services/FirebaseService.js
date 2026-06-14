@@ -481,6 +481,48 @@ export const MeetingService = {
             timestamp: serverTimestamp(),
         });
     },
+
+    // ── WebRTC SIGNALING (offer/answer) ───────────────────────
+    async sendRtcSignal(meetingId, from, to, type, sdp) {
+        await setDoc(doc(db, 'meetings', meetingId, 'rtc', `${from}_${to}`), {
+            type, sdp, from, to, updatedAt: serverTimestamp(),
+        });
+    },
+
+    listenRtcSignals(meetingId, toUid, callback) {
+        const q = query(collection(db, 'meetings', meetingId, 'rtc'), where('to', '==', toUid));
+        return onSnapshot(q, snap => {
+            snap.docChanges().forEach(change => {
+                if (change.type === 'added' || change.type === 'modified') callback(change.doc.data());
+            });
+        });
+    },
+
+    async addRtcCandidate(meetingId, from, to, candidate) {
+        await addDoc(collection(db, 'meetings', meetingId, 'rtc_ice'), {
+            from, to, candidate, createdAt: serverTimestamp(),
+        });
+    },
+
+    listenRtcCandidates(meetingId, toUid, callback) {
+        const q = query(collection(db, 'meetings', meetingId, 'rtc_ice'), where('to', '==', toUid));
+        return onSnapshot(q, snap => {
+            snap.docChanges().forEach(change => {
+                if (change.type === 'added') callback(change.doc.data());
+            });
+        });
+    },
+
+    async clearRtcSignals(meetingId, userId) {
+        const [sigSnap, iceSnap] = await Promise.all([
+            getDocs(query(collection(db, 'meetings', meetingId, 'rtc'), where('from', '==', userId))),
+            getDocs(query(collection(db, 'meetings', meetingId, 'rtc_ice'), where('from', '==', userId))),
+        ]);
+        await Promise.all([
+            ...sigSnap.docs.map(d => deleteDoc(d.ref)),
+            ...iceSnap.docs.map(d => deleteDoc(d.ref)),
+        ]);
+    },
 };
 
 // ============================================================

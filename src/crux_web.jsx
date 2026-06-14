@@ -1,4 +1,3 @@
-import AgoraRTC from 'agora-rtc-sdk-ng';
 import { AuthService, MeetingService } from './services/LocalStorageService';
 import { PaymentService, MeetingService as FirebaseMeetingService } from './services/FirebaseService';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -2432,55 +2431,16 @@ function PreJoinRoom({ meeting, user, onJoin, onLeave }) {
   );
 }
 
-// Agora AccessToken2 generator — pure Web Crypto API, no Node.js dependencies
-async function buildAgoraToken(appId, appCert, channelName, uid, isPublisher, expireSeconds = 3600) {
-  const now = Math.floor(Date.now() / 1000);
-  const expireAt = now + expireSeconds;
-  const salt = (Math.random() * 0xFFFFFFFF) >>> 0;
-
-  const pu16 = v => { const b = new Uint8Array(2); new DataView(b.buffer).setUint16(0, v, true); return b; };
-  const pu32 = v => { const b = new Uint8Array(4); new DataView(b.buffer).setUint32(0, v >>> 0, true); return b; };
-  const cat = (...a) => { const t = a.reduce((s, x) => s + x.length, 0), o = new Uint8Array(t); let i = 0; for (const x of a) { o.set(x, i); i += x.length; } return o; };
-  const pstr = s => { const e = new TextEncoder().encode(s); return cat(pu16(e.length), e); };
-
-  const privs = [[1, expireAt]]; // JOIN_CHANNEL
-  if (isPublisher) privs.push([2, expireAt], [3, expireAt], [4, expireAt]);
-  const privPacked = cat(pu16(privs.length), ...privs.flatMap(([k, v]) => [pu16(k), pu32(v)]));
-  const svcBody = cat(pstr(channelName), pstr(String(uid || 0)), privPacked);
-  const svcsPacked = cat(pu16(1), pu16(1), pu16(svcBody.length), svcBody);
-  const tokenBody = cat(pstr(appId), pu32(expireAt), pu32(salt), pu32(now), svcsPacked);
-
-  // zlib deflate (RFC 1950) via CompressionStream
-  const ds = new CompressionStream('deflate');
-  const w = ds.writable.getWriter(); w.write(tokenBody); w.close();
-  const compressed = new Uint8Array(await new Response(ds.readable).arrayBuffer());
-
-  // HMAC-SHA256 signature
-  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(appCert), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, compressed));
-
-  const tokenBytes = cat(pu16(sig.length), sig, pu16(compressed.length), compressed);
-  return '007' + btoa(String.fromCharCode(...tokenBytes));
-}
-
-function AgoraVideoTile({ track, audioTrack, name, isLocal, micOn, camOn }) {
-  const divRef = React.useRef(null);
+function VideoTile({ stream, name, isLocal, micOn, camOn }) {
+  const videoRef = React.useRef(null);
   React.useEffect(() => {
-    if (track && divRef.current) {
-      track.play(divRef.current);
-      return () => { try { track.stop(); } catch {} };
-    }
-  }, [track]);
-  React.useEffect(() => {
-    if (audioTrack) {
-      audioTrack.play();
-      return () => { try { audioTrack.stop(); } catch {} };
-    }
-  }, [audioTrack]);
-  const showVideo = isLocal ? camOn !== false : !!track;
+    if (videoRef.current) videoRef.current.srcObject = stream || null;
+  }, [stream]);
+  const hasVideo = !!stream?.getVideoTracks().find(t => t.enabled && t.readyState === 'live');
+  const showVideo = isLocal ? (camOn !== false && hasVideo) : hasVideo;
   return (
     <div style={{ position: 'relative', background: '#0f0f1a', borderRadius: 12, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 120 }}>
-      <div ref={divRef} style={{ position: 'absolute', inset: 0, display: showVideo ? 'block' : 'none' }} />
+      <video ref={videoRef} autoPlay playsInline muted={isLocal} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: showVideo ? 'block' : 'none' }} />
       {!showVideo && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, zIndex: 1 }}>
           <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'linear-gradient(135deg,#8E44AD,#3498DB)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 700, color: 'white' }}>
@@ -2493,26 +2453,26 @@ function AgoraVideoTile({ track, audioTrack, name, isLocal, micOn, camOn }) {
         <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.85)', fontFamily: 'Poppins, sans-serif', background: 'rgba(0,0,0,0.5)', borderRadius: 6, padding: '2px 6px' }}>
           {isLocal ? '(Vous)' : name}
         </span>
-        {(isLocal ? micOn === false : !audioTrack) && <span style={{ fontSize: 11 }}>🔇</span>}
+        {(isLocal ? micOn === false : false) && <span style={{ fontSize: 11 }}>🔇</span>}
       </div>
     </div>
   );
 }
 
 function MeetingRoom({ meeting, user, T, prefs, onExit }) {
-  const agoraClientRef = useRef(null);
-  const localTracksRef = useRef({ audio: null, video: null });
-  const [remoteUsers, setRemoteUsers] = useState([]);
+  const peerConnectionsRef = useRef({});
+  const localStreamRef = useRef(null);
+  const [remoteStreams, setRemoteStreams] = useState([]); // [{ peerId, stream, name }]
   const [localMicOn, setLocalMicOn] = useState(true);
   const [localCamOn, setLocalCamOn] = useState(true);
-  const [agoraJoined, setAgoraJoined] = useState(false);
+  const [rtcJoined, setRtcJoined] = useState(false);
   const [inPreJoin, setInPreJoin] = useState(true);
   const initMicRef = useRef(true);
   const initCamRef = useRef(true);
   const [elapsed, setElapsed] = useState(0);
   const [activePanel, setActivePanel] = useState(null);
 
-  // CRUX features — chat, polls, reactions, Q&A, captions, notes (Agora handles video/audio)
+  // CRUX features — chat, polls, reactions, Q&A, captions, notes (WebRTC handles video/audio)
   const [polls, setPolls] = useState([]);
   const [pollQuestion, setPollQuestion] = useState('');
   const [pollOptions, setPollOptions] = useState(['', '']);
@@ -2661,6 +2621,16 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
     const unsub = FirebaseMeetingService.listenPresence(meeting.id, setParticipants);
     return () => { FirebaseMeetingService.leavePresence(meeting.id, user.uid); unsub(); };
   }, [meeting.id, user.uid, user.name, user.email]);
+
+  // Sync remote stream names from presence list
+  useEffect(() => {
+    if (remoteStreams.length === 0 || participants.length === 0) return;
+    setRemoteStreams(prev => prev.map(s => {
+      const p = participants.find(p => p.uid === s.peerId);
+      return p ? { ...s, name: p.userName || p.name || 'Participant' } : s;
+    }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [participants]);
 
   // Listen for host commands targeting me
   useEffect(() => {
@@ -2821,101 +2791,180 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
     } catch { }
   };
 
-  const toggleMic = async () => {
-    const track = localTracksRef.current.audio;
+  const toggleMic = () => {
+    const track = localStreamRef.current?.getAudioTracks()[0];
     if (!track) return;
-    const next = !localMicOn;
-    await track.setMuted(!next);
-    setLocalMicOn(next);
+    track.enabled = !track.enabled;
+    setLocalMicOn(track.enabled);
   };
 
-  const toggleCam = async () => {
-    const track = localTracksRef.current.video;
+  const toggleCam = () => {
+    const track = localStreamRef.current?.getVideoTracks()[0];
     if (!track) return;
-    const next = !localCamOn;
-    await track.setMuted(!next);
-    setLocalCamOn(next);
+    track.enabled = !track.enabled;
+    setLocalCamOn(track.enabled);
   };
 
-  const leaveAgora = async () => {
-    localTracksRef.current.audio?.close();
-    localTracksRef.current.video?.close();
-    localTracksRef.current = { audio: null, video: null };
-    await agoraClientRef.current?.leave();
+  const leaveCall = async () => {
+    Object.values(peerConnectionsRef.current).forEach(pc => { try { pc.close(); } catch {} });
+    peerConnectionsRef.current = {};
+    localStreamRef.current?.getTracks().forEach(t => t.stop());
+    localStreamRef.current = null;
     FirebaseMeetingService.leavePresence(meeting.id, user.uid);
+    FirebaseMeetingService.clearRtcSignals(meeting.id, user.uid).catch(() => {});
     onExit();
   };
 
 
-  // Agora RTC — embedded video, no external window, free 10k min/month
+  // WebRTC mesh — native browser API, Firebase Firestore signaling, no external service
   useEffect(() => {
     if (inPreJoin) return;
-    // App ID: localStorage override > env var (allows changing without rebuild)
-    const AGORA_APP_ID = localStorage.getItem('crux_agora_app_id') || process.env.REACT_APP_AGORA_APP_ID;
-    if (!AGORA_APP_ID || AGORA_APP_ID === 'YOUR_AGORA_APP_ID_HERE') {
-      showToast('⚠️ App ID Agora manquant — configurez-le dans Paramètres → Vidéo', 'error', 6000);
-      return;
-    }
 
-    const isWebinar = meeting.type === 'webinar';
-    const channelName = 'crux_' + (meeting.id || 'room').replace(/[^a-zA-Z0-9]/g, '').slice(0, 64);
-    const uid = user.uid.replace(/[^a-zA-Z0-9]/g, '').slice(0, 32) || 'user';
+    const ICE_SERVERS = [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+      { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+      { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+    ];
 
-    AgoraRTC.setLogLevel(4); // errors only
-    const client = AgoraRTC.createClient({ mode: isWebinar ? 'live' : 'rtc', codec: 'vp8' });
-    if (isWebinar) client.setClientRole(isHost ? 'host' : 'audience');
-    agoraClientRef.current = client;
+    const myUid = user.uid;
+    const pcs = peerConnectionsRef.current;
+    let localStream = null;
+    let stopped = false;
+    let unsubSignals = null;
+    let unsubCandidates = null;
+    let unsubPresence = null;
+    const pendingCandidates = {}; // peerId -> [candidate]
 
-    const handleUserPublished = async (remoteUser, mediaType) => {
-      await client.subscribe(remoteUser, mediaType);
-      setRemoteUsers(prev => {
-        const exists = prev.find(u => u.uid === remoteUser.uid);
-        return exists ? prev.map(u => u.uid === remoteUser.uid ? remoteUser : u) : [...prev, remoteUser];
+    const createPC = (peerId) => {
+      if (pcs[peerId]) return pcs[peerId];
+      const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+      pcs[peerId] = pc;
+      pendingCandidates[peerId] = pendingCandidates[peerId] || [];
+
+      pc.onicecandidate = e => {
+        if (e.candidate && !stopped) {
+          FirebaseMeetingService.addRtcCandidate(meeting.id, myUid, peerId, e.candidate.toJSON()).catch(() => {});
+        }
+      };
+
+      pc.ontrack = e => {
+        const stream = e.streams[0];
+        if (stream && !stopped) {
+          setRemoteStreams(prev => {
+            const exists = prev.find(s => s.peerId === peerId);
+            if (exists) return prev.map(s => s.peerId === peerId ? { ...s, stream } : s);
+            return [...prev, { peerId, stream, name: 'Participant' }];
+          });
+        }
+      };
+
+      pc.onconnectionstatechange = () => {
+        if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
+          setRemoteStreams(prev => prev.filter(s => s.peerId !== peerId));
+          delete pcs[peerId];
+        }
+      };
+
+      if (localStream) localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+      return pc;
+    };
+
+    const drainCandidates = async (pc, peerId) => {
+      const queue = pendingCandidates[peerId] || [];
+      pendingCandidates[peerId] = [];
+      for (const c of queue) {
+        try { await pc.addIceCandidate(new RTCIceCandidate(c)); } catch {}
+      }
+    };
+
+    const handleSignal = async (signal) => {
+      if (stopped) return;
+      const { from, type, sdp } = signal;
+      if (from === myUid) return;
+      const pc = createPC(from);
+      if (type === 'offer') {
+        await pc.setRemoteDescription({ type: 'offer', sdp });
+        await drainCandidates(pc, from);
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        await FirebaseMeetingService.sendRtcSignal(meeting.id, myUid, from, 'answer', answer.sdp);
+      } else if (type === 'answer' && pc.signalingState !== 'stable') {
+        await pc.setRemoteDescription({ type: 'answer', sdp });
+        await drainCandidates(pc, from);
+      }
+    };
+
+    const handleCandidate = async (data) => {
+      if (stopped) return;
+      const { from, candidate } = data;
+      if (from === myUid) return;
+      const pc = pcs[from];
+      if (pc && pc.remoteDescription) {
+        try { await pc.addIceCandidate(new RTCIceCandidate(candidate)); } catch {}
+      } else {
+        if (!pendingCandidates[from]) pendingCandidates[from] = [];
+        pendingCandidates[from].push(candidate);
+      }
+    };
+
+    const setupWebRTC = async () => {
+      const isWebinar = meeting.type === 'webinar';
+      const wantVideo = initCamRef.current && !(isWebinar && !isHost);
+      const wantAudio = initMicRef.current && !(isWebinar && !isHost);
+
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({
+          audio: wantAudio,
+          video: wantVideo ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false,
+        });
+      } catch {
+        try { localStream = await navigator.mediaDevices.getUserMedia({ audio: wantAudio, video: false }); } catch {}
+        if (!localStream) localStream = new MediaStream();
+      }
+      localStreamRef.current = localStream;
+      const audioTracks = localStream.getAudioTracks();
+      const videoTracks = localStream.getVideoTracks();
+      setLocalMicOn(audioTracks.length > 0);
+      setLocalCamOn(videoTracks.length > 0);
+
+      await FirebaseMeetingService.joinPresence(meeting.id, myUid, user.name || user.email || 'Participant');
+
+      unsubSignals = FirebaseMeetingService.listenRtcSignals(meeting.id, myUid, handleSignal);
+      unsubCandidates = FirebaseMeetingService.listenRtcCandidates(meeting.id, myUid, handleCandidate);
+
+      const offeredTo = new Set();
+      unsubPresence = FirebaseMeetingService.listenPresence(meeting.id, async (presenceList) => {
+        if (stopped) return;
+        for (const p of presenceList) {
+          if (p.uid === myUid || offeredTo.has(p.uid)) continue;
+          if (myUid < p.uid) {
+            offeredTo.add(p.uid);
+            const pc = createPC(p.uid);
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            await FirebaseMeetingService.sendRtcSignal(meeting.id, myUid, p.uid, 'offer', offer.sdp);
+          }
+        }
       });
-      FirebaseMeetingService.joinPresence(meeting.id, String(remoteUser.uid), 'Participant');
+
+      setRtcJoined(true);
     };
 
-    const handleUserUnpublished = (remoteUser) => {
-      setRemoteUsers(prev => prev.map(u => u.uid === remoteUser.uid ? remoteUser : u));
-    };
-
-    const handleUserLeft = (remoteUser) => {
-      setRemoteUsers(prev => prev.filter(u => u.uid !== remoteUser.uid));
-      FirebaseMeetingService.leavePresence(meeting.id, String(remoteUser.uid));
-    };
-
-    client.on('user-published', handleUserPublished);
-    client.on('user-unpublished', handleUserUnpublished);
-    client.on('user-left', handleUserLeft);
-
-    const start = async () => {
-      // Pass null token — requires App Certificate DISABLED in Agora console (Testing mode)
-      await client.join(AGORA_APP_ID, channelName, null, uid);
-      const tracks = [];
-      if (initMicRef.current && !(isWebinar && !isHost)) {
-        const audio = await AgoraRTC.createMicrophoneAudioTrack().catch(() => null);
-        if (audio) { localTracksRef.current.audio = audio; tracks.push(audio); }
-      }
-      if (initCamRef.current && !(isWebinar && !isHost)) {
-        const video = await AgoraRTC.createCameraVideoTrack({ encoderConfig: '720p_2' }).catch(() => null);
-        if (video) { localTracksRef.current.video = video; tracks.push(video); }
-      }
-      if (tracks.length) await client.publish(tracks);
-      setLocalMicOn(!!localTracksRef.current.audio);
-      setLocalCamOn(!!localTracksRef.current.video);
-      setAgoraJoined(true);
-    };
-
-    start().catch(e => showToast('❌ Erreur connexion: ' + e.message, 'error'));
+    setupWebRTC().catch(e => showToast('❌ Erreur WebRTC: ' + e.message, 'error'));
 
     return () => {
-      client.off('user-published', handleUserPublished);
-      client.off('user-unpublished', handleUserUnpublished);
-      client.off('user-left', handleUserLeft);
-      localTracksRef.current.audio?.close();
-      localTracksRef.current.video?.close();
-      localTracksRef.current = { audio: null, video: null };
-      client.leave().catch(() => {});
+      stopped = true;
+      unsubSignals?.();
+      unsubCandidates?.();
+      unsubPresence?.();
+      Object.values(pcs).forEach(pc => { try { pc.close(); } catch {} });
+      peerConnectionsRef.current = {};
+      localStreamRef.current?.getTracks().forEach(t => t.stop());
+      localStreamRef.current = null;
+      FirebaseMeetingService.leavePresence(meeting.id, myUid);
+      FirebaseMeetingService.clearRtcSignals(meeting.id, myUid).catch(() => {});
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inPreJoin]);
@@ -2936,7 +2985,7 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
 
   const activePoll = polls.find(p => p.active);
 
-  // Portal helper — renders into document.body, above the Agora video grid
+  // Portal helper — renders into document.body, above the video grid
   const Portal = ({ children }) => ReactDOM.createPortal(
     <div style={{ position: 'fixed', inset: 0, zIndex: 99999, pointerEvents: 'none', fontFamily: 'Poppins, sans-serif' }}>
       {children}
@@ -2946,32 +2995,33 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
 
   return (
     <div style={{ width: '100vw', height: '100vh', background: '#202124' }}>
-      {/* Agora video grid — shown once pre-join is complete */}
+      {/* WebRTC video grid — shown once pre-join is complete */}
       {!inPreJoin && (
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
           {/* Video tiles */}
           <div style={{
             flex: 1,
             display: 'grid',
-            gridTemplateColumns: remoteUsers.length === 0 ? '1fr' : remoteUsers.length <= 1 ? '1fr 1fr' : remoteUsers.length <= 3 ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)',
+            gridTemplateColumns: remoteStreams.length === 0 ? '1fr' : remoteStreams.length <= 1 ? '1fr 1fr' : remoteStreams.length <= 3 ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)',
             gap: 4,
             padding: '56px 4px 74px',
             overflow: 'hidden',
             background: '#0d0d1a',
           }}>
-            <AgoraVideoTile
-              track={localTracksRef.current.video}
-              name={user.displayName || user.email?.split('@')[0] || 'Vous'}
+            <VideoTile
+              stream={localStreamRef.current}
+              name={user.displayName || user.name || user.email?.split('@')[0] || 'Vous'}
               isLocal
               micOn={localMicOn}
               camOn={localCamOn}
             />
-            {remoteUsers.map(u => (
-              <AgoraVideoTile
-                key={u.uid}
-                track={u.videoTrack}
-                audioTrack={u.audioTrack}
-                name={'Participant ' + String(u.uid).slice(0, 4)}
+            {remoteStreams.map(({ peerId, stream, name }) => (
+              <VideoTile
+                key={peerId}
+                stream={stream}
+                name={name || 'Participant'}
+                micOn={true}
+                camOn={true}
               />
             ))}
           </div>
@@ -2984,9 +3034,9 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
               {localCamOn ? '📷' : '🚫'}
             </button>
             <button onClick={() => { togglePanel('chat'); }} style={{ width: 50, height: 50, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.12)', cursor: 'pointer', fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>💬</button>
-            <button onClick={leaveAgora} style={{ width: 50, height: 50, borderRadius: '50%', border: 'none', background: '#E74C3C', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>📵</button>
+            <button onClick={leaveCall} style={{ width: 50, height: 50, borderRadius: '50%', border: 'none', background: '#E74C3C', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>📵</button>
           </div>
-          {!agoraJoined && (
+          {!rtcJoined && (
             <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12, zIndex: 10 }}>
               <div style={{ fontSize: 36 }}>⏳</div>
               <p style={{ color: 'white', fontFamily: 'Poppins, sans-serif', fontSize: 14, margin: 0 }}>Connexion à la réunion...</p>
@@ -3940,46 +3990,6 @@ function SettingsPage({ T, prefs, dark, onUpdatePref, onBack, onPrivacy, onTerms
       </div>
 
       <div style={{ padding: '20px 16px', maxWidth: 600, margin: '0 auto' }}>
-
-        {/* AGORA APP ID CONFIG */}
-        {(() => {
-          const [agoraId, setAgoraId] = React.useState(() => localStorage.getItem('crux_agora_app_id') || '');
-          const [saved, setSaved] = React.useState(false);
-          const saveAgoraId = () => {
-            const val = agoraId.trim();
-            if (val) { localStorage.setItem('crux_agora_app_id', val); }
-            else { localStorage.removeItem('crux_agora_app_id'); }
-            setSaved(true);
-            setTimeout(() => setSaved(false), 2000);
-            showToast?.('✅ App ID Agora sauvegardé', 'success');
-          };
-          return (
-            <div style={{ marginBottom: 20 }}>
-              {sectionTitle('🎥 Vidéo (Agora)')}
-              <div style={settCard}>
-                <div style={{ padding: '14px 16px' }}>
-                  <p style={{ fontSize: 12, color: '#666', marginBottom: 8, fontFamily: 'Poppins, sans-serif' }}>
-                    App ID Agora — trouvez-le sur <strong>console.agora.io → Project Management</strong>
-                  </p>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <input
-                      value={agoraId}
-                      onChange={e => setAgoraId(e.target.value)}
-                      placeholder="Ex: b61c53ab2c794cea924c09c8a571ab72"
-                      style={{ flex: 1, padding: '9px 12px', borderRadius: 10, border: '1.5px solid #D0B0FF', fontSize: 12, fontFamily: 'monospace', outline: 'none', color: '#333' }}
-                    />
-                    <button onClick={saveAgoraId} style={{ padding: '9px 16px', background: saved ? '#27AE60' : 'linear-gradient(135deg,#8E44AD,#3498DB)', border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'Poppins, sans-serif', whiteSpace: 'nowrap' }}>
-                      {saved ? '✓ OK' : 'Sauvegarder'}
-                    </button>
-                  </div>
-                  <p style={{ fontSize: 11, color: '#999', marginTop: 6, fontFamily: 'Poppins, sans-serif' }}>
-                    ⚠️ Dans la console Agora, désactivez le <strong>App Certificate</strong> (mode Testing) pour éviter les erreurs de token.
-                  </p>
-                </div>
-              </div>
-            </div>
-          );
-        })()}
 
         {/* RÉUNION */}
         <div style={{ marginBottom: 20 }}>
