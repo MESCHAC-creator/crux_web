@@ -2,7 +2,7 @@ import { AuthService, MeetingService } from './services/LocalStorageService';
 import { PaymentService, MeetingService as FirebaseMeetingService } from './services/FirebaseService';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ReactDOM from 'react-dom';
-import { LiveKitRoom, GridLayout, ParticipantTile, RoomAudioRenderer, ControlBar, useTracks } from '@livekit/components-react';
+import { LiveKitRoom, VideoConference, GridLayout, ParticipantTile, RoomAudioRenderer, ControlBar, useTracks } from '@livekit/components-react';
 import { Track } from 'livekit-client';
 import '@livekit/components-styles';
 
