@@ -2850,9 +2850,10 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
   // Agora RTC — embedded video, no external window, free 10k min/month
   useEffect(() => {
     if (inPreJoin) return;
-    const AGORA_APP_ID = process.env.REACT_APP_AGORA_APP_ID;
-    if (!AGORA_APP_ID) {
-      showToast('⚠️ Clé Agora manquante — ajoutez REACT_APP_AGORA_APP_ID dans .env', 'error');
+    // App ID: localStorage override > env var (allows changing without rebuild)
+    const AGORA_APP_ID = localStorage.getItem('crux_agora_app_id') || process.env.REACT_APP_AGORA_APP_ID;
+    if (!AGORA_APP_ID || AGORA_APP_ID === 'YOUR_AGORA_APP_ID_HERE') {
+      showToast('⚠️ App ID Agora manquant — configurez-le dans Paramètres → Vidéo', 'error', 6000);
       return;
     }
 
@@ -3939,6 +3940,46 @@ function SettingsPage({ T, prefs, dark, onUpdatePref, onBack, onPrivacy, onTerms
       </div>
 
       <div style={{ padding: '20px 16px', maxWidth: 600, margin: '0 auto' }}>
+
+        {/* AGORA APP ID CONFIG */}
+        {(() => {
+          const [agoraId, setAgoraId] = React.useState(() => localStorage.getItem('crux_agora_app_id') || '');
+          const [saved, setSaved] = React.useState(false);
+          const saveAgoraId = () => {
+            const val = agoraId.trim();
+            if (val) { localStorage.setItem('crux_agora_app_id', val); }
+            else { localStorage.removeItem('crux_agora_app_id'); }
+            setSaved(true);
+            setTimeout(() => setSaved(false), 2000);
+            showToast?.('✅ App ID Agora sauvegardé', 'success');
+          };
+          return (
+            <div style={{ marginBottom: 20 }}>
+              {sectionTitle('🎥 Vidéo (Agora)')}
+              <div style={settCard}>
+                <div style={{ padding: '14px 16px' }}>
+                  <p style={{ fontSize: 12, color: '#666', marginBottom: 8, fontFamily: 'Poppins, sans-serif' }}>
+                    App ID Agora — trouvez-le sur <strong>console.agora.io → Project Management</strong>
+                  </p>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input
+                      value={agoraId}
+                      onChange={e => setAgoraId(e.target.value)}
+                      placeholder="Ex: b61c53ab2c794cea924c09c8a571ab72"
+                      style={{ flex: 1, padding: '9px 12px', borderRadius: 10, border: '1.5px solid #D0B0FF', fontSize: 12, fontFamily: 'monospace', outline: 'none', color: '#333' }}
+                    />
+                    <button onClick={saveAgoraId} style={{ padding: '9px 16px', background: saved ? '#27AE60' : 'linear-gradient(135deg,#8E44AD,#3498DB)', border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'Poppins, sans-serif', whiteSpace: 'nowrap' }}>
+                      {saved ? '✓ OK' : 'Sauvegarder'}
+                    </button>
+                  </div>
+                  <p style={{ fontSize: 11, color: '#999', marginTop: 6, fontFamily: 'Poppins, sans-serif' }}>
+                    ⚠️ Dans la console Agora, désactivez le <strong>App Certificate</strong> (mode Testing) pour éviter les erreurs de token.
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* RÉUNION */}
         <div style={{ marginBottom: 20 }}>
