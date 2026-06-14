@@ -1,5 +1,4 @@
 import AgoraRTC from 'agora-rtc-sdk-ng';
-import { RtcTokenBuilder, RtcRole } from 'agora-access-token';
 import { AuthService, MeetingService } from './services/LocalStorageService';
 import { PaymentService, MeetingService as FirebaseMeetingService } from './services/FirebaseService';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -2433,6 +2432,37 @@ function PreJoinRoom({ meeting, user, onJoin, onLeave }) {
   );
 }
 
+// Agora AccessToken2 generator — pure Web Crypto API, no Node.js dependencies
+async function buildAgoraToken(appId, appCert, channelName, uid, isPublisher, expireSeconds = 3600) {
+  const now = Math.floor(Date.now() / 1000);
+  const expireAt = now + expireSeconds;
+  const salt = (Math.random() * 0xFFFFFFFF) >>> 0;
+
+  const pu16 = v => { const b = new Uint8Array(2); new DataView(b.buffer).setUint16(0, v, true); return b; };
+  const pu32 = v => { const b = new Uint8Array(4); new DataView(b.buffer).setUint32(0, v >>> 0, true); return b; };
+  const cat = (...a) => { const t = a.reduce((s, x) => s + x.length, 0), o = new Uint8Array(t); let i = 0; for (const x of a) { o.set(x, i); i += x.length; } return o; };
+  const pstr = s => { const e = new TextEncoder().encode(s); return cat(pu16(e.length), e); };
+
+  const privs = [[1, expireAt]]; // JOIN_CHANNEL
+  if (isPublisher) privs.push([2, expireAt], [3, expireAt], [4, expireAt]);
+  const privPacked = cat(pu16(privs.length), ...privs.flatMap(([k, v]) => [pu16(k), pu32(v)]));
+  const svcBody = cat(pstr(channelName), pstr(String(uid || 0)), privPacked);
+  const svcsPacked = cat(pu16(1), pu16(1), pu16(svcBody.length), svcBody);
+  const tokenBody = cat(pstr(appId), pu32(expireAt), pu32(salt), pu32(now), svcsPacked);
+
+  // zlib deflate (RFC 1950) via CompressionStream
+  const ds = new CompressionStream('deflate');
+  const w = ds.writable.getWriter(); w.write(tokenBody); w.close();
+  const compressed = new Uint8Array(await new Response(ds.readable).arrayBuffer());
+
+  // HMAC-SHA256 signature
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(appCert), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, compressed));
+
+  const tokenBytes = cat(pu16(sig.length), sig, pu16(compressed.length), compressed);
+  return '007' + btoa(String.fromCharCode(...tokenBytes));
+}
+
 function AgoraVideoTile({ track, audioTrack, name, isLocal, micOn, camOn }) {
   const divRef = React.useRef(null);
   React.useEffect(() => {
@@ -2857,22 +2887,15 @@ function MeetingRoom({ meeting, user, T, prefs, onExit }) {
     client.on('user-unpublished', handleUserUnpublished);
     client.on('user-left', handleUserLeft);
 
-    const buildToken = () => {
-      const cert = process.env.REACT_APP_AGORA_APP_CERTIFICATE;
-      if (!cert || cert === 'YOUR_AGORA_APP_CERTIFICATE_HERE') {
-        showToast('⚠️ App Certificate Agora manquant — ajoutez REACT_APP_AGORA_APP_CERTIFICATE dans .env', 'error', 6000);
-        return null;
-      }
-      try {
-        const expireAt = Math.floor(Date.now() / 1000) + 3600;
-        const role = (isWebinar && !isHost) ? RtcRole.SUBSCRIBER : RtcRole.PUBLISHER;
-        return RtcTokenBuilder.buildTokenWithUid(AGORA_APP_ID, cert, channelName, 0, role, expireAt);
-      } catch (e) { console.error('Token build error:', e); return null; }
-    };
-
     const start = async () => {
-      const token = buildToken();
-      if (!token) return;
+      const cert = process.env.REACT_APP_AGORA_APP_CERTIFICATE;
+      let token = null;
+      if (cert && cert !== 'YOUR_AGORA_APP_CERTIFICATE_HERE') {
+        try {
+          const isPublisher = !(isWebinar && !isHost);
+          token = await buildAgoraToken(AGORA_APP_ID, cert, channelName, 0, isPublisher);
+        } catch (e) { console.error('Agora token error:', e); }
+      }
       await client.join(AGORA_APP_ID, channelName, token, uid);
       const tracks = [];
       if (initMicRef.current && !(isWebinar && !isHost)) {
